@@ -4,8 +4,9 @@
 Replays what Claude Code does around one tool call: every hook command whose matcher matches the tool runs in
 parallel for PreToolUse, then again for PostToolUse, each with the JSON payload on stdin. Sources, in the host's
 order: the user settings.json, the project's .claude/settings.json and settings.local.json, and the hooks.json of
-every enabled plugin (${CLAUDE_PLUGIN_ROOT} substituted). Commands run through bash (/bin/bash on Linux, Git Bash
-on Windows), as the host runs them.
+every enabled plugin at its installPath from plugins/installed_plugins.json (else the highest cached version in
+numeric order), ${CLAUDE_PLUGIN_ROOT} substituted. Commands run through bash (/bin/bash on Linux, Git Bash
+on Windows; the shell the Windows host itself uses is not checked).
 
 Per tool (Bash, Edit, Read) it does one unmeasured warm-up call and RUNS measured calls and prints one JSON line:
 the number of hook processes the host starts (Pre + Post commands), the median/min/max wall time of the Pre
@@ -64,13 +65,30 @@ def hook_sources(home: Path, project: Path) -> list[tuple[str, dict, dict]]:
     for plugin, enabled in user.get("enabledPlugins", {}).items():
         if not enabled:
             continue
-        name, _, market = plugin.partition("@")
-        versions = sorted((home / "plugins" / "cache" / market / name).glob("*/hooks/hooks.json"))
-        if versions:
-            root = versions[-1].parent.parent
-            sources.append((f"plugin/{plugin}", load_json(versions[-1]).get("hooks", {}),
+        root = plugin_root(home, plugin)
+        if root is not None and (root / "hooks" / "hooks.json").is_file():
+            sources.append((f"plugin/{plugin}", load_json(root / "hooks" / "hooks.json").get("hooks", {}),
                             {"CLAUDE_PLUGIN_ROOT": str(root)}))
     return sources
+
+
+def version_key(directory: Path) -> tuple:
+    """Numeric order of a version directory name (1.10.0 after 1.9.0); non-numeric parts sort first."""
+    return tuple((1, int(part)) if part.isdigit() else (0, part) for part in directory.name.replace("-", ".").split("."))
+
+
+def plugin_root(home: Path, plugin: str) -> Path | None:
+    """The install the host uses: installPath from installed_plugins.json, else the highest cached version."""
+    installed = load_json(home / "plugins" / "installed_plugins.json")
+    records = (installed.get("plugins", installed) if isinstance(installed, dict) else {}).get(plugin)
+    if isinstance(records, list):
+        for record in records:
+            path = record.get("installPath") if isinstance(record, dict) else None
+            if isinstance(path, str) and Path(path).is_dir():
+                return Path(path)
+    name, _, market = plugin.partition("@")
+    versions = sorted((p for p in (home / "plugins" / "cache" / market / name).glob("*") if p.is_dir()), key=version_key)
+    return versions[-1] if versions else None
 
 
 def commands(sources, event: str, tool: str) -> list[tuple[str, str, dict]]:

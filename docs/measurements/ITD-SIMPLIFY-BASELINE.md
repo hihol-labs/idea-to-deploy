@@ -3,7 +3,7 @@
 Сессия 2 плана изменения ITD ([ADR-016](../adr/ADR-016-itd-default-everywhere-program.md)), 2026-10-21. Состояние:
 main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. Повтор «после» - сессии 3 и 6 (для их приемки) и 13
 (целиком, против раздела 2 плана), теми же командами из раздела 8. Скрипты - `docs/measurements/itd-simplify/`
-(их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`, 6 проверок);
+(их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`, 7 проверок);
 сырые выводы прогонов лежат в git-excluded scratchpad сессии, сюда перенесены числа. Время - по меткам
 транскриптов, хуков и `perf_counter` стенда, не по оценке агента.
 
@@ -20,7 +20,7 @@ main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. По�
 | Оболочка хуков в стенде | `/bin/bash` | Git Bash `C:/Program Files/Git/bin/bash.exe` |
 | ITD runtime | `~/.local/share/itd/runtime/1.109.2-4a575f29644e1989` (`~/.local/bin/itd`) | `%LOCALAPPDATA%\ITD\runtime\1.109.2-4a575f29644e1989` (wrapper `%USERPROFILE%\.local\bin\itd.cmd`) |
 | Дайджест дерева runtime (`runtime_digest.py`, 51 файл) | `f7e78a42b67be1ffe7d16cb608a950dd206e9aaf7431e01aa47540869f8ed0c2` | тот же |
-| Плагины с хуками | только `context-mode@context-mode` 1.0.168 (`enabledPlugins` в `~/.claude/settings.json`) | то же |
+| Плагины с хуками | только `context-mode@context-mode` 1.0.168 (`enabledPlugins` в `~/.claude/settings.json`; `installPath` в `plugins/installed_plugins.json`, в кэше одна версия) | то же |
 | permission mode | `bypassPermissions`: `defaultMode` в `settings.json`; в транскриптах с 2026-10-14 - 216 из 216 записей | `bypassPermissions` в 1129 из 1129 записей транскриптов buying |
 | Модель | сессия замера - `claude-opus-5-5`; в транскриптах ITD с 2026-10-14: opus-5-5 3794 сообщения, fable-5-1 718 | buying: opus-5-5 29243, fable-5-1 2357 |
 
@@ -33,7 +33,8 @@ Windows; buying - `C:\Users\Дмитрий\AI\buying` (на WSL - тот же к
 
 `hook_bench.py` повторяет то, что хост делает вокруг одного вызова инструмента: все хуки с совпавшим matcher из
 пользовательского `settings.json`, проектных `.claude/settings*.json` и `hooks.json` включенных плагинов
-запускаются параллельно на PreToolUse, затем на PostToolUse, с JSON на stdin, через ту же оболочку, что у хоста.
+запускаются параллельно на PreToolUse, затем на PostToolUse, с JSON на stdin, через bash (`/bin/bash`, на Windows -
+Git Bash; какой оболочкой хуки запускает сам Windows-хост, стенд не проверяет).
 Нагрузки инертны (Bash `git status --short`, Read и Edit файла `README.md`; инструмент не исполняется). Один
 прогрев не учитывается, затем 10 измеренных вызовов; цепочка = Pre + Post. Сочетания запускались по очереди, каждое
 после спада 1-минутной нагрузки WSL ниже 1.5 (`os.getloadavg`). Windows-прогон - нативный `python.exe` из копии
@@ -67,8 +68,9 @@ Windows; buying - `C:\Users\Дмитрий\AI\buying` (на WSL - тот же к
 
 ## 2. Реальные длительности хуков по транскриптам
 
-Хост пишет в транскрипт запись `hook_success` с `durationMs` и командой для хука, который дал вывод; молчащие хуки
-записей не оставляют. Хуки одной фазы идут параллельно, поэтому максимум `durationMs` среди записанных хуков вызова -
+Хост пишет в транскрипт запись `hook_success` с `durationMs` и командой хука. Записи есть не у всех хуков (наблюдение:
+на вызов Bash в этой сессии - 2 записи Pre при 11 зарегистрированных Pre-командах; судя по составу, пишутся хуки с
+выводом). Хуки одной фазы идут параллельно, поэтому максимум `durationMs` среди записанных хуков вызова -
 НИЖНЯЯ граница задержки фазы. Окно - транскрипты, измененные с 2026-10-14 (`transcript_stats.py --since
 2026-10-14`): WSL x ITD - 5 сессий, Windows x buying - 70.
 
@@ -92,7 +94,7 @@ CPU, реальные payload); цель сессии 6 проверяется �
 
 ## 3. Процессы на вызов
 
-Хост запускает по одному процессу интерпретатора на команду хука (все 17 файлов `~/.claude/hooks/*.sh` этих
+Каждая команда хука - отдельный процесс интерпретатора (все 17 файлов `~/.claude/hooks/*.sh` этих
 цепочек - Python с `#!/usr/bin/env python3`, `head -1`; хуки context-mode - `node`), поэтому число процессов на вызов
 = число команд с совпавшим matcher (раздел 1, поле `processes` вывода `hook_bench.py`); дочерние процессы внутри
 хуков (git и т.п.) не считаются. Bash 18 = 16 пользовательских (10 Pre + 6 Post) + 2 context-mode, Edit 11, Read 7,
@@ -108,13 +110,16 @@ targets cannot be derived») на команде `ls -d ... ; echo "$(git rev-pa
 ## 4. Байты контекста от хуков
 
 Записи хоста `hook_additional_context` - текст, который хуки добавили в контекст модели (тот же текст внутри stdout
-не считается второй раз); `transcript_stats.py`, то же окно:
+не считается второй раз). Событие UserPromptSubmit - один ввод в сессию (промпт человека или уведомление), его записи
+суммируются (в этих данных хост пишет одну запись на событие со строкой от каждого хука). `transcript_stats.py`, то
+же окно, прогон 2026-10-21 ~21:10Z; окно включает живую сессию замера, поэтому повтор дает близкие, а не равные
+числа:
 
 | | WSL x ITD | Windows x buying |
 |---|---|---|
-| UserPromptSubmit на промпт, медиана (макс) | 397 Б (10728), 203 промпта | 444 Б (14050), 543 промпта |
+| UserPromptSubmit на событие, медиана (макс) | 397 Б (10728), 209 событий | 444 Б (14050), 542 события |
 | На сессию, медиана, всего | 39281 Б | 22799 Б |
-| На сессию по событиям, медианы: SessionStart / UserPromptSubmit / PreToolUse / PostToolUse | 8859 / 21857 / 9411 / 3692 | 10194 / 9406 / 4446 / 2182 |
+| На сессию по событиям, медианы: SessionStart / UserPromptSubmit / PreToolUse / PostToolUse | 8859 / 21857 / 9411 / 5054 | 10194 / 9406 / 4446 / 2182 |
 
 ## 5. Время session-save
 
@@ -183,7 +188,7 @@ python3 docs/measurements/itd-simplify/hook_bench.py --home ~/.claude --project 
 # 2. транскрипты (хуки, байты контекста, session-save)
 python3 docs/measurements/itd-simplify/transcript_stats.py ~/.claude/projects/-home-hihol-projects-idea-to-deploy --since 2026-10-14
 python3 docs/measurements/itd-simplify/transcript_stats.py "/mnt/c/Users/Дмитрий/.claude/projects/C--Users---------AI-buying" --since 2026-10-14
-# 3. приемка установленного гейта
+# 3. приемка установленного гейта (exit 1, если решение хоть одного случая не совпало с ожидаемым)
 python3 docs/measurements/itd-simplify/egress_acceptance_probe.py ~/.claude/settings.json /tmp
 python3 docs/measurements/itd-simplify/egress_acceptance_probe.py /mnt/c/Users/Дмитрий/.claude/settings.json /mnt/c/Users/Дмитрий
 # 4. runtime на обоих хостах

@@ -4,11 +4,14 @@
 Reads the main session transcripts (<dir>/*.jsonl, subagent transcripts excluded) modified since --since and prints
 one JSON object:
 
-- hooks: for Bash, Edit and Read calls, the host's own `durationMs` of every recorded hook (the host records a hook
-  that produced output; silent hooks leave no entry, so the per-call maximum is a LOWER bound of the phase wall
-  time - hooks of one phase run in parallel), as median per phase and per command;
+- hooks: for Bash, Edit and Read calls, the host's own `durationMs` of every recorded hook (not every hook leaves a
+  record - observed: the ones with output - so the per-call maximum is a LOWER bound of the phase wall time; hooks of
+  one phase run in parallel), as median per phase and per command;
 - context: bytes of hook text the host injected into the model context (its `hook_additional_context` records; the
-  same text inside hook stdout is not counted twice) per user prompt (UserPromptSubmit) and per session;
+  same text inside hook stdout is not counted twice) per UserPromptSubmit event and per session. One event is the
+  user input it follows (a prompt or a notification): every UserPromptSubmit record whose parent chain of attachment
+  records leads to the same non-attachment record is summed into it (the host writes one record with one string per
+  hook, but the grouping does not rely on that);
 - sessionSave: wall time of each `/session-save` run, from the assistant message that invoked the Skill to the
   last assistant message before the next real user prompt.
 
@@ -42,6 +45,18 @@ def injected(attachment: dict) -> int:
     return sum(len(item.encode("utf-8")) for item in items if isinstance(item, str))
 
 
+def anchor(parents: dict, uuid: str | None) -> str | None:
+    """The nearest ancestor that is not an attachment record (the user input a hook event belongs to)."""
+    seen = set()
+    while uuid in parents and uuid not in seen:
+        seen.add(uuid)
+        is_attachment, parent = parents[uuid]
+        if not is_attachment:
+            return uuid
+        uuid = parent
+    return uuid
+
+
 def real_prompt(record: dict) -> bool:
     if record.get("type") != "user" or record.get("isMeta") or record.get("isSidechain"):
         return False
@@ -55,7 +70,8 @@ def real_prompt(record: dict) -> bool:
 def scan(path: Path, acc: dict) -> None:
     names: dict[str, str] = {}
     phases: dict[tuple[str, str], list[dict]] = collections.defaultdict(list)
-    per_prompt: list[int] = []
+    per_prompt: collections.Counter = collections.Counter()
+    parents: dict[str, tuple[bool, str | None]] = {}  # uuid -> (is an attachment record, parentUuid)
     session_bytes = collections.Counter()
     skill_starts: list[datetime] = []
     timeline: list[tuple[datetime, str]] = []
@@ -64,6 +80,8 @@ def scan(path: Path, acc: dict) -> None:
             record = json.loads(line)
         except ValueError:
             continue
+        if isinstance(record.get("uuid"), str):
+            parents[record["uuid"]] = ("attachment" in record, record.get("parentUuid"))
         stamp = record.get("timestamp")
         when = ts(stamp) if isinstance(stamp, str) else None
         if record.get("type") == "assistant" and when:
@@ -84,7 +102,7 @@ def scan(path: Path, acc: dict) -> None:
             size = injected(attachment)
             session_bytes[event] += size
             if event == "UserPromptSubmit":
-                per_prompt.append(size)
+                per_prompt[anchor(parents, record.get("parentUuid")) or record.get("uuid")] += size
             continue
         if event in ("PreToolUse", "PostToolUse") and isinstance(attachment.get("durationMs"), (int, float)):
             phases[(attachment.get("toolUseID"), event)].append(attachment)
@@ -100,7 +118,7 @@ def scan(path: Path, acc: dict) -> None:
         acc["sessions"] += 1
         acc["sessionBytes"].append(sum(session_bytes.values()))
         acc["sessionByEvent"].append(dict(session_bytes))
-    acc["promptBytes"].extend(per_prompt)
+    acc["promptBytes"].extend(per_prompt.values())
     timeline.sort()
     for start in skill_starts:
         end = start

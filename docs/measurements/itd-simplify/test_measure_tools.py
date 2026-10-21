@@ -41,9 +41,12 @@ class TranscriptStatsTest(unittest.TestCase):
         tool = {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
         skill = {"type": "tool_use", "id": "t2", "name": "Skill", "input": {"skill": "idea-to-deploy:session-save"}}
         lines = [
-            line(type="user", timestamp="2026-10-21T10:00:00Z", message={"content": "do it"}),
-            line(type="attachment", attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit",
-                                                 "content": ["abc", "дд"]}),
+            line(type="user", uuid="u1", timestamp="2026-10-21T10:00:00Z", message={"content": "do it"}),
+            # two records of one UserPromptSubmit event (chained through attachments) are summed: 3 + 4 bytes
+            line(type="attachment", uuid="a1", parentUuid="u1",
+                 attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit", "content": ["abc"]}),
+            line(type="attachment", uuid="a2", parentUuid="a1",
+                 attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit", "content": ["дд"]}),
             line(type="attachment", attachment={"type": "hook_success", "hookEvent": "SessionStart",
                                                  "stdout": "x" * 50}),
             line(type="assistant", timestamp="2026-10-21T10:00:05Z", message={"content": [tool]}),
@@ -56,15 +59,19 @@ class TranscriptStatsTest(unittest.TestCase):
             line(type="user", timestamp="2026-10-21T10:02:30Z",
                  message={"content": [{"type": "tool_result", "tool_use_id": "t2"}]}),
             line(type="assistant", timestamp="2026-10-21T10:03:00Z", message={"content": [{"type": "text"}]}),
-            line(type="user", timestamp="2026-10-21T10:09:00Z", message={"content": "next"}),
+            line(type="user", uuid="u2", timestamp="2026-10-21T10:09:00Z", message={"content": "next"}),
+            line(type="attachment", uuid="a3", parentUuid="u2",
+                 attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit", "content": ["xyz"]}),
         ]
         stats = self.run_stats(lines)
         self.assertEqual(stats["files"], 1)
         self.assertEqual(stats["hooks"]["Bash:PreToolUse"], {"calls": 1, "lowerBoundWallMsMedian": 300})
         self.assertEqual(stats["perCommandMedianMs"]["Bash:PreToolUse:b.sh"], {"n": 1, "median": 300})
-        # 3 + 4 bytes (UTF-8) from the host record only; the SessionStart stdout is not counted a second time.
-        self.assertEqual(stats["context"]["perPromptBytesMedian"], 7)
-        self.assertEqual(stats["context"]["perSessionBytesMedian"], 7)
+        # events u1 (3 + 4 UTF-8 bytes) and u2 (3); the SessionStart stdout is not counted a second time.
+        self.assertEqual(stats["context"]["prompts"], 2)
+        self.assertEqual(stats["context"]["perPromptBytesMedian"], 5)
+        self.assertEqual(stats["context"]["perPromptBytesMax"], 7)
+        self.assertEqual(stats["context"]["perSessionBytesMedian"], 10)
         # 10:01:00 -> 10:03:00: a tool result is not a human prompt; the run ends before 10:09:00.
         self.assertEqual(stats["sessionSave"], {"runs": 1, "secondsMedian": 120, "secondsMin": 120,
                                                 "secondsMax": 120})
@@ -106,6 +113,20 @@ class HookBenchTest(unittest.TestCase):
             self.assertEqual(pre_bash, ["u1", "u2", f'node "{root}/hooks/pre.mjs"'])
             self.assertEqual([c for _, c, _ in hook_bench.commands(sources, "PreToolUse", "Read")], ["u2"])
             self.assertEqual(hook_bench.commands(sources, "PostToolUse", "Bash"), [])
+
+    def test_plugin_root_follows_the_host(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            cache = home / "plugins" / "cache" / "mk" / "plug"
+            for version in ("1.9.0", "1.10.0", "1.2.0"):
+                (cache / version).mkdir(parents=True)
+            # without installed_plugins.json: the highest version in numeric order, not lexicographic
+            self.assertEqual(hook_bench.plugin_root(home, "plug@mk"), cache / "1.10.0")
+            (home / "plugins" / "installed_plugins.json").write_text(json.dumps({"version": 2, "plugins": {
+                "plug@mk": [{"scope": "user", "installPath": str(cache / "1.2.0"), "version": "1.2.0"}]}}),
+                encoding="utf-8")
+            self.assertEqual(hook_bench.plugin_root(home, "plug@mk"), cache / "1.2.0")
+            self.assertIsNone(hook_bench.plugin_root(home, "absent@mk"))
 
     @unittest.skipIf(os.name == "nt", "the bench run uses /bin/bash")
     def test_bench_runs_every_matching_command(self) -> None:
@@ -152,6 +173,11 @@ class DigestAndProbeTest(unittest.TestCase):
         self.assertEqual(probe.decision('{"hookSpecificOutput": {"permissionDecision": "ask"}}'), "ask")
         self.assertEqual(probe.decision(""), "none")
         self.assertEqual(probe.decision("not json"), "unparsed")
+        self.assertTrue(probe.matches({"none"}, 0, "none"))
+        self.assertFalse(probe.matches({"none"}, 2, "none"))  # a crashing hook is not a pass
+        self.assertFalse(probe.matches({"none"}, 0, "unparsed"))
+        self.assertTrue(probe.matches({"ask", "deny"}, 2, "deny"))
+        self.assertFalse(probe.matches({"ask", "deny"}, 0, "none"))  # an external POST must not pass silently
 
 
 if __name__ == "__main__":
