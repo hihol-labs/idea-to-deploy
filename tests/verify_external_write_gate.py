@@ -485,6 +485,9 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         "git status <#it's#>; ssh deploy.example.test; <#it's#>": "unknown",
         "git status x\\; ssh deploy.example.test": "unknown",
         "git status x\\\nssh deploy.example.test": "unknown",
+        # cmd reads ^& as a literal &, so "ls -d x" become curl arguments and
+        # -d x is a curl data flag (a POST); bash would background the curl.
+        # The gate cannot know the shell, so this stays a write.
         "curl https://api.example.test/i ^& ls -d x": "write",
         "git status \"x\u201d ; ssh deploy.example.test ; echo \u201cy\"": "unknown",
         'git status "\\$(ssh deploy.example.test)"': "unknown",
