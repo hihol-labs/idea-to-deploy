@@ -5370,6 +5370,48 @@
         "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
         "oracleIds": ["full", "live"]
       }
+    },
+    {
+      "id": "REL-1.109.2-AC1",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "The external-write gate no longer denies or asks for: a path or hidden name containing a transport word (~/.ssh, .../ssh-d2719c3f/...), a pure grep search or an rg search with --no-config as its first argument (ripgrep otherwise reads options, --pre included, from RIPGREP_CONFIG_PATH; owner decision 2026-10-21 after review a9), cd plus local git add/commit/status/diff/log/show/restore/stash chains with quoted data (including the exact quoted-delimiter heredoc commit), curl/wget write flags that belong to a separate pipeline of inert utilities, the built-in Claude desktop UI tools on the exact (server, tool) list, and context-mode executors whose code has no external action. Every command the f1aefe5 classifier kept under approval for a real external action still requires approval, as Bash and as PowerShell; anything bash, PowerShell and cmd read differently keeps the whole-text checks.",
+      "source": "Owner 2026-10-20: session 1 of the approved ITD change plan (patch 1.109.2), context-mode option 'parity with Bash'.",
+      "evidence": "tests/verify_external_write_gate.py 323 passed, 0 failed on WSL; the same file on the f1aefe5 classifier gives 270 passed, 53 failed - all 53 are intended changes: 52 removed false denies and one deny -> ask (a context-mode batch with git push now asks like Bash) (each local case and the curl and wget stray -d cases as Bash and as PowerShell, added after reviews a7 and a8), every keep-gated case passes on both. rg narrows only with --no-config as its first argument (review a9: rg -n \"nc|telnet\" src/, rg -e --no-config ssh src/ and rg ssh -- --no-config keep the gate, RED on b8e7c38: 299/6). The opposite-GPT review of 51a8838 (attempt a2, gpt-5.6-terra after gpt-5.6-sol hit Codex 429) added: a context-mode executor without a string code or command keeps the generic classification (both the code and the batch case RED on 51a8838: 287/2), local cases as PowerShell, and near misses of the exact host-tool list. Path forms of a transport word (hidden name, directory component, hex-id last path component) are dropped only in a command whose every simple command starts with a bare program from NON_EXECUTING_PROGRAMS, without redirections other than a whole >/dev/null or 2>&1 (review a8: >/dev/nullX keeps the gate, RED on 40914b6; review a10: a whole redirect glued to the last argument, ls -la ~/.ssh>/dev/null, no longer asks, RED on 8941063: 309/2; checker a16: the left boundary (?<![&*\\dQ]) keeps &>/dev/null, *>/dev/null, 12>/dev/null, 12>&1 and, per checker a17, an escaped character before > (ls ~/.ssh\\*>/dev/null, RED on candidate a17: 321/2) gated, while >>/dev/null stays gated by its leftover >; the accepted forms are a whole >/dev/null with an optional single descriptor digit and spaces before the path, and a whole 2>&1), script blocks or UNC paths (checker a5 F1: expansions, pipelines into a shell, sed, xargs, read or PowerShell string methods turn such a path into the program name); the keep-gated cases added for checkers a3-a5 (hex id at command position or by path, bash \\ssh-1a2b3c4d and $x\\ssh-1a2b3c4d, derived names) fail on 8e7fee4 (223/42) and on candidate a5 (237/28) and pass now; Quoting that bash, PowerShell and cmd read differently keeps the whole-text check by the last sentence of the criterion: git commit -m 'a & ssh deploy.example.test' stays gated because cmd has no single quotes and runs the part after & as a second command. tests/verify_pii_egress.py PASSED on WSL and native Windows. Native Windows Python 3.12 with PYTHONUTF8=0 (load average 2.8) on an earlier candidate: 209/210; the single failure was an empty preview output for one PowerShell case, and that case re-run 5 times on Windows gave unknown (gated) as PowerShell and as Bash. Earlier runs at load average 6-7 also hit the pre-existing 3-second Codex-dispatcher transport deadline (hooks/codex-dispatch.py:27) when the hook runs from the WSL checkout over UNC; main f1aefe5 fails that probe identically (direct hook 18-28 s). Differential check against the f1aefe5 classifier (git-ignored harness .itd-memory/verification-loop/REL-1.109.2-differential/): 1446 commands as Bash and as PowerShell, 0 weaker; randomized fuzz 100k commands whose differences are all intended (stray -d of an inert command, grep/rg/git arguments, dotted names, a path in the arguments of a non-executing command) plus the known curl $OPTS limit, checked independently of the gate's regexes by executing the remainder in a bash sandbox whose transport names, hex-id names included, are logging fakes (hex_limit_check.py: 19 = 18 with the word only in ls/cut/cd arguments + 1 curl $OPTS next to a stray -d, 0 run by PATH; PowerShell/cmd reasoned, not executed); 18k executed in a fake-PATH bash sandbox with no remote program run without approval. Five review rounds (rounds 1-4 found bypasses, round 5 PASSED) and fresh precommit checkers a1-a5 (a1: lone CR, cmd single quotes, PATH= before grep; a2: quoted rg --pre, double quote inside single quotes; a3: hex id at command position; a4: $x\\ before a hex-id name; a5: derived names) - all now regression tests, plus a redirected inert command that could write a curl config.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_write_gate.py",
+      "reviewEvidence": {
+        "claim": "False denies of the external-write gate are removed; every approval the previous classifier required is kept except the narrowings and known limits listed in CHANGELOG 1.109.2.",
+        "impactClasses": ["correctness", "security", "host-parity", "compatibility"],
+        "oracleIds": ["gate", "pii-egress"]
+      }
+    },
+    {
+      "id": "REL-1.109.2-AC2",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "All release mirrors declare 1.109.2, reviewedAt of docs/HARNESS_DOCS_STATE.json and docs/QUALITY.json is 2026-10-20, CHANGELOG/DECISIONS/BACKLOG describe only what the code and tests show, and the impact map is fresh. Live-model evidence, publication and rollout are later authorized stages, not implied here.",
+      "source": "Owner 2026-10-20 plan session 1 and the repository release runbook.",
+      "evidence": "tests/verify_harness_docs_freshness.py PASS (reviewedAt 2026-10-20, pluginVersion 1.109.2); tests/verify_external_reviewer_release.py and tests/build_impact_graph.py --check are machine legs of the precommit receipt. Full tests/run-all.sh on the candidate: only verify_ledger_reconciliation fails, caused by 8207 ignored local .itd-memory files; it passes on a clean main worktree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py",
+      "reviewEvidence": {
+        "claim": "The patch metadata is internally consistent and keeps Gate 1 docs freshness green after 2026-10-30.",
+        "impactClasses": ["repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "oracleIds": ["docs-freshness", "release-mirrors", "impact-graph"]
+      }
+    },
+    {
+      "id": "REL-1.109.2-AC3",
+      "unitId": "REL-1.109.2",
+      "status": "passed",
+      "criterion": "A genuine fresh H4 live-model run from a clean disposable snapshot whose methodology pin equals the candidate's (a run cannot contain its own evidence files, so the snapshot is the candidate without them) passes the unchanged strict replay (tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30), and the exact committed candidate tree passes that replay and the full regression in an isolated checkout as the live and full legs of the committed-head receipt before review and publication. The generated output/*.md documents of a run are a benchmark specimen judged by the snapshot oracle; their content flaws stay visible as evidence and are not shipped runtime code. Publication and installed-host acceptance are later authorized stages.",
+      "source": "Owner 2026-10-20: publication session of REL-1.109.2; H4 and the opposite-GPT review approved.",
+      "evidence": "H4 run 20261021T164318Z-b7a2a120 from .itd-memory/verification-loop/REL-1.109.2-live-prepare.py h4-a3 on a disposable clean snapshot (test commit 00f7c3f, the source.revision in its run report; tree 316fdec7) of the staged candidate on top of cd1f160 without its own evidence files: runner exit 0 and strict replay exit 0 inside the snapshot before the copy (154 passed, 0 failed in .itd-memory/verification-loop/reports/REL-1.109.2-live-prepare-a3.log); the prepare script hash-checked every file of the copied run directory (latest.json is copied without a hash check). Same methodology pin sha256:4bcf0a48 as the two earlier unpublished runs 20261020T182129Z-fe1dbfb2 (h4-a1) and 20261020T191504Z-c75ab94f (h4-a2); by the owner's decision of 2026-10-21 both were removed from the branch before publication, after the opposite-GPT reviews kept flagging contradictions inside their generated specimen, so the published diff carries one run (both remain in the branch history, commits 51a8838 and ff2e72b). In the repository the replay passes only on the clean committed tree (its dirty-state digest check fails while changes are uncommitted): that run is the live leg of the committed-head receipt of the publication head.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The 1.109.2 candidate carries fresh live-model evidence bound to its methodology pin and passes the full regression on its exact tree.",
+        "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "oracleIds": ["full", "live"]
+      }
     }
   ],
   "completion": {
@@ -5388,16 +5430,15 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.109.1",
-    "status": "verified",
-    "closedAt": "2026-10-17T20:55:16Z",
-    "openedAt": "2026-10-17",
+    "unitId": "REL-1.109.2",
+    "status": "in_progress",
+    "openedAt": "2026-10-20",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
+    "sourceRequest": "Owner 2026-10-20 approved the ITD change plan; session 1 is patch 1.109.2 (false denies of the external-write gate, reviewedAt refresh). Owner chose context-mode 'parity with Bash' and to end this session at a local commit and hand-over; live evidence, guarded publication, CI, merge, release and WSL/Windows rollout are a separate session, each external step on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
-      "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+      "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
@@ -6085,6 +6126,23 @@
       },
       "closedAt": "2026-10-17",
       "closureEvidence": "Reviewed head b0d7b420f966907a12a94baef25ce7c73adba441; full exact-tree quick and strict live replay passed; current runtime smoke41 passed. Repair review accepted; full Terra review retained12 findings on6 known flaws of the archived CLI specimen. Owner explicitly affirmed v2 binding870e3aaba7bbb4a3b74abac9b18ebefd81bc78d994256f49bfe22780a344ca81; final receipt f16c4caa84a211fe1b67b71d09b601b21191fba351aa55c1c44aa14214738290 is ADJUDICATED, not a relabeled clean review. Guarded publication succeeded; PR366 CI runs39023963197 and39023963152 passed. Owner-authorized merge9484d980e4f1b321564263c596770fa6e6e07bc3 reached main; post-merge push CI runs39024836403 and39024836386 passed. Original negative report and immutable archive remain retained. Global installations were not changed by this unit."
+    },
+    {
+      "unitId": "REL-1.109.1",
+      "status": "closed",
+      "closedAt": "2026-10-17T20:55:16Z",
+      "openedAt": "2026-10-17",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-17 explicitly authorized fixing bytecode suppression in Python startup code, verifying Windows and releasing v1.109.1 to completion without new workarounds. This supersedes the incomplete v1.109.0 Windows rollout follow-up, not its published release or real Linux acceptance. Prior failed Windows/ACL evidence remains retained; global runtime ACL was not changed. Guarded push/PR, green-CI merge, tag at full merge SHA and WSL/Windows rollout are authorized stages, recorded only after execution.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "Release v1.109.1 at 4993649 (PR368), accounting PR369 merged f1aefe5; installed runtime 7356230e accepted 14/14 natively on WSL and Windows; final receipt d1e6cc09894969ed555cad3ad42065ba0f538cd9a58d7915df6467779eb931d1 is ADJUDICATED after the owner affirmed binding f3ab9e239ede0af7160da173c2fd65462baf55b90dd40ee144154466024efc1e, not a relabeled clean review. Moved to closedFollowups when REL-1.109.2 opened."
     }
   ]
 }

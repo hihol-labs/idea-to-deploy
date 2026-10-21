@@ -12,7 +12,7 @@ extension point, not a supported claim. [Choose a host](#quick-start) ·
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Skills: 41](https://img.shields.io/badge/Skills-41-green.svg)](#skills)
 [![Agents: 10](https://img.shields.io/badge/Agents-10-orange.svg)](#subagents)
-[![Version: 1.109.1](https://img.shields.io/badge/Version-1.109.1-purple.svg)](CHANGELOG.md)
+[![Version: 1.109.2](https://img.shields.io/badge/Version-1.109.2-purple.svg)](CHANGELOG.md)
 [![meta-review](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml/badge.svg)](https://github.com/hihol-labs/idea-to-deploy/actions/workflows/meta-review.yml)
 [![Status: Stable](https://img.shields.io/badge/Status-Stable-brightgreen.svg)](CHANGELOG.md)
 [![Type: Harness Engineering](https://img.shields.io/badge/Type-Harness%20Engineering-blueviolet.svg)](docs/HARNESS_ENGINEERING_MAP.md)

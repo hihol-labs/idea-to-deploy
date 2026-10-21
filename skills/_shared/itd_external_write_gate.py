@@ -9,6 +9,7 @@ confirmation boundary. No arguments is a quiet no-op.
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -42,6 +43,36 @@ LOCAL_MCP_PREFIXES = {
     # must not be mistaken for an unknown remote mutation merely because its
     # native tool name starts with ``mcp__``.
     "mcp_node_repl_",
+}
+# Built-in Claude desktop host tools (raw ``mcp__<server>__<tool>`` names)
+# that only drive the local app UI. Every other tool of a ccd server, such as
+# permission, settings, connector, worktree, cloud or PR tools, keeps the
+# generic connector classification.
+HOST_LOCAL_MCP_TOOLS = {
+    ("ccd_turn", "update_plan"), ("ccd_turn", "wrap_up"),
+    ("ccd_session", "dismiss_task"), ("ccd_session", "mark_chapter"),
+    ("ccd_session", "read_widget_context"), ("ccd_session", "spawn_task"),
+    ("ccd_view", "close_pane"), ("ccd_view", "get_layout"),
+    ("ccd_view", "set_transcript_view"), ("ccd_view", "show_pane"),
+    ("ccd_window", "close_split"), ("ccd_window", "get_window_layout"),
+    ("ccd_window", "open_session_in"), ("ccd_window", "set_sidebar_collapsed"),
+    ("ccd_sidebar", "create_group"), ("ccd_sidebar", "create_section"),
+    ("ccd_sidebar", "list_groups"), ("ccd_sidebar", "list_sections"),
+    ("ccd_sidebar", "mark_completed"), ("ccd_sidebar", "move_sessions"),
+    ("ccd_sidebar", "rename_group"), ("ccd_sidebar", "rename_section"),
+    ("ccd_sidebar", "set_pinned"), ("ccd_sidebar", "set_unread"),
+    ("ccd_sidebar", "set_view"),
+    ("ccd_host", "get_storage_usage"), ("ccd_host", "open_in_editor"),
+    ("ccd_host", "request_keep_awake"), ("ccd_host", "reveal_path"),
+}
+# context-mode (mksglu/context-mode): its executors run code on this machine,
+# so their code gets the same text classification as a Bash command (which
+# also sees ``python -c "..."`` source). Its knowledge-base tools are local;
+# other tools keep the generic connector classification.
+CONTEXT_MODE_SERVERS = {"context_mode", "plugin_context_mode_context_mode"}
+CONTEXT_MODE_EXECUTORS = {"ctx_batch_execute", "ctx_execute", "ctx_execute_file"}
+CONTEXT_MODE_LOCAL_TOOLS = {
+    "ctx_doctor", "ctx_index", "ctx_purge", "ctx_search", "ctx_stats",
 }
 EXTERNAL_PROVIDERS = {
     "atlassian", "box", "browser", "calendar", "chrome", "drive", "figma",
@@ -90,6 +121,43 @@ GH_API_WRITE_RE = re.compile(
     r"(?:^|\s)(?:-f|-F|--field|--raw-field|--input)(?:\s+|=)",
     re.IGNORECASE,
 )
+# Shell narrowing. The word checks below stay the baseline; a match is dropped
+# only when the command provably cannot run the program it names.
+COMPLEX_SHELL_RE = re.compile(r"[`()]|\$\{|<<|--%")
+SEPARATOR_RE = re.compile(r"\|\||&&|;|\n|(?<![<>])&(?!>)|(?<!>)\|&?")
+# The usual agent commit: a commit message from a quoted-delimiter heredoc,
+# which keeps the body literal. Only this exact shape is accepted.
+COMMIT_HEREDOC_RE = re.compile(
+    r"\s*(?:cd [\w./~-]+ && )?(?:git add [\w./ -]+ && )?"
+    r"git commit(?: --?[\w-]+)* -m \"\$\(cat <<'(?P<tag>[A-Za-z_]\w*)'\n"
+    r"(?P<body>.*)\n(?P=tag)\n\)\"\s*",
+    re.DOTALL)
+# Utilities that read or print local data and never run another program; a
+# pipeline made only of them cannot hand flags to curl or wget.
+INERT_UTILITIES = {
+    "[", "basename", "cd", "cut", "date", "dirname", "head", "ls", "mkdir",
+    "pwd", "realpath", "sleep", "stat", "tail", "test", "tr", "uniq", "wc",
+}
+# Programs that only read or print local data and never run another program
+# (no rg: --pre; no sort: --compress-program; no find: -exec; no file: -z).
+# In a command made only of them a transport word is an argument, never the
+# program run. Matched case-sensitively, like the search narrowing.
+NON_EXECUTING_PROGRAMS = {
+    "[", "Get-ChildItem", "Get-Content", "Test-Path", "basename", "cat", "cd",
+    "cut", "dir", "dirname", "du", "egrep", "fgrep", "gc", "gci", "grep",
+    "head", "ls", "md5sum", "nl", "pwd", "readlink", "realpath", "sha256sum",
+    "stat", "tail", "test", "tr", "tree", "type", "uniq", "wc",
+}
+# Output thrown away: a whole ">/dev/null" (optionally with one descriptor
+# digit and spaces before the path) or "2>&1", also glued to the previous
+# argument; never a longer path (">/dev/nullX") nor "&>", "*>", a
+# multi-digit descriptor or an escaped character ("Q" after _mask_quotes).
+NULL_REDIRECT_RE = r"(?<![&*\dQ])(?:\d?>\s*/dev/null|2>&1)(?![^\s;&|<>()])"
+SEARCH_PROGRAMS = {"egrep", "fgrep", "grep", "rg"}
+SEARCH_FILTERS = {"cut", "head", "nl", "tail", "tr", "uniq", "wc"}
+LOCAL_GIT_SUBCOMMANDS = {
+    "add", "commit", "diff", "log", "restore", "show", "stash", "status",
+}
 GH_READ_ACTIONS = {
     "browse", "checks", "checkout", "clone", "diff", "download", "list",
     "status", "view", "watch",
@@ -251,6 +319,202 @@ def _gh_parts(tokens: list[str]) -> list[str]:
     return parts
 
 
+@functools.lru_cache(maxsize=8)
+def _mask_quotes(command: str) -> str | None:
+    """Same-length copy with quoted text and escapes replaced by ``Q``.
+
+    The same command may run under bash, PowerShell (Codex reports its
+    Windows shell as ``Bash``) or cmd, so anything they read differently
+    returns None and callers keep the whole-text checks: comments,
+    ``$'...'``, a backslash before a special character, ``\\"`` or a command
+    substitution inside a double-quoted string, ``^`` escapes, typographic
+    quotes, line breaks other than ``\\n`` (PowerShell ends a statement at a
+    lone CR), single-quoted text with shell punctuation (cmd has no single
+    quotes) and unbalanced quoting.
+    """
+    if re.search("[‘-‟^\r\x0b\x0c\x85  ]", command):
+        return None
+    out = list(command)
+    index = 0
+    while index < len(command):
+        char = command[index]
+        if char == "#" or command.startswith("$'", index):
+            return None
+        if char == "\\":
+            if index + 1 >= len(command) or command[index + 1] in ";&|'\"`#<>()$\r\n":
+                return None
+            end = index + 2
+        elif char == "'":
+            end = command.find("'", index + 1) + 1
+            if not end or re.search(r"[;&|<>()\n\"]", command[index:end]):
+                return None
+        elif char == '"':
+            end = index + 1
+            while end < len(command) and command[end] != '"':
+                if command.startswith('\\"', end):
+                    return None
+                end += 2 if command[end] == "\\" else 1
+            # PowerShell keeps a backslash literal, so even ``\$(`` expands.
+            if end >= len(command) or "$(" in command[index:end] \
+                    or "`" in command[index:end]:
+                return None
+            end += 1
+        else:
+            index += 1
+            continue
+        out[index:end] = "Q" * (end - index)
+        index = end
+    return "".join(out)
+
+
+def _simple_commands(command: str) -> list[tuple[str, str]] | None:
+    """(raw text, separator before it) of each top-level simple command.
+
+    None for substitutions, subshells, functions, heredocs, parameter
+    expansions or uncertain quoting, which keep the whole-text checks.
+    """
+    masked = _mask_quotes(command)
+    if masked is None or COMPLEX_SHELL_RE.search(masked):
+        return None
+    commands: list[tuple[str, str]] = []
+    start, separator = 0, ""
+    for match in SEPARATOR_RE.finditer(masked):
+        commands.append((command[start:match.start()], separator))
+        start, separator = match.end(), match.group()
+    commands.append((command[start:], separator))
+    return [(text, sep) for text, sep in commands if text.strip()]
+
+
+def _http_scope(command: str) -> str:
+    """Text whose curl/wget flags count.
+
+    Drops only pipelines made entirely of inert utilities without curl/wget
+    text (``ls -d out``, ``cut -d, -f1 f``); everything else, including
+    assignments, ``set``, loops and runners, stays.
+    """
+    commands = _simple_commands(command)
+    if commands is None:
+        return command
+    pipelines: list[list[str]] = []
+    for text, separator in commands:
+        if pipelines and separator in {"|", "|&"}:
+            pipelines[-1].append(text)
+        else:
+            pipelines.append([text])
+    # A redirected inert command can still write a curl config (~/.curlrc).
+    return "\n".join(
+        text for pipeline in pipelines
+        if not all(text.split()[0] in INERT_UTILITIES
+                   and not re.search(r"curl|wget", text, re.IGNORECASE)
+                   and ">" not in re.sub(NULL_REDIRECT_RE, "", text)
+                   for text in pipeline)
+        for text in pipeline)
+
+
+def _search_only(command: str) -> bool:
+    """A grep search (or rg --no-config), optionally piped through text filters.
+
+    It only reads local files, so words in its patterns name nothing to run.
+    """
+    commands = _simple_commands(command)
+    masked = _mask_quotes(command)
+    if not commands or masked is None:
+        return False
+    masked = re.sub(NULL_REDIRECT_RE, " ", masked)
+    # rg runs --pre and --hostname-bin programs; quotes do not hide the flag.
+    if re.search(r"[<>]", masked) or re.search(r"--pre|--hostname-bin", command):
+        return False
+    # The bare program name only: a path or a VAR=value prefix (PATH=...) can
+    # run a different program under the same name.
+    for index, (text, separator) in enumerate(commands):
+        allowed = SEARCH_FILTERS if index else SEARCH_PROGRAMS
+        if (index and separator != "|") or text.split()[0] not in allowed:
+            return False
+    # rg also reads options from RIPGREP_CONFIG_PATH, where a --pre runs a
+    # program; only --no-config as its first argument rules that out.
+    words = commands[0][0].split()
+    return words[0] != "rg" or words[1:2] == ["--no-config"]
+
+
+def _local_git_only(command: str) -> bool:
+    """cd and local git commands (add, commit, status, ...) chained by && or ;.
+
+    Quoted text there is commit data, not a command to run; so is the body of
+    the usual quoted-delimiter heredoc commit message.
+    """
+    heredoc = COMMIT_HEREDOC_RE.fullmatch(command)
+    if heredoc:
+        tag = heredoc.group("tag")
+        return not any(line.lstrip().startswith(tag)
+                       for line in heredoc.group("body").split("\n"))
+    commands = _simple_commands(command)
+    if not commands:
+        return False
+    for text, separator in commands:
+        words = text.split()
+        if separator not in {"", "&&", ";", "\n"}:
+            return False
+        if words[0] == "cd" and len(words) <= 2:
+            continue
+        rest = words[1:]
+        if rest[:1] == ["-C"]:
+            rest = rest[2:]
+        if words[0] != "git" or not rest \
+                or rest[0] not in LOCAL_GIT_SUBCOMMANDS:
+            return False
+    return True
+
+
+def _non_executing(command: str) -> bool:
+    """Every simple command starts with a bare program that runs nothing else.
+
+    Redirections, script blocks, UNC paths and whatever ``_simple_commands``
+    cannot split (substitutions, ``${...}``, subshells, heredocs, uncertain
+    quoting) keep the whole-text checks.
+    """
+    commands = _simple_commands(command)
+    masked = _mask_quotes(command)
+    if not commands or masked is None:
+        return False
+    masked = re.sub(NULL_REDIRECT_RE, " ", masked)
+    if re.search(r"[<>{}]|(?:^|\s)(?:\\\\|//)", masked):
+        return False
+    return all(text.split()[0] in NON_EXECUTING_PROGRAMS for text, _ in commands)
+
+
+def _names_program(command: str, pattern: str) -> bool:
+    """True when some word match may name a program to run.
+
+    In a command that runs nothing else (``_non_executing``) a match is not a
+    program when it is a hidden name (``~/.ssh``), a directory component
+    (``.../ssh-d2719c3f/x``, ``rsync-logs/``) or the last path component with
+    a generated hex id (``/tmp/ssh-d2719c3f``). Anywhere else every match
+    counts: an expansion (``${x#.}``), a pipeline into a shell, sed or xargs
+    can turn such a path into the program name. The same name at command
+    position (``ssh-1a2b3c4d host``, bash ``\\ssh-1a2b3c4d``) and other
+    hyphenated names, such as ``ssh-copy-id`` or ``rsync-ssl``, still count.
+    """
+    lowered = command.lower()
+    if not _non_executing(command):
+        return bool(re.search(pattern, lowered))
+    for match in re.finditer(pattern, lowered):
+        before = lowered[match.start() - 1:match.start()]
+        rest = re.match(r"[\w.~/\\-]*", lowered[match.end():]).group()
+        # A backslash is a path separator only after a path word; after a
+        # space, an operator or an expansion (``$x\``) bash reads it as an
+        # escape of a bare name.
+        word = re.search(r"[\w.~:\\/-]*\\\Z", lowered[:match.start()])
+        in_path = before == "/" or bool(
+            word and re.match(r"[\w.~:-]", word.group())
+            and lowered[word.start() - 1:word.start()] != "$")
+        if before == "." or "/" in rest or "\\" in rest \
+                or (in_path and re.match(
+                    r"-(?=[0-9a-f]*\d)[0-9a-f]{6,}(?![g-z])", rest)):
+            continue
+        return True
+    return False
+
+
 def classify_shell(command: str) -> tuple[str, str]:
     lowered = command.lower()
     tokens = _shell_tokens(command)
@@ -258,12 +522,17 @@ def classify_shell(command: str) -> tuple[str, str]:
     if "push" in git_commands or any(
             command_name == "send-email" for command_name in git_commands):
         return "write", "git push mutates a remote repository"
+    if _search_only(command):
+        return "local", "search command only reads local files"
+    if _local_git_only(command):
+        return "local", "local git commands carry quoted text as data"
     if re.search(r"\b(?:curl|wget)\b", lowered):
-        if (CURL_WRITE_RE.search(command) or CURL_SHORT_WRITE_RE.search(command)
-                or WGET_WRITE_RE.search(command)):
+        scope = _http_scope(command)
+        if (CURL_WRITE_RE.search(scope) or CURL_SHORT_WRITE_RE.search(scope)
+                or WGET_WRITE_RE.search(scope)):
             return "write", "HTTP request carries a mutating method or body"
-        if READ_HTTP_METHOD_RE.search(command) or not re.search(
-                r"(?:^|\s)(?:-X|--request|--method)(?:\s+|=)", command,
+        if READ_HTTP_METHOD_RE.search(scope) or not re.search(
+                r"(?:^|\s)(?:-X|--request|--method)(?:\s+|=)", scope,
                 re.IGNORECASE):
             return "read", "HTTP GET/download is read-only for the remote target"
         return "unknown", "HTTP method cannot be proven read-only"
@@ -287,20 +556,53 @@ def classify_shell(command: str) -> tuple[str, str]:
         if action in GH_WRITE_ACTIONS:
             return "write", "GitHub CLI command mutates remote state"
         return "unknown", "GitHub CLI action cannot be proven read-only"
-    transfer = re.search(r"\b(scp|sftp|rsync)\b", lowered)
-    if transfer:
-        tokens = _shell_tokens(command)
+    if _names_program(command, r"\b(?:scp|sftp|rsync)\b"):
         operands = [token for token in tokens[1:] if not token.startswith("-")]
         if operands and re.search(r"[^/\s]+:.+", operands[-1]):
             return "write", "file transfer destination is remote"
         if operands and re.search(r"[^/\s]+:.+", operands[0]):
             return "read", "file transfer source is remote and destination is local"
         return "unknown", "file-transfer direction cannot be proven"
-    if re.search(r"\bssh\b", lowered):
+    if _names_program(command, r"\bssh\b"):
         return "unknown", "remote shell command may mutate external state"
-    if re.search(r"\b(?:nc|ncat|telnet)\b", lowered):
+    if _names_program(command, r"\b(?:nc|ncat|telnet)\b"):
         return "unknown", "raw network transport may mutate external state"
     return "local", "shell command has no external mutation signal"
+
+
+def _mcp_parts(raw_tool: str) -> tuple[str, str]:
+    """(server, tool) of a raw ``mcp__<server>__<tool>`` name."""
+    parts = raw_tool.split("__")
+    if len(parts) == 3 and parts[0] == "mcp":
+        return parts[1], parts[2]
+    return "", ""
+
+
+def _context_mode_server(server: str) -> bool:
+    return re.sub(r"[^a-z0-9]+", "_", server.lower()) in CONTEXT_MODE_SERVERS
+
+
+def shell_commands(raw_tool: str, tool_input: dict[str, Any]) -> list[str] | None:
+    """Command or code texts the tool runs on this machine, else None.
+
+    An executor input without the expected text field keeps the generic tool
+    classification: the source it would run is not in the payload.
+    """
+    if raw_tool in {"Bash", "PowerShell"} \
+            or canonical_tool_name(raw_tool) in {"bash", "powershell"}:
+        return [str(tool_input.get("command") or "")]
+    server, name = _mcp_parts(raw_tool)
+    if not (_context_mode_server(server) and name in CONTEXT_MODE_EXECUTORS):
+        return None
+    if name != "ctx_batch_execute":
+        code = tool_input.get("code")
+        return [code] if isinstance(code, str) else None
+    commands = tool_input.get("commands")
+    items = commands if isinstance(commands, list) else [commands]
+    if not all(isinstance(item, dict) and isinstance(item.get("command"), str)
+               for item in items):
+        return None
+    return [item["command"] for item in items]
 
 
 def classify(payload: dict[str, Any]) -> tuple[str, str]:
@@ -309,12 +611,21 @@ def classify(payload: dict[str, Any]) -> tuple[str, str]:
     tool_input = payload.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         return "unknown", "tool input is not an object"
-    if raw_tool in {"Bash", "PowerShell"} or tool in {"bash", "powershell"}:
-        return classify_shell(str(tool_input.get("command") or ""))
+    commands = shell_commands(raw_tool, tool_input)
+    if commands is not None:
+        rank = {"local": 0, "read": 1, "unknown": 2, "write": 3}
+        return max((classify_shell(command) for command in commands),
+                   key=lambda result: rank[result[0]],
+                   default=("local", "shell command has no external mutation signal"))
     if raw_tool == "WebFetch" or tool in {"webfetch", "web_run"}:
         return "read", "web lookup transport is read-only"
     if raw_tool in {"Read", "Glob", "Grep"} or tool in LOCAL_TOOLS:
         return "local", "local harness tool does not mutate an external system"
+    server, name = _mcp_parts(raw_tool)
+    if (server, name) in HOST_LOCAL_MCP_TOOLS:
+        return "local", "built-in host tool drives the local app"
+    if _context_mode_server(server) and name in CONTEXT_MODE_LOCAL_TOOLS:
+        return "local", "context-mode knowledge-base tool is local"
     if not looks_external(tool):
         return "local", "tool has no external connector namespace"
     action = connector_action(tool)
@@ -434,8 +745,9 @@ def build_preview(payload: dict[str, Any]) -> dict[str, Any]:
     if not tool_name:
         raise GateError("canonical tool name is missing", "Provide the exact tool_name.")
     effect, reason = classify(payload)
-    targets = (shell_targets(str(tool_input.get("command") or ""))
-               if tool_name in {"bash", "powershell"} else _walk_targets(tool_input))
+    commands = shell_commands(str(payload.get("tool_name") or ""), tool_input)
+    targets = (shell_targets("\n".join(commands)) if commands is not None
+               else _walk_targets(tool_input))
     targets = sorted(targets, key=canonical_json)
     attachment_entries = _walk_attachments(tool_input)
     attachments: list[Any] = []
