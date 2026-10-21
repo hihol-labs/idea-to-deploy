@@ -11,6 +11,10 @@
 - Owner decisions 2026-10-20: context-mode executors get the Bash text
   classification ("parity with Bash"); this session ends at a local commit and
   a hand-over, publication and rollout are a separate session.
+- Publication session 2026-10-20/21 (owner-confirmed): fixes for the findings
+  of checkers a3-a11 and of the opposite-GPT review, live-model evidence on the
+  final methodology pin, then guarded publication and rollout, each external
+  step on the owner's explicit confirmation.
 - Criteria live in `.itd/ACCEPTANCE_CONTRACT.json`.
 
 ## Allowed Change Areas
@@ -32,8 +36,13 @@
 - `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `BACKLOG.md`, this scope.
 - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness activation only.
 - Git-ignored verification receipts, reports and hand-over files.
-- Next session, after the owner's confirmation: live-model evidence on the
-  final tree, guarded publication, CI, merge, release and dual-host rollout.
+- Live-model evidence (publication session): new immutable run directories under
+  `tests/fixtures/live-model-evidence/runs/` and `latest.json`; existing runs are
+  never modified. The generated `output/*.md` documents are a benchmark
+  specimen judged by the snapshot oracle; their content flaws are visible
+  evidence, not shipped runtime code, and not part of this review.
+- Then, each step on the owner's confirmation: guarded publication, CI, merge,
+  release and dual-host rollout.
 
 ## Forbidden Change Areas
 
@@ -42,7 +51,8 @@
 - Other hooks, skills, agents, scripts and runtime code; timeouts and parity
   assertions.
 - `HANDOFF.md` in the reviewed diff; hand-written unit statuses.
-- Push, PR, merge, tag, release and rollout in this session.
+- Push, PR, merge, tag, release and rollout without the owner's explicit
+  confirmation of that step.
 
 ## Review Rule
 
