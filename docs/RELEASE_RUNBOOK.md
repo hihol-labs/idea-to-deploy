@@ -194,6 +194,40 @@ A `/review` pass before the multi-file commit. If the diff touches an area outsi
 pause and reclassify the task before continuing.
 ```
 
+## Конвенция закрытия (ADR-016)
+
+Действует с первого закрытия после мержа ADR-016 (новое облегченное правило не утверждает само себя, ADR-016
+п.4.7); первое плановое применение - сессия 11 программы. Цель - учетное закрытие без нового модельного раунда:
+REL-1.109.1 закрывался 94 минуты и 6 модельными сессиями на дифф из трех файлов, REL-1.109.2 - 19 отчетами
+предкоммитного чекера и 13 попытками ревью GPT (`docs/measurements/ITD-SIMPLIFY-BASELINE.md`).
+
+**Когда применима.** Дерево опубликованного кандидата не менялось после принятого ревью: tree merge-коммита
+байт-в-байт равен `candidate.reviewedTree` квитанции, принятой маршрутом (`PASSED` или `ADJUDICATED`), а дифф
+закрытия меняет только записи закрытия (Allowed Change Areas шаблона «REL-X.Y.Z ledger-close» выше). Любое
+другое изменение - новый кандидат и обычный маршрут с ревью.
+
+**Шаги.**
+
+1. Дерево: `git rev-parse <merge-sha>^{tree}` равен `candidate.reviewedTree` квитанции ревью
+   (`python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["candidate"]["reviewedTree"])' <квитанция>`).
+   Не равен - конвенция неприменима.
+2. Машинная проверка дельты закрытия:
+   - юнит из `.itd-memory/GOAL.json`: `sh skills/_shared/itd_py.sh scripts/itd_closure_delta.py --receipt
+     <PASSED-квитанция adjudication юнита> --tree <дерево закрытия>` - exit 0;
+   - юнит STATE-леджера (`REL-*`, переходы через `itd_unit_log.py`), где `itd_closure_delta.py` неприменим:
+     переход записан `itd_unit_log.py verified` (не руками), `git diff --name-only <merge-sha> <кандидат
+     закрытия>` содержит только пути Allowed Change Areas шаблона ledger-close, и
+     `sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - exit 0.
+3. Подпись владельца в смысле ADR-007: явное подтверждение человека в сессии, записанное в `.itd/DECISIONS.md` с
+   merge-коммитом, tree, путем и `receiptSha256` квитанции ревью и выводом шага 2. Квитанция модели не
+   переписывается и не перевыпускается; новый модельный раунд и полный `tests/run-all.sh` не нужны - дерево,
+   которое они проверяли, не изменилось, а записи закрытия проверены шагом 2.
+
+**Публикация.** До сессии 10 программы pre-push гейт репо ITD (GATE-OPTIN-1) принимает только квитанцию на
+точный HEAD, поэтому отдельного ledger-close PR нет (ADR-016 п.4.5): записи закрытия едут в следующем PR
+программы и попадают в его ревью как часть кандидата. Конвенция убирает второй модельный раунд на сами записи,
+а не ревью следующего кандидата.
+
 ## Грабли (проверено кровью)
 
 - **sed/heredoc с backticks через двойной шелл** (Git Bash → `wsl bash -lc

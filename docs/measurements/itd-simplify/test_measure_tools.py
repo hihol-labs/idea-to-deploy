@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""Tests of the ITD simplification baseline tools (ADR-016, plan session 2).
+
+Run: python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py
+Self-contained: temporary transcripts, homes and projects; no real hook, transcript or runtime is touched.
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import egress_acceptance_probe as probe  # noqa: E402
+import hook_bench  # noqa: E402
+import runtime_digest  # noqa: E402
+
+
+def line(**record) -> str:
+    return json.dumps(record) + "\n"
+
+
+class TranscriptStatsTest(unittest.TestCase):
+    def run_stats(self, lines: list[str]) -> dict:
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "s1.jsonl").write_text("".join(lines), encoding="utf-8")
+            (Path(tmp) / "sub").mkdir()
+            Path(tmp, "sub", "agent.jsonl").write_text(lines[0], encoding="utf-8")  # subagent dir is not read
+            done = subprocess.run([sys.executable, "-I", "-B", str(HERE / "transcript_stats.py"), tmp,
+                                   "--since", "2000-01-01"], capture_output=True, text=True, check=True)
+        return json.loads(done.stdout)
+
+    def test_lower_bound_context_and_session_save(self) -> None:
+        tool = {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
+        skill = {"type": "tool_use", "id": "t2", "name": "Skill", "input": {"skill": "idea-to-deploy:session-save"}}
+        lines = [
+            line(type="user", timestamp="2026-10-21T10:00:00Z", message={"content": "do it"}),
+            line(type="attachment", attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit",
+                                                 "content": ["abc", "дд"]}),
+            line(type="attachment", attachment={"type": "hook_success", "hookEvent": "SessionStart",
+                                                 "stdout": "x" * 50}),
+            line(type="assistant", timestamp="2026-10-21T10:00:05Z", message={"content": [tool]}),
+            line(type="attachment", attachment={"type": "hook_success", "hookEvent": "PreToolUse", "toolUseID": "t1",
+                                                 "durationMs": 100, "command": "~/.claude/hooks/a.sh"}),
+            line(type="attachment", attachment={"type": "hook_success", "hookEvent": "PreToolUse", "toolUseID": "t1",
+                                                 "durationMs": 300, "command": '"C:/x/python.exe" "C:/h/b.sh"'}),
+            line(type="assistant", timestamp="2026-10-21T10:01:00Z", message={"content": [skill]}),
+            line(type="assistant", timestamp="2026-10-21T10:02:00Z", message={"content": [{"type": "text"}]}),
+            line(type="user", timestamp="2026-10-21T10:02:30Z",
+                 message={"content": [{"type": "tool_result", "tool_use_id": "t2"}]}),
+            line(type="assistant", timestamp="2026-10-21T10:03:00Z", message={"content": [{"type": "text"}]}),
+            line(type="user", timestamp="2026-10-21T10:09:00Z", message={"content": "next"}),
+        ]
+        stats = self.run_stats(lines)
+        self.assertEqual(stats["files"], 1)
+        self.assertEqual(stats["hooks"]["Bash:PreToolUse"], {"calls": 1, "lowerBoundWallMsMedian": 300})
+        self.assertEqual(stats["perCommandMedianMs"]["Bash:PreToolUse:b.sh"], {"n": 1, "median": 300})
+        # 3 + 4 bytes (UTF-8) from the host record only; the SessionStart stdout is not counted a second time.
+        self.assertEqual(stats["context"]["perPromptBytesMedian"], 7)
+        self.assertEqual(stats["context"]["perSessionBytesMedian"], 7)
+        # 10:01:00 -> 10:03:00: a tool result is not a human prompt; the run ends before 10:09:00.
+        self.assertEqual(stats["sessionSave"], {"runs": 1, "secondsMedian": 120, "secondsMin": 120,
+                                                "secondsMax": 120})
+
+
+class HookBenchTest(unittest.TestCase):
+    def test_matcher_semantics(self) -> None:
+        self.assertTrue(hook_bench.matches(None, "Bash"))
+        self.assertTrue(hook_bench.matches("", "Read"))
+        self.assertTrue(hook_bench.matches("*", "Edit"))
+        self.assertTrue(hook_bench.matches("Bash|PowerShell", "Bash"))
+        self.assertFalse(hook_bench.matches("Edit", "MultiEdit"))
+        self.assertFalse(hook_bench.matches("Write|Edit", "Read"))
+        self.assertTrue(hook_bench.matches("mcp__", "mcp__") and not hook_bench.matches("mcp__", "Bash"))
+
+    def test_sources_and_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, project = Path(tmp, "home"), Path(tmp, "proj")
+            plugin = home / "plugins" / "cache" / "mk" / "plug" / "1.0.0" / "hooks"
+            plugin.mkdir(parents=True)
+            (project / ".claude").mkdir(parents=True)
+            (home / "settings.json").write_text(json.dumps({
+                "enabledPlugins": {"plug@mk": True, "off@mk": False},
+                "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "u1"}]},
+                                         {"matcher": "*", "hooks": [{"type": "command", "command": "u2"}]}]}}),
+                encoding="utf-8")
+            (project / ".claude" / "settings.json").write_text(json.dumps({
+                "hooks": {"PostToolUse": [{"matcher": "Write", "hooks": [{"type": "command", "command": "p1"}]}]}}),
+                encoding="utf-8")
+            (plugin / "hooks.json").write_text(json.dumps({
+                "hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
+                    {"type": "command", "command": 'node "${CLAUDE_PLUGIN_ROOT}/hooks/pre.mjs"'}]}]}}),
+                encoding="utf-8")
+            sources = hook_bench.hook_sources(home, project)
+            self.assertEqual([label for label, _, _ in sources],
+                             ["user", "project/settings.json", "plugin/plug@mk"])
+            pre_bash = [command for _, command, _ in hook_bench.commands(sources, "PreToolUse", "Bash")]
+            root = str(plugin.parent).replace("\\", "/")
+            self.assertEqual(pre_bash, ["u1", "u2", f'node "{root}/hooks/pre.mjs"'])
+            self.assertEqual([c for _, c, _ in hook_bench.commands(sources, "PreToolUse", "Read")], ["u2"])
+            self.assertEqual(hook_bench.commands(sources, "PostToolUse", "Bash"), [])
+
+    @unittest.skipIf(os.name == "nt", "the bench run uses /bin/bash")
+    def test_bench_runs_every_matching_command(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, project, marks = Path(tmp, "home"), Path(tmp, "proj"), Path(tmp, "marks")
+            home.mkdir(), project.mkdir(), marks.mkdir()
+            hook = f'cat > "{marks}/$(date +%s%N)-$$"'
+            (home / "settings.json").write_text(json.dumps({"hooks": {
+                "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": hook}] * 2}],
+                "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": hook}]}]}}),
+                encoding="utf-8")
+            done = subprocess.run([sys.executable, "-I", "-B", str(HERE / "hook_bench.py"), "--home", str(home),
+                                   "--project", str(project), "--runs", "2"], capture_output=True, text=True,
+                                  check=True)
+            rows = [json.loads(x) for x in done.stdout.splitlines()]
+            bash = next(r for r in rows if r.get("tool") == "Bash")
+            self.assertEqual(bash["processes"], {"pre": 2, "post": 1, "total": 3})
+            self.assertEqual(next(r for r in rows if r.get("tool") == "Read")["processes"]["total"], 1)
+            # (1 warm-up + 2 runs) x (Bash 3 + Edit 1 + Read 1) commands, each fed its JSON payload.
+            payloads = [json.loads(p.read_text(encoding="utf-8")) for p in marks.iterdir()]
+            self.assertEqual(len(payloads), 15)
+            self.assertEqual({p["session_id"] for p in payloads}, {"itd-baseline-bench"})
+            self.assertTrue(all("tool_response" in p for p in payloads if p["hook_event_name"] == "PostToolUse"))
+
+
+class DigestAndProbeTest(unittest.TestCase):
+    def test_runtime_digest_is_content_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("a", "b"):
+                Path(tmp, name, "skills").mkdir(parents=True)
+                Path(tmp, name, "skills", "x.py").write_bytes(b"print(1)\n")
+                Path(tmp, name, "y.txt").write_bytes(b"y")
+            first, second = runtime_digest.tree_digest(str(Path(tmp, "a"))), runtime_digest.tree_digest(str(Path(tmp, "b")))
+            self.assertEqual(first, second)
+            self.assertEqual(first[0], 2)
+            Path(tmp, "b", "y.txt").write_bytes(b"z")
+            self.assertNotEqual(first[1], runtime_digest.tree_digest(str(Path(tmp, "b")))[1])
+
+    def test_probe_helpers(self) -> None:
+        if os.name != "nt":
+            self.assertEqual(probe.to_wsl('"C:/P/python.exe" -X utf8 "C:/h/g.sh"'),
+                             '"/mnt/c/P/python.exe" -X utf8 "C:/h/g.sh"')
+        self.assertEqual(probe.to_wsl("~/.claude/hooks/g.sh"), "~/.claude/hooks/g.sh")
+        self.assertEqual(probe.decision('{"hookSpecificOutput": {"permissionDecision": "ask"}}'), "ask")
+        self.assertEqual(probe.decision(""), "none")
+        self.assertEqual(probe.decision("not json"), "unparsed")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

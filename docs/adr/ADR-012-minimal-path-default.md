@@ -9,6 +9,9 @@
   irreversible actions.
 - **Amended by:** [ADR-013](ADR-013-graph-lite-measured-exception.md) (owner decision 2026-10-07) - one measured,
   default-off exception to item 5: the `/graph` skill and its first template. Nothing else in this record changes.
+- **Amended by:** [ADR-016](ADR-016-itd-default-everywhere-program.md) (owner decision 2026-10-20) - item 5 is lifted
+  for the bounded ITD change program only, and the rejection of editing the managed block is replaced for its
+  session 4. Items 1-4 and 6-8 and the second sentence of item 5 stay in force.
 
 ## Context
 
