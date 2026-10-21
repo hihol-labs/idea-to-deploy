@@ -365,7 +365,7 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         "ls -la ~/.ssh && stat ~/.ssh/config 2>/dev/null",
         "Get-ChildItem C:\\Users\\u\\.ssh",
         'grep -n "ssh" notes/deploy.sh',
-        'rg -n "nc|telnet" src/',
+        'rg --no-config -n "nc|telnet" src/',
         'git commit -m "fix ssh hook"',
         "git commit -m \"don't touch ssh\"",
         commit_heredoc,
@@ -451,6 +451,12 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
         "echo curl | xargs -I{} sh -c '{} -d x https://api.example.test/i'": "write",
         'curl.exe https://api.example.test/i -H `"A: b`" -d x': "write",
         "rg --pre ssh deploy notes/": "unknown",
+        # Review a9: RIPGREP_CONFIG_PATH may hold a --pre; only a leading
+        # --no-config rules the config out.
+        'rg -n "nc|telnet" src/': "unknown",
+        "rg -e --no-config ssh src/": "unknown",
+        "rg ssh -- --no-config": "unknown",
+        "rg --no-config --pre ssh deploy notes/": "unknown",
         "git -c core.sshCommand='ssh -i k' commit -m x": "unknown",
         "git status # it's\nssh deploy.example.test\n# it's": "unknown",
         "git status # <<'EOF'\nssh deploy.example.test\nEOF": "unknown",

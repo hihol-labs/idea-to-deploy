@@ -410,7 +410,7 @@ def _http_scope(command: str) -> str:
 
 
 def _search_only(command: str) -> bool:
-    """A grep/rg search, optionally piped through text filters.
+    """A grep search (or rg --no-config), optionally piped through text filters.
 
     It only reads local files, so words in its patterns name nothing to run.
     """
@@ -428,7 +428,10 @@ def _search_only(command: str) -> bool:
         allowed = SEARCH_FILTERS if index else SEARCH_PROGRAMS
         if (index and separator != "|") or text.split()[0] not in allowed:
             return False
-    return True
+    # rg also reads options from RIPGREP_CONFIG_PATH, where a --pre runs a
+    # program; only --no-config as its first argument rules that out.
+    words = commands[0][0].split()
+    return words[0] != "rg" or words[1:2] == ["--no-config"]
 
 
 def _local_git_only(command: str) -> bool:

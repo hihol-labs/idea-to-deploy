@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (`ssh-1a2b3c4d host`,
     `/tmp/ssh-1a2b3c4d host`, в bash и `\ssh-1a2b3c4d host`, `$x\ssh-1a2b3c4d host`) и другие имена через дефис
     (`ssh-copy-id`, `rsync-ssl`) по-прежнему считаются;
-  - поиск `grep`/`rg`, при желании через `head`/`tail`/`wc`/`cut`/`tr`/`uniq`/`nl`, только читает локальные файлы,
+  - поиск `grep` или `rg --no-config` (флаг - первым аргументом: без него ripgrep читает опции из
+    `RIPGREP_CONFIG_PATH`, где `--pre` запускает программу), при желании через
+    `head`/`tail`/`wc`/`cut`/`tr`/`uniq`/`nl`, только читает локальные файлы,
     поэтому слова в его шаблонах ничего не запускают (кроме `rg --pre`/`--hostname-bin` в любом написании, в том числе в кавычках);
   - `cd` и локальные `git add/commit/status/diff/log/show/restore/stash`, связанные `&&` или `;`: текст в кавычках -
     это данные; сообщение коммита из heredoc с закавыченным разделителем принимается только в одной точной форме
@@ -61,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ctx_index`, `ctx_stats`, `ctx_doctor`, `ctx_purge` - local; остальные инструменты - прежняя классификация.
   Ввод исполнителя без строкового `code` (или пакет, где у элемента нет строкового `command`) - прежняя общая
   классификация. Файл `path` у `ctx_execute_file` - данные (`FILE_CONTENT`), как файл для `bash script.sh` в Bash.
-- Регрессионные тесты на каждый случай: `tests/verify_external_write_gate.py`, 297 проверок, в том числе обходы,
+- Регрессионные тесты на каждый случай: `tests/verify_external_write_gate.py`, 305 проверок, в том числе обходы,
   найденные пятью раундами ревью, предкоммитными чекерами и ревью GPT; каждый снятый ложный deny и каждый
   случай, который должен остаться под подтверждением, проверяется и как `Bash`, и как `PowerShell`; для
   встроенных инструментов хоста есть промахи мимо точного списка (другой сервер, более длинное имя).
