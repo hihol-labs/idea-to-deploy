@@ -384,12 +384,13 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
                   local_preview.get("requiresApproval") is False
                   and result.returncode == 0 and not result.stdout,
                   json.dumps(local_preview, ensure_ascii=False) + result.stdout)
-    curl_then_local = payload("Bash", {"command":
-        "curl -s https://example.test/status | jq . && ls -d out"})
-    _, curl_then_local_preview = preview(state, curl_then_local)
-    check("-d of another command does not turn curl GET into a write",
-          curl_then_local_preview.get("effect") == "read"
-          and hook(state, curl_then_local).returncode == 0)
+    for shell in ("Bash", "PowerShell"):
+        curl_then_local = payload(shell, {"command":
+            "curl -s https://example.test/status | jq . && ls -d out"})
+        _, curl_then_local_preview = preview(state, curl_then_local)
+        check(f"-d of another command does not turn curl GET into a write ({shell})",
+              curl_then_local_preview.get("effect") == "read"
+              and hook(state, curl_then_local).returncode == 0)
     gated_shell_cases = {
         "curl -d x=1 https://api.example.test/issues": "write",
         "ls -d out && curl -d x=1 https://api.example.test/issues": "write",
@@ -489,10 +490,11 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
                   and gated_preview.get("requiresApproval") is True
                   and decision(hook(state, request))[0] in {"ask", "deny"},
                   json.dumps(gated_preview, ensure_ascii=True))
-    curl_d = payload("Bash", {"command":
-        "curl -d x=1 https://api.example.test/issues"})
-    check("curl -d to an external URL still asks for confirmation",
-          decision(hook(state, curl_d))[0] == "ask")
+    for shell in ("Bash", "PowerShell"):
+        curl_d = payload(shell, {"command":
+            "curl -d x=1 https://api.example.test/issues"})
+        check(f"curl -d to an external URL still asks for confirmation ({shell})",
+              decision(hook(state, curl_d))[0] == "ask")
 
     host_local_tools = {
         "mcp__ccd_turn__update_plan": {"plan": [{"step": "a", "status": "done"}]},
