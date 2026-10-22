@@ -148,6 +148,10 @@ check("codex: same minimal route, strict triggers and mandatory rules",
                             "strict-проект", "data-sensitive", "денег", "доступа", "деплоя",
                             "внешних действий", "не понижается", "Подтверждение человека", "push/PR",
                             "Секреты", "прогон набора перед коммитом", "adjudication")))
+codex_always = section(codex, "Всегда обязательно")
+check("codex: same memory rule - session-save, explicit close, decisions, handoff",
+      all(t in codex_always for t in ("`session-save`", "`session-save --close`", "`.itd/DECISIONS.md`",
+                                      "`handoff`")))
 check("codex: no skill-decision ritual", "Скилл:" not in codex and "SKILL_BYPASS" not in codex)
 
 # ------------------------------------------------------------------ #2 goal

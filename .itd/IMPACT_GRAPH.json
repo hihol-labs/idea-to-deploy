@@ -217,6 +217,7 @@
     ],
     ".itd/DECISIONS.md": [
       "tests/verify_closure_delta.py",
+      "tests/verify_fable_snippets.py",
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_stop_rule.py",
       "tests/verify_stop_rule_closed_contract.py",

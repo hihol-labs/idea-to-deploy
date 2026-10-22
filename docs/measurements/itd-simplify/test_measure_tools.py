@@ -263,25 +263,43 @@ class DigestAndProbeTest(unittest.TestCase):
             self.assertEqual(done.stdout.split()[1:], [str(first[0]), first[1]])
 
     def test_rounds_summary_is_the_median_of_round_medians(self) -> None:
-        def bench(total: int, chain: int, pre: int, post: int, exits: dict | None = None) -> str:
-            return line(home="h") + line(tool="Bash", processes={"pre": total - 3, "post": 3, "total": total},
-                                         preWallMs={"median": pre}, postWallMs={"median": post},
-                                         chainWallMs={"median": chain}, nonzeroExits=exits or {})
+        def record(tool: str, split: tuple[int, int], chain: int, pre: int, post: int, exits: dict | None = None):
+            return line(tool=tool, processes={"pre": split[0], "post": split[1], "total": sum(split)},
+                        preWallMs={"median": pre}, postWallMs={"median": post}, chainWallMs={"median": chain},
+                        nonzeroExits=exits or {})
+
+        def write_round(tmp: str, phase: str, combo: str, index: int, chain: int, pre: int, post: int,
+                        tools=summarize_rounds.TOOLS, split=(9, 3)) -> None:
+            Path(tmp, f"bench-{phase}-{combo}-r{index}.jsonl").write_text(
+                line(home="h") + "".join(record(tool, split, chain, pre, post) for tool in tools))
+
+        script = [sys.executable, "-I", "-B", str(HERE / "summarize_rounds.py")]
         with tempfile.TemporaryDirectory() as tmp:
-            for index, (chain, pre, post) in enumerate(((900, 500, 400), (500, 300, 200), (700, 450, 250)), 1):
-                Path(tmp, f"bench-after-wsl-itd-r{index}.jsonl").write_text(bench(12, chain, pre, post))
-            Path(tmp, "bench-before-wsl-itd-r1.jsonl").write_text(bench(18, 1, 1, 1))  # another phase is not read
+            for combo in summarize_rounds.COMBOS:
+                for index, (chain, pre, post) in enumerate(((900, 500, 400), (500, 300, 200), (700, 450, 250)), 1):
+                    write_round(tmp, "after", combo, index, chain, pre, post)
+            write_round(tmp, "before", "wsl-itd", 1, 1, 1, 1)  # another phase is not read
             lines, problems = summarize_rounds.summary(Path(tmp), "after")
             self.assertEqual(lines[3], "| wsl-itd | Bash | 12 (9+3) | 700 | 900 / 500 / 700 | 450 / 250 |")
-            self.assertEqual((len(lines), problems), (4, []))
-            # a round with another process count, a crashing hook or a broken line is flagged, and exits 1
-            Path(tmp, "bench-after-wsl-itd-r4.jsonl").write_text(bench(11, 600, 300, 300, {"Pre:user:a.sh": 1})
-                                                                 + "not json\n")
+            self.assertEqual((len(lines), problems), (3 + 4 * 3, []))
+            self.assertEqual(subprocess.run([*script, tmp, "after"], capture_output=True).returncode, 0)
+            # an empty directory, a misspelled phase, a missing combination: never a successful summary
+            with tempfile.TemporaryDirectory() as empty:
+                self.assertEqual(subprocess.run([*script, empty, "after"], capture_output=True).returncode, 1)
+            self.assertEqual(subprocess.run([*script, tmp, "afterr"], capture_output=True).returncode, 1)
+            self.assertEqual(len(summarize_rounds.summary(Path(tmp), "before")[1]), 4)  # 3 combos absent + counts
+            # a round without one tool, a split that moves at the same total, a crashing hook, a broken line
+            write_round(tmp, "after", "win-itd", 4, 600, 300, 300, tools=("Bash", "Edit"), split=(8, 4))
+            Path(tmp, "bench-after-win-itd-r4.jsonl").write_text(
+                Path(tmp, "bench-after-win-itd-r4.jsonl").read_text()
+                + record("Read", (2, 1), 1, 1, 1, {"Pre:user:a.sh": 1}) + "not json\n")
             lines, problems = summarize_rounds.summary(Path(tmp), "after")
-            self.assertIn("VARIES [11, 12]", lines[3])
-            self.assertEqual(len(problems), 2)
-            script = [sys.executable, "-I", "-B", str(HERE / "summarize_rounds.py")]
-            self.assertEqual(subprocess.run([*script, tmp, "after"], capture_output=True).returncode, 1)
+            self.assertIn("VARIES [(8, 4, 12), (9, 3, 12)]", [l for l in lines if "| win-itd | Bash |" in l][0])
+            self.assertTrue(any("round counts differ" in p for p in problems))
+            self.assertTrue(any("nonzeroExits" in p for p in problems))
+            self.assertTrue(any("not json" in p for p in problems))
+            write_round(tmp, "after", "win-itd", 4, 600, 300, 300, tools=("Bash", "Edit"))
+            self.assertIn("win-itd: Read has 3 records in 4 rounds", summarize_rounds.summary(Path(tmp), "after")[1])
             self.assertEqual(subprocess.run([*script, tmp], capture_output=True).returncode, 2)
 
     def test_probe_helpers(self) -> None:

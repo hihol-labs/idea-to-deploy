@@ -23,12 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   «Verification Loop по умолчанию», противоречившие решению владельца, перенесены в strict-маршрут.
 - `docs/instruction-registry.json` - записи под пять новых разделов; `tests/verify_fable_snippets.py` проверяет
   предел 60 строк, отсутствие ритуала, обязательные пункты и согласованность Codex-шаблона; новый
-  `tests/verify_global_routers.py` - приемка четырех глобальных роутеров на хостах после sync (вне run-all,
-  `tests/OUT_OF_MIRROR.json`).
+  `tests/verify_global_routers.py` - приемка четырех глобальных роутеров на хостах после sync с пином sha256
+  одобренной личной секции (вне run-all, `tests/OUT_OF_MIRROR.json`; правила маркеров и пина - `--self-test`).
 - Хвосты сессий 2-3: `runtime_digest.py` без корней выходит с кодом 2; `transcript_stats.py` берет имя хука как
-  `hook_bench.command_label`; `run_rounds.sh` и `summarize_rounds.py` (раунды стенда) с тестами; раздел 9 baseline -
-  замер «после» сессии 3 (Bash 18 -> 12 процессов, цепочка -25..-36% на четырех сочетаниях); юнит ITD-PLAN-S2
-  verified.
+  `hook_bench.command_label`; `run_rounds.sh` и `summarize_rounds.py` (раунды стенда; неполные раунды - exit 1) с
+  тестами; раздел 9 baseline - замер «после» сессии 3 (Bash 18 -> 12 процессов, цепочка -25..-36% на четырех
+  сочетаниях); юнит ITD-PLAN-S2 verified.
 
 ### Added - программа ADR-016 (сессия 2): законный вход и замер «до»
 
