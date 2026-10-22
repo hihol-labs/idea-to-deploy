@@ -1,64 +1,39 @@
-# REL-1.109.2: external-write gate false denies and docs freshness
+# ITD-PLAN-S2: ADR-016, closure convention, baseline and the REL-1.109.2 ledger record
 
 ## Current Task
 
-- Session 1 of the ITD change plan approved by the owner on 2026-10-20: patch
-  1.109.2 removes false denies of the external-write gate behind
-  `hooks/pii-egress-guard.sh` that block product work, and refreshes
-  `reviewedAt` so Gate 1 stays green after 2026-10-30.
-- Start from merged main `f1aefe5a23a1deaf2963a887cdd8d548ded9a1fe`. WIP=1:
-  REL-1.109.1 is verified; this unit is the only open one.
-- Owner decisions 2026-10-20: context-mode executors get the Bash text
-  classification ("parity with Bash"); this session ends at a local commit and
-  a hand-over, publication and rollout are a separate session.
-- Publication session 2026-10-20/21 (owner-confirmed): fixes for the findings
-  of checkers a3-a11 and of the opposite-GPT review, live-model evidence on the
-  final methodology pin, then guarded publication and rollout, each external
-  step on the owner's explicit confirmation.
-- Criteria live in `.itd/ACCEPTANCE_CONTRACT.json`.
+- Session 2 of the ITD change plan approved by the owner on 2026-10-20: ADR-016 records the bounded lift of
+  ADR-012 item 5 for this program only, `docs/RELEASE_RUNBOOK.md` gets the closure convention, and
+  `docs/measurements/ITD-SIMPLIFY-BASELINE.md` the "before" measurement with the command for every number.
+- The same PR carries the ledger record of REL-1.109.2 (plan rule 5, owner decision 2026-10-21): the unit is
+  verified through `itd_unit_log.py`, its followup moves to `closedFollowups`, the deferred minors (AC3 tense,
+  CHANGELOG quoted-argument note) and owner decision N-1 (AC1 names the `curl $OPTS` limit, fix in BACKLOG P2).
+- Start from merged main `162c9d3356b8a735792a5a214b6cf31d8162f248`. WIP=1: REL-1.109.2 is verified; this unit
+  is the only open one. Criteria live in `.itd/ACCEPTANCE_CONTRACT.json`.
 
 ## Allowed Change Areas
 
-- `skills/_shared/itd_external_write_gate.py`: narrow only provably inert word
-  matches (path fragments, grep/rg searches, local git chains, inert pipelines
-  next to curl), host UI tools by exact `(server, tool)` list, context-mode
-  executors through the Bash classification. Every command the 1.109.1 gate
-  kept under approval for a real external action stays under approval.
-- `tests/verify_external_write_gate.py`: regression cases for each false deny
-  and for each bypass found in review, as both `Bash` and `PowerShell`.
-- Version mirrors 1.109.2: `.claude-plugin/plugin.json`,
-  `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json`, `README.md`,
-  `README.ru.md`, `docs/HARNESS_CONFORMANCE_REPORT.md`,
-  `docs/HARNESS_DOCS_STATE.json`, `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`,
-  `docs/templates/github/itd-hygiene.yml`, `tests/verify_external_reviewer_release.py`.
-- `docs/HARNESS_DOCS_STATE.json`, `docs/QUALITY.json`: `reviewedAt` refresh.
-- `CHANGELOG.md`: one `## [1.109.2]` section under `## [Unreleased]`.
-- `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `BACKLOG.md`, this scope.
-- `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness activation only.
+- `docs/adr/ADR-016-itd-default-everywhere-program.md` (new) and the Amended-by note in
+  `docs/adr/ADR-012-minimal-path-default.md`.
+- `docs/RELEASE_RUNBOOK.md`: the "Конвенция закрытия" section only.
+- `docs/measurements/ITD-SIMPLIFY-BASELINE.md` and `docs/measurements/itd-simplify/` (measurement scripts; they
+  run hooks only with inert payloads and read transcripts, they change no project file).
+- `CHANGELOG.md`: the `## [Unreleased]` entry and the quoted-argument note inside `## [1.109.2]`.
+- `.itd/ACCEPTANCE_CONTRACT.json` (REL-1.109.2 AC1 text, AC3 evidence, the followup move, the ITD-PLAN-S2
+  followup and criteria), `.itd/DECISIONS.md`, `BACKLOG.md`, this scope.
+- `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness transitions only.
+- Regenerated `.itd/IMPACT_GRAPH.json` if its check asks for it.
 - Git-ignored verification receipts, reports and hand-over files.
-- Live-model evidence (publication session): new immutable run directories under
-  `tests/fixtures/live-model-evidence/runs/` and `latest.json`; existing runs are
-  never modified. The generated `output/*.md` documents are a benchmark
-  specimen judged by the snapshot oracle; their content flaws are visible
-  evidence, not shipped runtime code, and not part of this review.
-- Then, each step on the owner's confirmation: guarded publication, CI, merge,
-  release and dual-host rollout.
 
 ## Forbidden Change Areas
 
-- Secret and PII pattern scanning in `hooks/pii-egress-guard.sh`, the frozen
-  external-write policy, trust policy and hook registrations.
-- Other hooks, skills, agents, scripts and runtime code; timeouts and parity
-  assertions.
+- Skills, hooks, agents, scripts, tests, CI, trust policy, hook registrations and installation runtime; the live
+  benchmark pin.
+- The meaning of REL-1.109.2 AC2 and AC3 criteria and of the released 1.109.2 code.
 - `HANDOFF.md` in the reviewed diff; hand-written unit statuses.
-- Push, PR, merge, tag, release and rollout without the owner's explicit
-  confirmation of that step.
+- Push, PR, merge and any external model call without the owner's explicit confirmation of that step.
 
 ## Review Rule
 
-Medium risk by path policy, but the unit changes security decisions of a hard
-gate: every narrowing must be checked against the 1.109.1 classifier
-(differential corpus and fuzz) and regression-tested. Commit needs the exact
-staged-tree machine receipt and a fresh checker. Publication additionally needs
-the committed-head full machine, live evidence and one fresh canonical
-opposite-GPT review.
+One independent review of the final candidate (plan rule 4). A reviewer finding outside this scope (pattern H4 of
+REL-1.109.2) is brought to the owner before another round (BACKLOG P2, review convergence).
