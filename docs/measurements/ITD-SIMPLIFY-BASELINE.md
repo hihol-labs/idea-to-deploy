@@ -3,7 +3,7 @@
 Сессия 2 плана изменения ITD ([ADR-016](../adr/ADR-016-itd-default-everywhere-program.md)), 2026-10-21. Состояние:
 main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. Повтор «после» - сессии 3 и 6 (для их приемки) и 13
 (целиком, против раздела 2 плана), теми же командами из раздела 8. Скрипты - `docs/measurements/itd-simplify/`
-(их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`, 10 проверок);
+(их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`, 12 проверок);
 основные числа - из перезамера 2026-10-22 07:38-07:45Z исправленными скриптами (после ревью sol a3), его сырые выводы
 лежат в git-ignored `.itd-memory/host-inputs/ITD-PLAN-S2/baseline-raw/` (`meta.txt` - нагрузка, аптайм и коды
 выхода каждого шага). Выводы первого прогона 2026-10-21 лежали во временном scratchpad сессии и не сохранились (его
@@ -15,7 +15,7 @@ main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. По�
 | | WSL | Windows |
 |---|---|---|
 | ОС, CPU | WSL2, ядро 6.6.87.2-microsoft-standard-WSL2, 8 vCPU (`uname -r`, `nproc`) | тот же ПК, WSL-VM делит с ним CPU |
-| Claude Code (харнесс десктопа) | 2.1.304 (поле `version` последних записей транскриптов; с 2026-10-14 встречаются 2.1.295, 2.1.299, 2.1.304) | 2.1.304 (то же поле в последнем транскрипте buying) |
+| Claude Code (харнесс десктопа) | 2.1.304 (`transcript_stats.py`, `meta.newestTranscriptVersion`; в окне также 2.1.295, 2.1.299 - `meta.versions`) | 2.1.304 (то же; в окне 2.1.275-2.1.304) |
 | Claude Code npm CLI | 2.1.186 (`claude --version`) | 2.1.186 (`npm/node_modules/@anthropic-ai/claude-code/package.json`) |
 | Codex CLI | 0.146.0 (`codex --version`) | 0.157.1 (`npm/node_modules/@openai/codex/package.json`) |
 | Интерпретатор хуков | Python 3.12.3 `/usr/bin/python3.12` (`python3 --version`) | `C:/Users/Дмитрий/AppData/Local/Programs/Python/Python312/python.exe -X utf8` (команды в `settings.json`) |
@@ -24,8 +24,11 @@ main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. По�
 | ITD runtime | `~/.local/share/itd/runtime/1.109.2-4a575f29644e1989` (`~/.local/bin/itd`) | `%LOCALAPPDATA%\ITD\runtime\1.109.2-4a575f29644e1989` (wrapper `%USERPROFILE%\.local\bin\itd.cmd`) |
 | Дайджест дерева runtime (`runtime_digest.py`, 51 файл) | `f7e78a42b67be1ffe7d16cb608a950dd206e9aaf7431e01aa47540869f8ed0c2` | тот же |
 | Плагины с хуками | только `context-mode@context-mode` 1.0.168 (`enabledPlugins` в `~/.claude/settings.json`; `installPath` в `plugins/installed_plugins.json`, в кэше одна версия) | то же |
-| permission mode | `bypassPermissions`: `defaultMode` в `settings.json`; в транскриптах с 2026-10-14 - 216 из 216 записей (подсчет 2026-10-21) | `bypassPermissions` в 1129 из 1129 записей транскриптов buying (подсчет 2026-10-21) |
-| Модель | сессия замера - `claude-opus-5-5`; в транскриптах ITD с 2026-10-14: opus-5-5 3794 сообщения, fable-5-1 718 (подсчет 2026-10-21) | buying: opus-5-5 29243, fable-5-1 2357 (подсчет 2026-10-21) |
+| permission mode | `defaultMode: bypassPermissions` в `settings.json`; в транскриптах - `bypassPermissions` 219 из 219 записей (`meta.permissionModes`) | `bypassPermissions` 1385, `auto` 7 (`meta.permissionModes`) |
+| Модель | сессия замера - `claude-opus-5-5`; сообщения ассистента в окне: opus-5-5 4212, fable-5-1 718 (`meta.models`) | opus-5-5 33785, fable-5-1 4041, opus-5 3306 (`meta.models`) |
+
+Строки «Claude Code», «permission mode» и «Модель» с полями `meta.*` - прогон `transcript_stats.py --since 2026-10-14`
+2026-10-22 09:10Z (`transcripts-*-a8.json`), тот же, что в разделах 2, 4 и 5.
 
 Проекты: ITD - `~/projects/idea-to-deploy` на WSL и нативная копия релиза `C:\itd-src\idea-to-deploy-1.109.2` на
 Windows; buying - `C:\Users\Дмитрий\AI\buying` (на WSL - тот же каталог через `/mnt/c`). Реальная работа идет в
@@ -78,23 +81,23 @@ Windows x buying 1276 / 801 / 605, Windows x ITD 1268 / 783 / 646; еще ран
 на вызов Bash в этой сессии - 2 записи Pre при 11 зарегистрированных Pre-командах; судя по составу, пишутся хуки с
 выводом). Хуки одной фазы идут параллельно, поэтому максимум `durationMs` среди записанных хуков вызова -
 НИЖНЯЯ граница задержки фазы. Окно - транскрипты, измененные с 2026-10-14 (`transcript_stats.py --since
-2026-10-14`, прогон 2026-10-22 ~07:44Z, `transcripts-*.json`): WSL x ITD - 5 сессий, Windows x buying - 100 (окно
+2026-10-14`, прогон 2026-10-22 09:10Z, `transcripts-*-a8.json`): WSL x ITD - 5 сессий, Windows x buying - 102 (окно
 растет с новыми сессиями; 2026-10-21 их было 70).
 
 | Фаза | WSL x ITD: вызовов, медиана нижней границы, мс | Windows x buying: вызовов, медиана, мс |
 |---|---|---|
-| Bash Pre | 1990, 349 | 5403, 1917 |
-| Bash Post | 1923, 234 | 5005, 1458 |
-| Edit Pre | 217, 212 | 3499, 910 |
-| Edit Post | 217, 220 | 3495, 1068 |
-| Read Pre | 22, 140 | 1098, 1480 |
-| Read Post | - (записей нет) | 2513, 1447 |
+| Bash Pre | 2025, 348 | 5409, 1917 |
+| Bash Post | 1958, 233 | 5009, 1458 |
+| Edit Pre | 218, 211 | 3505, 909 |
+| Edit Post | 218, 220 | 3501, 1067 |
+| Read Pre | 22, 140 | 1100, 1480 |
+| Read Post | - (записей нет) | 2535, 1438 |
 
-Реальные длительности отдельных хуков (медиана, число записей): WSL x ITD - `completion-gate.sh` 316 (1986),
-`state-guard.sh` Pre 324 (1989), `completion-signals.sh` 229 (1923), `pii-egress-guard.sh` 586 (43); Windows x
-buying - `completion-gate.sh` 1786 (5415), `state-guard.sh` Pre 1818 (5424), `completion-signals.sh` 1199 (4410),
-`posttooluse.mjs` 1418 (5005), а хуки, которые пишут вывод редко, - около 9 с: `careful.sh` 9356 (755),
-`pii-egress-guard.sh` на Bash 8707 (998), `check-dod-before-commit.sh` 9550 (793). В окне Windows есть и записи
+Реальные длительности отдельных хуков (медиана, число записей): WSL x ITD - `completion-gate.sh` 315 (2021),
+`state-guard.sh` Pre 323 (2024), `completion-signals.sh` 228 (1958), `pii-egress-guard.sh` 586 (43); Windows x
+buying - `completion-gate.sh` 1786 (5421), `state-guard.sh` Pre 1818 (5430), `completion-signals.sh` 1199 (4414),
+`posttooluse.mjs` 1416 (5009), а хуки, которые пишут вывод редко, - около 9 с: `careful.sh` 9356 (755),
+`pii-egress-guard.sh` на Bash 8695 (999), `check-dod-before-commit.sh` 9550 (793). В окне Windows есть и записи
 хуков, снятых ADR-012 (`execution-trace.sh`, `check-tool-skill.sh`, `check-review-before-commit.sh`): окно по mtime
 захватывает сессии, начатые до их снятия или в worktree со старыми регистрациями. Реальный вызов Bash на Windows x
 buying платит хукам около 3.4 с и больше (сумма медиан нижних границ: 1.9 Pre + 1.5 Post), стенд - 1.8 с. Причина разницы не измерялась (кандидаты: работа хоста вокруг хуков, конкуренция с ним за
@@ -122,19 +125,19 @@ targets cannot be derived») на команде `ls -d ... ; echo "$(git rev-pa
 служебный ввод (уведомление о задаче, прерывание), в который хук что-то добавил; записи UserPromptSubmit одного
 ввода суммируются. Сессия - каждый просмотренный основной транскрипт, в том числе без внедренного текста; медиана по
 событию берется по всем сессиям, с 0 там, где событие ничего не добавило. `transcript_stats.py`, то же окно, прогон
-2026-10-22 08:24Z (`transcripts-*-a7.json`). Окно включает живую сессию замера и новые сессии buying, поэтому повтор
+2026-10-22 09:10Z (`transcripts-*-a8.json`). Окно включает живую сессию замера и новые сессии buying, поэтому повтор
 дает близкие, а не равные числа:
 
 | | WSL x ITD | Windows x buying |
 |---|---|---|
-| UserPromptSubmit на событие, медиана (макс) | 397 Б (10728), 231 событие | 403 Б (38202), 1200 событий |
-| На сессию, медиана, всего | 59865 Б (5 сессий) | 26809 Б (101 сессия) |
-| На сессию по событиям, медианы: SessionStart / UserPromptSubmit / PreToolUse / PostToolUse | 8859 / 24806 / 11788 / 16526 | 4631 / 6613 / 4066 / 1832 |
+| UserPromptSubmit на событие, медиана (макс) | 397 Б (10728), 232 события | 403 Б (38202), 1214 событий |
+| На сессию, медиана, всего | 62527 Б (5 сессий) | 26625 Б (102 сессии) |
+| На сессию по событиям, медианы: SessionStart / UserPromptSubmit / PreToolUse / PostToolUse | 8859 / 25329 / 11788 / 18665 | 4631 / 6676 / 4044 / 1832 |
 
 ## 5. Время session-save
 
 От сообщения ассистента с вызовом Skill `session-save` до последнего сообщения ассистента перед следующим
-вводом с текстом (`transcript_stats.py`, прогон 08:24Z): WSL x ITD - 2 прогона, 62 и 67 с (медиана 64); Windows x
+вводом с текстом (`transcript_stats.py`, прогон 09:10Z): WSL x ITD - 2 прогона, 62 и 67 с (медиана 64); Windows x
 buying - 91 прогон, медиана 154 с (2026-10-21: 63 прогона, медиана 155). Края метода: минимум 0 - вызов был последним
 сообщением хода; максимум 34413 с - после session-save ход продолжал другую работу без нового промпта, поэтому
 сравнивается медиана, а не максимум.

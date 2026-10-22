@@ -104,6 +104,20 @@ class TranscriptStatsTest(unittest.TestCase):
         self.assertEqual(stats["context"]["perPromptBytesMedian"], 0)
         self.assertEqual(stats["context"]["perSessionBytesMedian"], 3)  # median of [6, 0]
 
+    def test_meta_counts_modes_models_and_versions(self) -> None:
+        def rec(**fields) -> str:
+            return line(timestamp="2026-10-21T10:00:00Z", **fields)
+        stats = self.run_stats([rec(type="user", uuid="u", permissionMode="bypassPermissions", version="2.1.1",
+                                    message={"content": "hi"}),
+                                rec(type="assistant", version="2.1.2", message={"model": "m-a", "content": []}),
+                                rec(type="assistant", version="2.1.2", message={"model": "m-b", "content": []}),
+                                rec(type="user", uuid="v", permissionMode="default", message={"content": "x"})])
+        meta = stats["meta"]
+        self.assertEqual(meta["permissionModes"], {"bypassPermissions": 1, "default": 1})
+        self.assertEqual(meta["models"], {"m-a": 1, "m-b": 1})
+        self.assertEqual(meta["versions"], {"2.1.2": 2, "2.1.1": 1})
+        self.assertEqual(meta["newestTranscriptVersion"], "2.1.2")
+
 
 class HookBenchTest(unittest.TestCase):
     def test_matcher_semantics(self) -> None:
@@ -114,6 +128,16 @@ class HookBenchTest(unittest.TestCase):
         self.assertFalse(hook_bench.matches("Edit", "MultiEdit"))
         self.assertFalse(hook_bench.matches("Write|Edit", "Read"))
         self.assertTrue(hook_bench.matches("mcp__", "mcp__") and not hook_bench.matches("mcp__", "Bash"))
+
+    def test_command_labels_name_the_script_and_stay_unique(self) -> None:
+        self.assertEqual(hook_bench.command_label('"C:/P/python.exe" -X utf8 "C:/Users/u/.claude/hooks/careful.sh"'),
+                         "careful.sh")
+        self.assertEqual(hook_bench.command_label('node "/p/hooks/pretooluse.mjs" --flag x'), "pretooluse.mjs")
+        self.assertEqual(hook_bench.command_label("cat > /dev/null; exit 3"), "cat > /dev/null; exit 3")
+        self.assertEqual(hook_bench.command_labels([("Pre", "user", "~/.claude/hooks/a.sh"),
+                                                    ("Pre", "user", "/other/a.sh --x"),
+                                                    ("Post", "user", "~/.claude/hooks/a.sh")]),
+                         ["Pre:user:a.sh", "Pre:user:a.sh#2", "Post:user:a.sh"])
 
     def test_sources_and_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -193,7 +217,7 @@ class HookBenchTest(unittest.TestCase):
             done = subprocess.run(argv + ["--runs", "1"], capture_output=True, text=True)
             self.assertEqual(done.returncode, 1)
             bash = next(json.loads(x) for x in done.stdout.splitlines() if '"tool": "Bash"' in x)
-            self.assertEqual(bash["nonzeroExits"], {"Pre:user:3": 2})  # warm-up + 1 measured call
+            self.assertEqual(bash["nonzeroExits"], {"Pre:user:cat > /dev/null; exit 3": 2})  # warm-up + 1 call
             for bad in ("0", "-1"):
                 self.assertEqual(subprocess.run(argv + ["--runs", bad], capture_output=True).returncode, 2)
 

@@ -141,6 +141,29 @@ def phase(bash: str, cmds, event: str, tool: str, project: Path, base_env: dict,
     return time.perf_counter() - start, [r[0] for r in results], [r[1] for r in results]
 
 
+SCRIPT_SUFFIXES = (".sh", ".py", ".mjs", ".js", ".cjs", ".ps1", ".cmd", ".bat")
+
+
+def command_label(command: str) -> str:
+    """The hook script a command runs (its last token naming a script file), else the command text itself."""
+    for token in reversed(command.split()):
+        name = token.strip("\"'").replace("\\", "/").rsplit("/", 1)[-1]
+        if name.lower().endswith(SCRIPT_SUFFIXES):
+            return name
+    return " ".join(command.split())[:80]
+
+
+def command_labels(rows: list[tuple[str, str, str]]) -> list[str]:
+    """`<event>:<source>:<script>` per command, made unique (`#2`, `#3`) so no timing overwrites another."""
+    seen: collections.Counter = collections.Counter()
+    labels = []
+    for event, source, command in rows:
+        base = f"{event}:{source}:{command_label(command)}"
+        seen[base] += 1
+        labels.append(base if seen[base] == 1 else f"{base}#{seen[base]}")
+    return labels
+
+
 def positive(text: str) -> int:
     value = int(text)
     if value < 1:
@@ -169,8 +192,8 @@ def main() -> int:
     failed = False
     for tool in TOOLS:
         pre, post = commands(sources, "PreToolUse", tool), commands(sources, "PostToolUse", tool)
-        names = [f"{event}:{label}:{Path(command.split()[-1].strip(chr(34))).name}"
-                 for event, group in (("Pre", pre), ("Post", post)) for label, command, _ in group]
+        names = command_labels([(event, label, command)
+                                for event, group in (("Pre", pre), ("Post", post)) for label, command, _ in group])
         nonzero: collections.Counter = collections.Counter()
         _, _, ca = phase(args.bash, pre, "PreToolUse", tool, project, base_env, args.transcript)  # warm-up
         _, _, cb = phase(args.bash, post, "PostToolUse", tool, project, base_env, args.transcript)

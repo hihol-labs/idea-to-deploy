@@ -92,7 +92,9 @@ The numbers, each with the command that produced it, are in
 7. **Closure convention.** A release or ledger close whose candidate tree did not change after its accepted review is
    closed by a machine delta check plus the owner's signature under ADR-007, without a new model round
    (`docs/RELEASE_RUNBOOK.md`, "Конвенция закрытия"). By rule 4.7 it applies from the first close after this record
-   is merged; its first planned use is session 11.
+   is merged. A close here is a separate accounting close of an already published candidate; the completion
+   records of sessions 2-10 ride inside the next program PR (rule 4.5) and are reviewed with it, so the convention
+   does not govern them. Its first planned use is the release close of session 11.
 8. **Measurement.** The baseline is taken in session 2, repeated "after" in sessions 3 and 6 for their acceptance
    and in full in session 13 against plan section 2. Time is measured from transcript and hook timestamps, not from
    the agent's own estimate. Quality conditions hold throughout: hard-gate tests green, egress and secrets protected,

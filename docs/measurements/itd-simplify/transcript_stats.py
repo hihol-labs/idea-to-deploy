@@ -14,6 +14,8 @@ one JSON object:
   hook, but the grouping does not rely on that); every prompt of a person is an event, with 0 bytes when no hook
   added text to it (task notifications, interrupts and local-command records count only when a hook added text),
   and every scanned main transcript is a session, also one without injected text;
+- meta: counts of the `permissionMode` field, of assistant `message.model` and of the host `version` over all
+  records, and the version in the last record of the most recently modified transcript;
 - sessionSave: wall time of each `/session-save` run, from the assistant message that invoked the Skill to the
   last assistant message before the next real user prompt.
 
@@ -94,6 +96,7 @@ def scan(path: Path, acc: dict) -> None:
     session_bytes = collections.Counter()
     skill_starts: list[datetime] = []
     timeline: list[tuple[datetime, str]] = []
+    latest = None
     for line in path.open(encoding="utf-8", errors="replace"):
         try:
             record = json.loads(line)
@@ -101,6 +104,13 @@ def scan(path: Path, acc: dict) -> None:
             continue
         if isinstance(record.get("uuid"), str):
             parents[record["uuid"]] = ("attachment" in record, record.get("parentUuid"))
+        if isinstance(record.get("permissionMode"), str):
+            acc["permissionModes"][record["permissionMode"]] += 1
+        if isinstance(record.get("version"), str):
+            acc["versions"][record["version"]] += 1
+            latest = record["version"]
+        if record.get("type") == "assistant" and isinstance((record.get("message") or {}).get("model"), str):
+            acc["models"][record["message"]["model"]] += 1
         stamp = record.get("timestamp")
         when = ts(stamp) if isinstance(stamp, str) else None
         if record.get("type") == "assistant" and when:
@@ -136,6 +146,8 @@ def scan(path: Path, acc: dict) -> None:
         for hook in hooks:
             command = str(hook.get("command", "")).strip('"').replace("\\", "/")
             acc["perCommand"][(tool, event, command.split("/")[-1].strip('"'))].append(hook["durationMs"])
+    if latest is not None:
+        acc["latestVersions"].append((path.stat().st_mtime, latest))
     # every scanned main transcript is a session, also one into which no hook injected anything
     acc["sessions"] += 1
     acc["sessionBytes"].append(sum(session_bytes.values()))
@@ -161,7 +173,8 @@ def main() -> int:
     since = datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc).timestamp()
     acc = {"files": 0, "sessions": 0, "phaseLowerBound": collections.defaultdict(list),
            "perCommand": collections.defaultdict(list), "promptBytes": [], "sessionBytes": [],
-           "sessionByEvent": [], "sessionSave": []}
+           "sessionByEvent": [], "sessionSave": [], "permissionModes": collections.Counter(),
+           "models": collections.Counter(), "versions": collections.Counter(), "latestVersions": []}
     for directory in args.dirs:
         for path in sorted(directory.expanduser().glob("*.jsonl")):
             if path.stat().st_mtime >= since:
@@ -181,6 +194,9 @@ def main() -> int:
                     "perPromptBytesMax": max(acc["promptBytes"], default=None),
                     "perSessionBytesMedian": median(acc["sessionBytes"]),
                     "perSessionBytesByEventMedian": {e: median(v) for e, v in sorted(by_event.items())}},
+        "meta": {"permissionModes": dict(acc["permissionModes"].most_common()),
+                 "models": dict(acc["models"].most_common()), "versions": dict(acc["versions"].most_common()),
+                 "newestTranscriptVersion": max(acc["latestVersions"])[1] if acc["latestVersions"] else None},
         "sessionSave": {"runs": len(acc["sessionSave"]), "secondsMedian": median(acc["sessionSave"]),
                         "secondsMin": min(acc["sessionSave"], default=None),
                         "secondsMax": max(acc["sessionSave"], default=None)},
