@@ -11,7 +11,9 @@ one JSON object:
   same text inside hook stdout is not counted twice) per UserPromptSubmit event and per session. One event is the
   user input it follows (a prompt or a notification): every UserPromptSubmit record whose parent chain of attachment
   records leads to the same non-attachment record is summed into it (the host writes one record with one string per
-  hook, but the grouping does not rely on that);
+  hook, but the grouping does not rely on that); every prompt of a person is an event, with 0 bytes when no hook
+  added text to it (task notifications, interrupts and local-command records count only when a hook added text),
+  and every scanned main transcript is a session, also one without injected text;
 - sessionSave: wall time of each `/session-save` run, from the assistant message that invoked the Skill to the
   last assistant message before the next real user prompt.
 
@@ -58,6 +60,22 @@ def anchor(parents: dict, uuid: str | None) -> str | None:
     return uuid
 
 
+# User records with text that the host or the harness generates, not a person: they end a session-save run but
+# are not 0-byte prompt events of their own (a UserPromptSubmit record on one still counts with its bytes).
+MACHINE_PREFIXES = ("<task-notification>", "[Request interrupted", "<local-command", "<system-reminder>", "Caveat:")
+
+
+def text_of(record: dict) -> str:
+    content = (record.get("message") or {}).get("content")
+    if isinstance(content, str):
+        return content
+    return " ".join(b.get("text", "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text")
+
+
+def human_prompt(record: dict) -> bool:
+    return real_prompt(record) and not text_of(record).lstrip().startswith(MACHINE_PREFIXES)
+
+
 def real_prompt(record: dict) -> bool:
     if record.get("type") != "user" or record.get("isMeta") or record.get("isSidechain"):
         return False
@@ -93,8 +111,11 @@ def scan(path: Path, acc: dict) -> None:
                     skill = (block.get("input") or {}).get("skill", "") if block.get("name") == "Skill" else ""
                     if skill.split(":")[-1] == "session-save":
                         skill_starts.append(when)
-        elif real_prompt(record) and when:
-            timeline.append((when, "prompt"))
+        elif real_prompt(record):
+            if when:
+                timeline.append((when, "prompt"))
+            if isinstance(record.get("uuid"), str) and human_prompt(record):
+                per_prompt[record["uuid"]] += 0  # a prompt no hook added text to is a 0-byte event, not a gap
         attachment = record.get("attachment")
         if not isinstance(attachment, dict) or not str(attachment.get("type", "")).startswith("hook_"):
             continue
@@ -115,10 +136,10 @@ def scan(path: Path, acc: dict) -> None:
         for hook in hooks:
             command = str(hook.get("command", "")).strip('"').replace("\\", "/")
             acc["perCommand"][(tool, event, command.split("/")[-1].strip('"'))].append(hook["durationMs"])
-    if per_prompt or session_bytes:
-        acc["sessions"] += 1
-        acc["sessionBytes"].append(sum(session_bytes.values()))
-        acc["sessionByEvent"].append(dict(session_bytes))
+    # every scanned main transcript is a session, also one into which no hook injected anything
+    acc["sessions"] += 1
+    acc["sessionBytes"].append(sum(session_bytes.values()))
+    acc["sessionByEvent"].append(dict(session_bytes))
     acc["promptBytes"].extend(per_prompt.values())
     timeline.sort()
     for start in skill_starts:

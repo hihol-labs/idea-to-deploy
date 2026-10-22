@@ -90,6 +90,20 @@ class TranscriptStatsTest(unittest.TestCase):
         self.assertEqual(by_event["UserPromptSubmit"], 3)
         self.assertEqual(by_event["PreToolUse"], 0)
 
+    def test_prompts_and_sessions_without_context_count_as_zero(self) -> None:
+        prompt = line(type="user", uuid="p1", timestamp="2026-10-21T10:00:00Z", message={"content": "one"})
+        bare = line(type="user", uuid="p2", timestamp="2026-10-21T10:05:00Z", message={"content": "two"})
+        ups = line(type="attachment", uuid="a1", parentUuid="p1",
+                   attachment={"type": "hook_additional_context", "hookEvent": "UserPromptSubmit", "content": ["abcdef"]})
+        silent = line(type="user", uuid="q1", timestamp="2026-10-21T11:00:00Z", message={"content": "quiet"})
+        note = line(type="user", uuid="n1", timestamp="2026-10-21T11:01:00Z",
+                    message={"content": "<task-notification>done</task-notification>"})  # not a person's prompt
+        stats = self.run_stats([prompt, ups, bare], [silent, note])
+        self.assertEqual(stats["sessions"], 2)  # the silent transcript is a session too
+        self.assertEqual(stats["context"]["prompts"], 3)  # p1 (6 bytes), p2 and q1 (0 bytes)
+        self.assertEqual(stats["context"]["perPromptBytesMedian"], 0)
+        self.assertEqual(stats["context"]["perSessionBytesMedian"], 3)  # median of [6, 0]
+
 
 class HookBenchTest(unittest.TestCase):
     def test_matcher_semantics(self) -> None:

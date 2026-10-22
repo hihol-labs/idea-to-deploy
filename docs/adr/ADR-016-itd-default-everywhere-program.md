@@ -82,10 +82,13 @@ The numbers, each with the command that produced it, are in
 5. **GATE-OPTIN-1 is kept.** `hihol-labs/idea-to-deploy` stays registered in the pre-push gate and its critical paths
    keep the strict route; product repositories keep pushing through the opt-in gate as decided on 2026-10-16. The
    program does not migrate the ITD repository itself to the minimal path.
-6. **Stop rule.** If a session gives no measurable gain against the baseline for its own acceptance in the plan, or
-   breaks a gate (a hard-gate test goes red, a false "done", an egress or secret leak, invoices behaves differently
-   than before), the program stops at that session: its candidate is not merged (or a merged one is reverted), the
-   next session does not start, and the owner decides in `.itd/DECISIONS.md` whether and how to continue.
+6. **Stop rule.** The program stops at a session that misses its own acceptance in the plan: for a session whose
+   acceptance sets an improvement target (3-10, 12, and 14-15 when they run), no measurable gain against the
+   baseline on that target; for the record, measurement and release sessions (2, 11, 13), an unmet acceptance item
+   (session 2: ADR and convention accepted by one review, every baseline number with its command). It also stops at
+   any session that breaks a gate - a hard-gate test goes red, a false "done", an egress or secret leak, invoices
+   behaves differently than before. Then the candidate is not merged (or a merged one is reverted), the next
+   session does not start, and the owner decides in `.itd/DECISIONS.md` whether and how to continue.
 7. **Closure convention.** A release or ledger close whose candidate tree did not change after its accepted review is
    closed by a machine delta check plus the owner's signature under ADR-007, without a new model round
    (`docs/RELEASE_RUNBOOK.md`, "Конвенция закрытия"). By rule 4.7 it applies from the first close after this record
