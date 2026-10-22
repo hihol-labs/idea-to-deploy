@@ -154,6 +154,18 @@ check("codex: same minimal route, strict triggers and mandatory rules",
                             "Секреты", "прогон набора перед коммитом", "adjudication")))
 check("codex: project rules take precedence except over the always-mandatory section",
       NON_OVERRIDABLE in flat(codex.split("\n## ", 1)[0]))
+
+
+def skill_syntax_aside(text: str) -> str:
+    """Claude names a skill `/x`, Codex says "скилл `x`": compare the rules, not the call syntax."""
+    return text.replace("скилл `", "`").replace("`/", "`")
+
+
+check("codex: always-mandatory section is the Claude block's (skill call syntax aside)",
+      skill_syntax_aside(section(codex, "Всегда обязательно")) == skill_syntax_aside(always_flat),
+      "every always-mandatory rule must read the same for Codex and Claude")
+check("codex: harness invariant section is the Claude block's",
+      section(codex, "Harness-native features") == section(block, "Harness-native features") != "")
 codex_always = section(codex, "Всегда обязательно")
 check("codex: same memory rule - session-save, explicit close, decisions, handoff",
       all(t in codex_always for t in ("`session-save`", "`session-save --close`", "`.itd/DECISIONS.md`",

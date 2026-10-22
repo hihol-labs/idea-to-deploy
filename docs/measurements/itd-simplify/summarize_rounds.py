@@ -7,7 +7,8 @@ medians, the per-round chain medians and the median of the per-round Pre and Pos
 (Pre, Post, total) that differs between rounds is marked VARIES. Listed under the table, with exit status 1 (such a
 phase is not a measurement): a combination without any round, combinations with different round counts, a round
 file without exactly one record of each tool, nonzero hook exits and unparsable lines - so an empty directory or a
-misspelled phase never passes as a summary.
+misspelled phase never passes as a summary. The run log meta-<phase>.txt of run_rounds.sh must exist and must record
+`<combo> r<N> exit=0` for every round file, no nonzero step exit and no load_timeout.
 
 Usage: python3 summarize_rounds.py <raw dir> <phase> [more phases ...]
 """
@@ -15,6 +16,7 @@ from __future__ import annotations
 
 import collections
 import json
+import re
 import statistics
 import sys
 from pathlib import Path
@@ -29,12 +31,24 @@ def summary(raw: Path, phase: str) -> tuple[list[str], list[str]]:
              "| pre / post median of runs |",
              "|---|---|---|---|---|---|"]
     problems: list[str] = []
+    meta_path = raw / f"meta-{phase}.txt"
+    meta = meta_path.read_text(encoding="utf-8").splitlines() if meta_path.is_file() else []
+    if not meta_path.is_file():
+        problems.append(f"no run log {meta_path.name}")
+    for entry in meta:
+        failed_step = re.search(r"\bexit=(\d+)", entry)
+        if "load_timeout" in entry or (failed_step and failed_step.group(1) != "0"):
+            problems.append(f"{meta_path.name}: {entry}")
     rounds: dict[str, int] = {}
     for combo in COMBOS:
         files = sorted(raw.glob(f"bench-{phase}-{combo}-r*.jsonl"))
         rounds[combo] = len(files)
         if not files:
             problems.append(f"{combo}: no round bench-{phase}-{combo}-r*.jsonl")
+        for path in files:
+            index = path.name[len(f"bench-{phase}-{combo}-"):-len(".jsonl")]
+            if meta_path.is_file() and not any(entry.startswith(f"{combo} {index} exit=0 ") for entry in meta):
+                problems.append(f"{combo}: {path.name} has no '{combo} {index} exit=0' in {meta_path.name}")
         rows: dict[str, list[dict]] = {}
         for path in files:
             per_round: collections.Counter = collections.Counter()

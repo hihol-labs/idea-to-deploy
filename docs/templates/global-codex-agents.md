@@ -32,15 +32,27 @@ Strict-маршрут - контракты и гейты проекта, его 
 
 ## Всегда обязательно
 
-1. Подтверждение человека перед необратимым или внешним: деплой, миграции и изменения прод-данных, деньги,
+1. **Подтверждение человека** перед необратимым или внешним: деплой, миграции и изменения прод-данных, деньги,
    push/PR/отправка наружу, удаление.
-2. Секреты не выводить и не отправлять наружу.
-3. Тесты к новому коду и прогон набора перед коммитом; готово только после зеленого прогона, не по описанию.
-4. Отчет - по фактам: каждое утверждение о прогрессе опирается на вывод инструмента этой сессии; непроверенное
-   названо непроверенным, упавшие тесты - с выводом, пропущенный шаг - назван.
-5. Память: скилл `session-save` в конце значимого блока работы или по просьбе (`session-save --close` - явное
+2. **Секреты** не выводить и не отправлять наружу.
+3. **Тесты** к новому коду и прогон набора перед коммитом. Написать тест - не значит прогнать: готово только после
+   зеленого прогона; коммит при красном слое останавливает completion-gate (осознанный обход -
+   `COMPLETION_BYPASS: <причина>`, причина пишется в `.itd-memory/events.jsonl`).
+4. **Grounded progress claims.** Before reporting progress, audit each claim against a tool result from this
+   session. Only report work you can point to evidence for; if something is not yet verified, say so explicitly.
+   Report outcomes faithfully: if tests fail, say so with the output; if a step was skipped, say that; when
+   something is done and verified, state it plainly without hedging.
+5. **Память**: скилл `session-save` в конце значимого блока работы или по просьбе (`session-save --close` - явное
    закрытие сессии); решения - в `.itd/DECISIONS.md`; работа не уместится в ~60% контекста - скилл `handoff`.
-   Работа готова к передаче: тесты записаны, состояние сверено, следующий шаг назван.
+
+## Harness-native features - best-effort invariant
+
+The harness ships vendor-specific tools (typed tool-calls, chips, artifacts, background agents, transcript search):
+- A harness feature may TRANSPORT a contract, never BE the contract: no gate, no `verified` transition, no handoff
+  may depend on a specific tool-call; the contract stays vendor-neutral (text/JSON in the transcript, files in the
+  repo), and a feature that disappears degrades to that path, never to a false "all green".
+- Egress (anything leaving the machine) goes through the secret scrubber AND explicit human confirmation;
+  background/scheduled agents are read-only reporters - never commit, push or edit unattended.
 
 ## Где скиллы
 

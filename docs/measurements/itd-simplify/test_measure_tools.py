@@ -268,10 +268,15 @@ class DigestAndProbeTest(unittest.TestCase):
                         preWallMs={"median": pre}, postWallMs={"median": post}, chainWallMs={"median": chain},
                         nonzeroExits=exits or {})
 
+        def log(tmp: str, phase: str, entry: str) -> None:
+            with Path(tmp, f"meta-{phase}.txt").open("a", encoding="utf-8") as meta:
+                meta.write(entry + "\n")
+
         def write_round(tmp: str, phase: str, combo: str, index: int, chain: int, pre: int, post: int,
                         tools=summarize_rounds.TOOLS, split=(9, 3)) -> None:
             Path(tmp, f"bench-{phase}-{combo}-r{index}.jsonl").write_text(
                 line(home="h") + "".join(record(tool, split, chain, pre, post) for tool in tools))
+            log(tmp, phase, f"{combo} r{index} exit=0 load_after=1.0")
 
         script = [sys.executable, "-I", "-B", str(HERE / "summarize_rounds.py")]
         with tempfile.TemporaryDirectory() as tmp:
@@ -309,6 +314,29 @@ class DigestAndProbeTest(unittest.TestCase):
             self.assertIn("win-itd: bench-after-win-itd-r2.jsonl: 2 Read records, expected 1", problems)
             self.assertIn("win-itd: bench-after-win-itd-r3.jsonl: 0 Read records, expected 1", problems)
             self.assertEqual(subprocess.run([*script, tmp], capture_output=True).returncode, 2)
+
+    def test_rounds_summary_requires_a_clean_run_log(self) -> None:
+        one = line(home="h") + "".join(
+            line(tool=tool, processes={"pre": 9, "post": 3, "total": 12}, preWallMs={"median": 1},
+                 postWallMs={"median": 1}, chainWallMs={"median": 2}, nonzeroExits={})
+            for tool in summarize_rounds.TOOLS)
+        clean = [f"{combo} r1 exit=0 load_after=1.0" for combo in summarize_rounds.COMBOS]
+        cases = {
+            "clean log": (clean, 0),
+            "no run log": (None, 1),
+            "a failed bench step": ([*clean[:3], "win-itd r1 exit=1 load_after=1.0"], 2),
+            "a failed transcript step": ([*clean, "transcripts-wsl-itd exit=2"], 1),
+            "a skipped round under load": ([*clean, "wsl-itd r2 load_timeout load=4.2 at t"], 1),
+            "a round file without its exit record": (clean[:3], 1),
+        }
+        for label, (meta, expected) in cases.items():
+            with self.subTest(label), tempfile.TemporaryDirectory() as tmp:
+                for combo in summarize_rounds.COMBOS:
+                    Path(tmp, f"bench-after-{combo}-r1.jsonl").write_text(one)
+                if meta is not None:
+                    Path(tmp, "meta-after.txt").write_text("".join(entry + "\n" for entry in meta))
+                problems = summarize_rounds.summary(Path(tmp), "after")[1]
+                self.assertEqual(len(problems), expected, problems)
 
     def test_probe_helpers(self) -> None:
         if os.name != "nt":
