@@ -116,6 +116,10 @@ def section(text: str, heading: str) -> str:
     return flat(found.group(1)) if found else ""
 
 
+NON_OVERRIDABLE = 'кроме раздела "Всегда обязательно": его проект может только ужесточить, но не ослабить и не отменить'
+intro = flat(block.split("\n## ", 1)[0])
+check("global: project rules take precedence except over the always-mandatory section",
+      "имеют приоритет над этим блоком" in intro and NON_OVERRIDABLE in intro)
 minimal = section(block, "Штатный режим")
 check("global: minimal route is the normal mode",
       "прогони набор тестов" in minimal and "по прямой просьбе" in minimal
@@ -148,6 +152,8 @@ check("codex: same minimal route, strict triggers and mandatory rules",
                             "strict-проект", "data-sensitive", "денег", "доступа", "деплоя",
                             "внешних действий", "не понижается", "Подтверждение человека", "push/PR",
                             "Секреты", "прогон набора перед коммитом", "adjudication")))
+check("codex: project rules take precedence except over the always-mandatory section",
+      NON_OVERRIDABLE in flat(codex.split("\n## ", 1)[0]))
 codex_always = section(codex, "Всегда обязательно")
 check("codex: same memory rule - session-save, explicit close, decisions, handoff",
       all(t in codex_always for t in ("`session-save`", "`session-save --close`", "`.itd/DECISIONS.md`",

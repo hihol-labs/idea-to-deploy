@@ -299,7 +299,15 @@ class DigestAndProbeTest(unittest.TestCase):
             self.assertTrue(any("nonzeroExits" in p for p in problems))
             self.assertTrue(any("not json" in p for p in problems))
             write_round(tmp, "after", "win-itd", 4, 600, 300, 300, tools=("Bash", "Edit"))
-            self.assertIn("win-itd: Read has 3 records in 4 rounds", summarize_rounds.summary(Path(tmp), "after")[1])
+            self.assertIn("win-itd: bench-after-win-itd-r4.jsonl: 0 Read records, expected 1",
+                          summarize_rounds.summary(Path(tmp), "after")[1])
+            # a duplicate in one round and a gap in another do not cancel out
+            Path(tmp, "bench-after-win-itd-r4.jsonl").unlink()
+            write_round(tmp, "after", "win-itd", 2, 500, 300, 200, tools=("Bash", "Edit", "Read", "Read"))
+            write_round(tmp, "after", "win-itd", 3, 700, 450, 250, tools=("Bash", "Edit"))
+            problems = summarize_rounds.summary(Path(tmp), "after")[1]
+            self.assertIn("win-itd: bench-after-win-itd-r2.jsonl: 2 Read records, expected 1", problems)
+            self.assertIn("win-itd: bench-after-win-itd-r3.jsonl: 0 Read records, expected 1", problems)
             self.assertEqual(subprocess.run([*script, tmp], capture_output=True).returncode, 2)
 
     def test_probe_helpers(self) -> None:

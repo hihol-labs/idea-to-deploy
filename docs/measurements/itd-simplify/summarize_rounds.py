@@ -5,14 +5,15 @@ Reads the `hook_bench.py` outputs `bench-<phase>-<combo>-r<N>.jsonl` that `run_r
 phase, one Markdown table: per combination and tool the hook processes (Pre+Post), the median of the per-round chain
 medians, the per-round chain medians and the median of the per-round Pre and Post medians. A process split
 (Pre, Post, total) that differs between rounds is marked VARIES. Listed under the table, with exit status 1 (such a
-phase is not a measurement): a combination without any round, combinations with different round counts, a tool
-without exactly one record per round, nonzero hook exits and unparsable lines - so an empty directory or a
+phase is not a measurement): a combination without any round, combinations with different round counts, a round
+file without exactly one record of each tool, nonzero hook exits and unparsable lines - so an empty directory or a
 misspelled phase never passes as a summary.
 
 Usage: python3 summarize_rounds.py <raw dir> <phase> [more phases ...]
 """
 from __future__ import annotations
 
+import collections
 import json
 import statistics
 import sys
@@ -36,6 +37,7 @@ def summary(raw: Path, phase: str) -> tuple[list[str], list[str]]:
             problems.append(f"{combo}: no round bench-{phase}-{combo}-r*.jsonl")
         rows: dict[str, list[dict]] = {}
         for path in files:
+            per_round: collections.Counter = collections.Counter()
             for text in path.read_text(encoding="utf-8").splitlines():
                 try:
                     record = json.loads(text)
@@ -44,12 +46,15 @@ def summary(raw: Path, phase: str) -> tuple[list[str], list[str]]:
                     continue
                 if "tool" in record:
                     rows.setdefault(record["tool"], []).append(record)
+                    per_round[record["tool"]] += 1
                 if record.get("nonzeroExits"):
                     problems.append(f"{combo}: {path.name}: nonzeroExits {record['nonzeroExits']}")
+            # one record per tool in EVERY round: a duplicate in one round must not hide a gap in another
+            for tool in TOOLS:
+                if per_round[tool] != 1:
+                    problems.append(f"{combo}: {path.name}: {per_round[tool]} {tool} records, expected 1")
         for tool in TOOLS:
             runs = rows.get(tool, [])
-            if files and len(runs) != len(files):
-                problems.append(f"{combo}: {tool} has {len(runs)} records in {len(files)} rounds")
             if not runs:
                 continue
             first = runs[0]["processes"]
