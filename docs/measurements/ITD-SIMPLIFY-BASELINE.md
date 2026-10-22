@@ -2,8 +2,9 @@
 
 Сессия 2 плана изменения ITD ([ADR-016](../adr/ADR-016-itd-default-everywhere-program.md)), 2026-10-21. Состояние:
 main `162c9d3` (v1.109.2), установка 1.109.2 на WSL и Windows. Повтор «после» - сессии 3 и 6 (для их приемки) и 13
-(целиком, против раздела 2 плана), теми же командами из раздела 8. Скрипты - `docs/measurements/itd-simplify/`
-(их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`, 12 проверок);
+(целиком, против раздела 2 плана), теми же командами из раздела 8; «после» сессии 3 - раздел 9. Скрипты -
+`docs/measurements/itd-simplify/` (их тесты: `python3 -I -B docs/measurements/itd-simplify/test_measure_tools.py`,
+14 проверок);
 основные числа - из перезамера 2026-10-22 07:38-07:45Z исправленными скриптами (после ревью sol a3), его сырые выводы
 лежат в git-ignored `.itd-memory/host-inputs/ITD-PLAN-S2/baseline-raw/` (`meta.txt` - нагрузка, аптайм и коды
 выхода каждого шага). Выводы первого прогона 2026-10-21 лежали во временном scratchpad сессии и не сохранились (его
@@ -212,7 +213,52 @@ python3 docs/measurements/itd-simplify/runtime_digest.py ~/.local/share/itd/runt
   "/mnt/c/Users/Дмитрий/AppData/Local/ITD/runtime/1.109.2-4a575f29644e1989"
 # 5. инвентарь проектов (Windows - нативно, см. раздел 7)
 sh skills/_shared/itd_py.sh skills/_shared/itd_projects_doctor.py ~/projects --json
+# 6. повторные раунды стенда на 4 сочетаниях и сводка (раздел 9; пути - стенд владельца на WSL и Windows)
+bash docs/measurements/itd-simplify/run_rounds.sh after 3
+python3 docs/measurements/itd-simplify/summarize_rounds.py .itd-memory/host-inputs/ITD-PLAN-S3 before after
 ```
+
+## 9. После сессии 3 (конфигурация владельца, 2026-10-22)
+
+Сессия 3 сняла на обоих хостах 7 хуков через `~/.claude/itd-disabled-hooks.txt` (cost-tracker, risk-score,
+stuck-detection, context-budget, context-aware, completion-stop, crash-recovery; пара record-agent-skill +
+check-dod-before-commit оставлена, `.itd/DECISIONS.md` 2026-10-22). Из цепочек трех инструментов ушли команды
+Post `cost-tracker.sh`, `crash-recovery.sh`, `risk-score.sh`, `stuck-detection.sh` (Bash, Edit, Read) и Pre
+`context-budget.sh`, `cost-tracker.sh` (Bash) - сравнение ключей `perCommandMedianMs` прогонов «до» и «после», одинаково
+на WSL и Windows.
+
+Чтобы разброс одного прогона (раздел 1) не решал исход, замер повторен раундами: `run_rounds.sh <фаза> 3` - три раунда
+по 10 вызовов на сочетание, сочетания чередуются внутри раунда, старт каждого - после спада нагрузки WSL ниже 1.5;
+те же вызовы, что в разделе 8. «До» - 2026-10-22 12:36-12:55Z (аптайм WSL от 22292 с), «после» - 18:40-18:49Z (от
+12588 с); все 24 прогона стенда и 4 прогона транскриптов вышли с 0, `nonzeroExits` пуст (`meta-before.txt`,
+`meta-after.txt`). Число в таблице - медиана трех медиан цепочки по раундам, в скобках - медианы раундов
+(`summarize_rounds.py .itd-memory/host-inputs/ITD-PLAN-S3 before after`, сырые выводы `bench-{before,after}-*.jsonl`
+там же, git-ignored).
+
+| Хост x проект | Инструмент | Процессов до -> после | Цепочка до, мс (раунды) | Цепочка после, мс (раунды) | Изменение |
+|---|---|---|---|---|---|
+| WSL x ITD | Bash | 18 (11+7) -> 12 (9+3) | 727 (856 / 727 / 519) | 545 (458 / 575 / 545) | -25% |
+| WSL x buying | Bash | 18 -> 12 | 846 (1067 / 846 / 648) | 550 (550 / 617 / 463) | -35% |
+| Windows x buying | Bash | 18 -> 12 | 2195 (3327 / 1447 / 2195) | 1408 (1530 / 1408 / 1246) | -36% |
+| Windows x ITD | Bash | 18 -> 12 | 1900 (6594 / 1572 / 1900) | 1403 (1364 / 1403 / 2031) | -26% |
+| WSL x ITD | Edit | 11 (5+6) -> 7 (5+2) | 422 (849 / 422 / 303) | 561 (293 / 576 / 561) | +33%, раунды пересекаются |
+| WSL x buying | Edit | 11 -> 7 | 572 (707 / 572 / 411) | 324 (350 / 324 / 295) | -43% |
+| Windows x buying | Edit | 11 -> 7 | 1134 (1423 / 831 / 1134) | 712 (712 / 851 / 701) | -37% |
+| Windows x ITD | Edit | 11 -> 7 | 1038 (2026 / 1038 / 1006) | 1116 (1116 / 1038 / 1329) | +8%, раунды пересекаются |
+| WSL x ITD | Read | 7 (2+5) -> 3 (2+1) | 395 (395 / 451 / 292) | 315 (388 / 264 / 315) | -20% |
+| WSL x buying | Read | 7 -> 3 | 432 (513 / 432 / 296) | 294 (293 / 296 / 294) | -32% |
+| Windows x buying | Read | 7 -> 3 | 865 (1123 / 645 / 865) | 506 (506 / 703 / 500) | -42% |
+| Windows x ITD | Read | 7 -> 3 | 768 (1775 / 644 / 768) | 915 (915 / 582 / 940) | +19%, раунды пересекаются |
+
+Приемка сессии 3 по плану (процессов на Bash меньше и задержка Bash ниже на обоих хостах) выполнена на всех четырех
+сочетаниях. Рост медианы Edit и Read на трех строках при меньшем числе процессов не выходит за разброс раундов (на
+Windows раунды одного сочетания расходятся в 2-4 раза), поэтому регрессом не считается и не считается выигрышем;
+снятые хуки в этих цепочках шли параллельно с оставшимися, поэтому выигрыш по задержке меньше доли снятых процессов.
+
+Транскрипты (`transcript_stats.py --since 2026-10-14`, прогоны в конце обоих замеров, `transcripts-{before,after}-*.json`):
+медиана нижней границы Bash Pre - WSL x ITD 349 -> 354 мс (6 сессий), Windows x buying 1927 -> 1871 мс (105 -> 121
+сессия). Окно почти целиком до изменения, поэтому это не мера эффекта; реальный эффект - тем же скриптом с
+`--since 2026-10-23`, когда в окне наберутся сессии.
 
 ## Ограничения
 

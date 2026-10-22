@@ -7,7 +7,7 @@ surface, а также codex / gemini) и осознанного решения 
 или недоступна.
 
 Реестр консолидирует то, что раньше было разбросано: invariant-блок
-`docs/templates/global-claude-md.md` («Harness-native features — best-effort
+`docs/templates/global-claude-md.md` («Harness-native features - best-effort
 invariant»), Fable-релизы A–D в `CHANGELOG.md` и пересечения с
 `docs/DESIGN_SPACE.md` (K-принципы). До этого фичи были *name-dropped*; здесь
 каждая — *сознательно решена с обоснованием*.

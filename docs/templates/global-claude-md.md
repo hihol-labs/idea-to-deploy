@@ -1,167 +1,58 @@
-<!-- ITD:BEGIN methodology — managed by scripts/sync-to-active.sh. Edit THIS repo file, not the deployed ~/.claude/CLAUDE.md; sync propagates the block between the ITD:BEGIN/ITD:END markers to every machine and preserves everything outside them (personal sections). -->
-# Global development methodology — idea-to-deploy (MANDATORY)
+<!-- ITD:BEGIN methodology - managed by scripts/sync-to-active.sh from docs/templates/global-claude-md.md of the idea-to-deploy repo: edit that file, not this copy. Sync replaces only the block between the ITD:BEGIN/ITD:END markers and keeps everything outside it (personal data). -->
+# idea-to-deploy - общие правила для всех проектов
 
-This machine uses the **idea-to-deploy** methodology for ALL software development,
-in **every project — new or existing** — unless the user explicitly says
-"skip the methodology" (or gives a `SKILL_BYPASS: <reason>`) for that specific task.
+idea-to-deploy (ITD) - методология по умолчанию для каждого проекта на этой машине, нового и существующего. Проектные
+`CLAUDE.md` и `AGENTS.md`, контракты `.itd/` и гейты, которые проект включил сам, имеют приоритет над этим блоком.
 
-This file is a standing user instruction. It overrides ad-hoc / improvised coding.
+## Штатный режим: минимальный маршрут
 
-## Core routing rule
+- Пойми задачу, сделай, напиши или поправь тесты, прогони набор тестов, покажи результат с цифрами.
+- План и согласование - коротко и только для большой фичи или неясной задачи.
+- Скиллы - по прямой просьбе пользователя или когда скилл явно сокращает работу. Для обычной работы не нужны строка
+  о выборе скилла, пометки об обходе, маршрут через `/task`, обязательный `/review`, раунд cross-review, цели `/goal`
+  и контракты `.itd/`.
+- WIP=1: одна задача за раз; находки вне задачи - в BACKLOG, а не в текущий дифф.
 
-Before writing or changing code, route the work through the methodology instead of
-coding from scratch:
+## Когда включается strict
 
-- **New project, or a new feature from an idea** → start with `/project` (the router)
-  or the `discover → blueprint → kickstart` pipeline. Ask clarifying questions first,
-  produce a plan, and **wait for the user's approval before building.**
-- **Existing / legacy project not yet onboarded** → run `/adopt` first to map it,
-  then proceed with the methodology.
-- **Day-to-day task on an existing project** → start with `/task` to route to the
-  right skill (bugfix, refactor, perf, test, review, deps-audit, security-audit,
-  infra, harden, migrate, deploy, …).
+Strict-маршрут - контракты и гейты проекта, его проверки и одно независимое ревью финального кандидата. Он обязателен,
+когда работа касается:
+- критичных механизмов самого ITD: хуки, trust policy, pre-push, CI, runtime установки;
+- strict-проекта: проект сам включил контракты `.itd/` и гейты (например, invoices) или объявил
+  `itd-domain: data-sensitive` (изменение сначала моделируется только на чтение, "до/после" - человеку, затем
+  подтверждение и изменение); такой проект не понижается до минимального маршрута;
+- денег, доступа (auth, секреты, права), деплоя, миграций и прод-данных, внешних действий.
 
-## Always
+## Всегда обязательно
 
-1. **Plan before code.** Show the plan and wait for approval on any non-trivial work.
-2. **Test every change.** Write/extend tests and run them after each step.
-3. **Review before commit.** Run `/review`; never commit unreviewed multi-file changes.
-4. **Document & persist.** Record decisions; run `/session-save` when wrapping up a session.
-5. **Prefer the methodology's skills/agents** over improvising your own ad-hoc process.
-6. **WIP=1.** One active task/unit at a time; start the next only after the current
-   one passes end-to-end verification. Don't "also refactor" B while implementing A —
-   out-of-scope findings go to the backlog, not into the current diff.
-7. **Grounded progress claims.** Before reporting progress, audit each claim
-   against a tool result from this session. Only report work you can point to
-   evidence for; if something is not yet verified, say so explicitly. Report
-   outcomes faithfully: if tests fail, say so with the output; if a step was
-   skipped, say that; when something is done and verified, state it plainly
-   without hedging. (Vendor-canonical snippet, Fable 5 era — v1.50.0.)
-8. **Proof-carrying acceptance.** Use `verification-loop-v1` by default:
-   machine evidence for low risk, a targeted fresh-session checker for medium,
-   and a full fresh-session different-model/provider checker for high/unknown.
-   Only an exact-candidate adjudication receipt may satisfy goal/review gates;
-   prose `PASSED` is not evidence.
+1. **Подтверждение человека** перед необратимым или внешним: деплой, миграции и изменения прод-данных, деньги,
+   push/PR/отправка наружу, удаление.
+2. **Секреты** не выводить и не отправлять наружу.
+3. **Тесты** к новому коду и прогон набора перед коммитом. Написать тест - не значит прогнать: готово только после
+   зеленого прогона; коммит при красном слое останавливает completion-gate (осознанный обход -
+   `COMPLETION_BYPASS: <причина>`, причина пишется в `.itd-memory/events.jsonl`).
+4. **Grounded progress claims.** Before reporting progress, audit each claim against a tool result from this
+   session. Only report work you can point to evidence for; if something is not yet verified, say so explicitly.
+   Report outcomes faithfully: if tests fail, say so with the output; if a step was skipped, say that; when
+   something is done and verified, state it plainly without hedging.
+5. **Память**: `/session-save` в конце значимого блока работы или по просьбе (`/session-save --close` - явное
+   закрытие сессии); решения - в `.itd/DECISIONS.md`; работа не уместится в ~60% контекста - `/handoff`.
 
-## Harness-native features — best-effort invariant (v1.50.0 · enforced-by: hooks/pii-egress-guard.sh)
+## Harness-native features - best-effort invariant
 
-The harness ships vendor-specific tools (typed tool-calls, chips, artifacts,
-background agents, transcript search). Standing rule for ALL of them:
+The harness ships vendor-specific tools (typed tool-calls, chips, artifacts, background agents, transcript search):
+- A harness feature may TRANSPORT a contract, never BE the contract: no gate, no `verified` transition, no handoff
+  may depend on a specific tool-call; the contract stays vendor-neutral (text/JSON in the transcript, files in the
+  repo), and a feature that disappears degrades to that path, never to a false "all green".
+- Egress (anything leaving the machine) goes through the secret scrubber AND explicit human confirmation;
+  background/scheduled agents are read-only reporters - never commit, push or edit unattended.
 
-- A harness feature may TRANSPORT a contract, never BE the contract:
-  no gate, no `verified` transition, no handoff may depend on a specific
-  tool-call — the contract stays vendor-neutral (text/JSON in the transcript,
-  files in the repo); a feature silently disappearing degrades to that
-  neutral path, never to a false "all green".
-- Egress (anything leaving the machine) goes through the secret scrubber AND
-  explicit human confirmation; durable-state mutation from a harness feature
-  follows the data-sensitive gate (read-only diff → approve → apply);
-  background/scheduled agents are read-only reporters — never commit, push,
-  or edit unattended.
+## Где скиллы
 
-Расширенный rationale и примеры — topic-док `docs/harness-best-effort.md`.
-
-## Определение завершения (Completion Gate, v1.51.0 · enforced-by: hooks/completion-{signals,gate,stop}.sh)
-
-Фича завершена = **сквозная верификация пройдена**, а не «код написан». Суждение
-о завершении выносит НЕ агент по своей уверенности, а независимый harness-гейт по
-объективным runtime-сигналам (`.claude/completion/signals.jsonl` → вердикт
-`completion.json`). Что агент обязан соблюдать (остальное enforce'ится кодом хуков):
-
-- **Лестница L1→L2→L3, переход только после зелёного**: L1 статика (линт/типы/
-  сборка) → L2 runtime (**тесты реально прогнаны и зелёные — иначе не done**;
-  «написать тест» ≠ «прогнать тест») → L3 системное подтверждение (e2e/smoke —
-  работать ПРАВИЛЬНО, а не просто «работать»).
-- Коммит кода при красном слое → **вето** `completion-gate`; в strict/high-risk
-  режиме отсутствие/неоднозначность runtime evidence тоже veto, а calibrated
-  low-risk no-signal деградирует в advisory.
-- Осознанный обход: `COMPLETION_BYPASS: <причина>` в description коммит-вызова;
-  причина обязательна и записывается в `.itd-memory/events.jsonl`.
-- **Явное закрытие сессии:** `/session-save --close` запускает
-  `itd_hygiene.py close` из установки; session closed только когда strict runtime
-  evidence (если применимо), verification И clean state зелёные. Красный close
-  сохраняет checkpoint, но оставляет сессию
-  открытой с WHY+FIX. Обычный Stop остаётся soft — конец хода не равен концу
-  сессии.
-
-Полная механика (классификация сигналов, красные пометки WHY+FIX, `FIX_HINTS`,
-`l2_evidence_patterns` для проектов без тестов, env-выключатели) — topic-док
-`docs/completion-gate.md` в репо методологии; читать при отладке гейта, в
-контексте не держать.
-
-## Skill decision (visible line + trigger map)
-
-On every substantive request, the FIRST line of the response declares the skill
-decision: `Скилл: /<name>` (then call it via the Skill tool before any
-Read/Edit/Bash/Write) or `Скилл: не нужен — <reason>`. Silently skipping is not
-allowed; an explicit refusal with a reason IS a valid decision (the enforcement
-hook treats it so — see `SKILL_BYPASS`).
-
-Trigger → skill (apply as a rule, not a hint):
-
-- New product/feature from an idea → `/project` (or `/discover` → `/blueprint`).
-- Advisory / consulting / "analyze, don't code" → `/advisor`.
-- Stress-test a plan/design/architecture before committing → `/grill-me`.
-- Product discovery (market, personas, competitors) → `/discover`.
-- Meeting / interview prep, drafting questions → `/advisor` (or `/grill-me`).
-- Existing-project task → `/task` (routes to bugfix/refactor/test/perf/…).
-- A goal spanning multiple sessions ("поставь/ставлю цель…") → `/goal`
-  (persistent GOAL.json unit ledger, resume from the first non-verified unit).
-- Methodology retro / "что улучшить в методологии" → `/retro`
-  (telemetry facts from the harness, evidence-gated proposals, human merge).
-- End of a working session → `/session-save` (always, before wrapping up).
-
-When several fit, pick the most specific; when none fit, say so in the decision line.
-Pure mechanics (file generation, browser ops) and tight back-and-forth wording
-iterations are legitimate `Скилл: не нужен` cases — name the reason, don't pretend.
-
-Внутри УЖЕ открытого grace-окна (Skill вызван / bypass уже дан) повторные
-`SKILL_BYPASS:`-аннотации на каждый Bash НЕ нужны — гейт и так открыт, привычные
-аннотации создают ceremonial-шум в метрике трения (v1.84.0, retro 2026-07-11 P4).
-Аннотируй только hard-gated классы (git push / migration / deploy — их
-единственный in-band escape) и вход в реально новую задачу.
-
-## Bypass
-
-The only way to skip the methodology for a task is an explicit user instruction
-("skip the methodology" / "just do it directly") or an explicit `SKILL_BYPASS: <reason>`.
-Absent that, apply the methodology — when in doubt, apply it.
-
-> Methodology source (canonical): WSL repo `idea-to-deploy`
-> (`/home/hihol/projects/idea-to-deploy`), published as plugin
-> `hihol-labs/idea-to-deploy`. 41 skills + 10 agents + 31 hooks.
-
-## Project profiles & markers (v1.35.0)
-
-A project can declare an **opt-in** profile in its own `CLAUDE.md`; unset = default
-behaviour. See `docs/project-profiles.md` in the methodology repo.
-
-- **`itd-profile: brownfield`** (or `<!-- itd:brownfield -->`) — feature/maintenance
-  on a mature existing codebase. The skill-hint hook suppresses greenfield-pipeline
-  skills (`/project`, `/blueprint`, `/discover`, `/kickstart`, `/guide`, `/strategy`,
-  `/market-scan`, `/autopilot`); `/task`, `/bugfix`, `/refactor`, `/review`, `/test`,
-  `/migrate`, … stay active. On such a project the project's own `CLAUDE.md` is the
-  real source of truth — do not force the greenfield pipeline.
-- **`itd-domain: data-sensitive`** (or `<!-- itd:data-sensitive -->`) — the project
-  mutates production / financial / irreplaceable data. **Gate:** model the change
-  read-only first, show before/after, get explicit confirmation, then mutate. Never
-  run a data-mutating op (prod write, mass re-post, destructive migration, money
-  movement) straight from an ad-hoc command.
-
-**Memory is the continuity backbone.** Checkpoint via `/session-save` on every
-meaningful state change (subphase / roadmap item done, migration applied, before a
-risky or irreversible op, after an external artifact is sent) — cheap incremental
-checkpoints, not one big end-of-session save. Durable-решения при этом дописываются
-в `.itd/DECISIONS.md` (append-only журнал «какое/почему/когда», v1.70.0), а не
-только в session-файл.
-
-**Порог контекста 60% → `/handoff` (v1.70.0).** Если задача по оценке требует
->60% контекстного окна — закладывай handoff с самого старта (durable-артефакты
-по ходу); если израсходовано ~60% окна и конец работы в этой сессии не виден —
-пиши `HANDOFF.md` немедленно, не дожидаясь авто-компакции (после неё пакет
-писать уже не из чего).
-
-**Read-only Bash does not need a skill line.** Pure inspection (ls/cat/grep/find/
-git status|log|diff) is exempt from the skill-decision gate; declare the skill only
-before a mutation or a genuine new task.
+- Плагин `hihol-labs/idea-to-deploy`: 41 skills + 10 agents + 31 hooks в `~/.claude/skills/`, `~/.claude/agents/`,
+  `~/.claude/hooks/` (Codex - тот же плагин). Частые входы: `/project` - новый проект, `/task` - выбор скилла для
+  задачи, `/bugfix`, `/test`, `/review`, `/deploy` и `/migrate` (с подтверждением), `/session-save`, `/handoff`,
+  `/goal` - цель на несколько сессий.
+- Подробности - в самих скиллах и в документах репо методологии (`docs/completion-gate.md`,
+  `docs/harness-best-effort.md`, `docs/project-profiles.md`), а не в этом блоке.
 <!-- ITD:END methodology -->

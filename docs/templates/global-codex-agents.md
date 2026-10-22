@@ -1,46 +1,49 @@
-# Idea to Deploy global router
+# idea-to-deploy - общие правила для всех проектов (Codex)
 
-Idea to Deploy is the default engineering methodology for non-trivial local
-project work in this Codex installation.
+idea-to-deploy (ITD) - методология по умолчанию для каждого проекта в этой установке Codex, нового и существующего:
+плагин `idea-to-deploy` включен, его хуки просматриваются и доверяются через `/hooks`. Проектные `AGENTS.md`,
+контракты `.itd/`, состояние `.itd-memory/` и гейты, которые проект включил сам, имеют приоритет над этими правилами.
+Тот же смысл, что у управляемого блока `~/.claude/CLAUDE.md` (`docs/templates/global-claude-md.md` в репо
+idea-to-deploy).
 
-- Use the enabled `idea-to-deploy` plugin and select the smallest applicable
-  lifecycle skill before implementation.
-- Project `AGENTS.md`, `.itd/` contracts, and `.itd-memory/` state take
-  precedence over this global router.
-- If a project is not adopted, use the plugin's `adopt` workflow: inspect
-  first, show the bounded plan, and write only after the user's authorization.
-- Preserve WIP=1 and require the evidence named by
-  `.itd/VERIFICATION_CONTRACT.json` before claiming completion.
-- For implementation or change work, use Verification Loop as the default
-  acceptance protocol: freeze the exact staged candidate, run its machine
-  oracle, and apply the risk-tier checker before accepting the result.
-- Exclude undeclared ignored/untracked overlays from the oracle. When a
-  non-Git input is necessary, declare it explicitly and bind its content hash.
-- Accept completion only from a current, revalidated adjudication receipt;
-  prose or a standalone `PASSED` verdict is not sufficient evidence.
-- Keep work handoff-ready: tests recorded, state reconciled, and the next
-  action explicit.
+## Штатный режим: минимальный маршрут
 
-Product Factory OS is legacy on this machine. Do not load or auto-adopt it
-unless the user explicitly asks for that methodology.
-
-## Решение владельца 2026-10-06: минимальный путь по умолчанию (приоритет над правилами выше)
-
-Это постоянная явная инструкция пользователя (ADR-012 в репо idea-to-deploy). Замер пользы
-(`~/projects/itd-value-exp`) не показал пользы тяжелого маршрута ITD на дефектах, которые уже были в коде: обе ветки
-поймали одинаковые дефекты, а маршрут стоил в 3-17 раз больше времени.
-
-**Обычная работа** (фича, баг, рефакторинг, тесты, документация в существующем проекте):
-- Работай напрямую: пойми задачу, сделай, напиши или поправь тесты, прогони набор тестов, покажи результат.
-- Не нужны: выбор lifecycle-скилла перед каждой правкой, маршрутизация через `task`, обязательное ревью перед
-  коммитом, раунд cross-review, цели `goal`, контракты `.itd/` и Verification Loop для обычной задачи.
-- Скиллы - по прямой просьбе пользователя или когда скилл явно сокращает работу.
+- Пойми задачу, сделай, напиши или поправь тесты, прогони набор тестов, покажи результат с цифрами.
 - План и согласование - коротко и только для большой фичи или неясной задачи.
-- Отчет - по фактам: что сделано, какие тесты прогнаны и с каким результатом.
+- Скиллы плагина - по прямой просьбе пользователя или когда скилл явно сокращает работу. Для обычной работы не нужны
+  выбор lifecycle-скилла перед каждой правкой, маршрут через `task`, обязательное ревью перед коммитом, раунд
+  cross-review, цели `goal`, контракты `.itd/` и Verification Loop.
+- WIP=1: одна задача за раз; находки вне задачи - в BACKLOG, а не в текущий дифф.
 
-**Остается обязательным:**
-- Подтверждение человека перед необратимым или внешним: деплой, миграции и изменения прод-данных, деньги,
-  push/PR/отправка наружу, удаление.
-- Секреты не выводить и не отправлять наружу.
-- Тесты к новому коду и прогон набора перед коммитом.
-- Проектные `AGENTS.md`, `.itd/` и гейты, которые проект включил сам, по-прежнему имеют приоритет.
+## Когда включается strict
+
+Strict-маршрут - контракты и гейты проекта, его проверки (`.itd/VERIFICATION_CONTRACT.json`, Verification Loop:
+замороженный кандидат, машинный оракул, проверка по риск-тиру) и одно независимое ревью финального кандидата. Он
+обязателен, когда работа касается:
+- критичных механизмов самого ITD: хуки, trust policy, pre-push, CI, runtime установки;
+- strict-проекта: проект сам включил контракты `.itd/` и гейты (например, invoices) или объявил
+  `itd-domain: data-sensitive` (изменение сначала моделируется только на чтение, "до/после" - человеку, затем
+  подтверждение и изменение); такой проект не понижается до минимального маршрута;
+- денег, доступа (auth, секреты, права), деплоя, миграций и прод-данных, внешних действий.
+
+В strict-маршруте завершение принимается только по текущей перепроверенной квитанции adjudication; проза или
+отдельный вердикт `PASSED` не доказательство. Необъявленные неотслеживаемые и игнорируемые файлы в оракул не входят;
+нужный вход вне Git объявляется явно с хешем содержимого.
+
+## Всегда обязательно
+
+1. Подтверждение человека перед необратимым или внешним: деплой, миграции и изменения прод-данных, деньги,
+   push/PR/отправка наружу, удаление.
+2. Секреты не выводить и не отправлять наружу.
+3. Тесты к новому коду и прогон набора перед коммитом; готово только после зеленого прогона, не по описанию.
+4. Отчет - по фактам: каждое утверждение о прогрессе опирается на вывод инструмента этой сессии; непроверенное
+   названо непроверенным, упавшие тесты - с выводом, пропущенный шаг - назван.
+5. Работа готова к передаче: тесты записаны, состояние сверено, следующий шаг назван.
+
+## Где скиллы
+
+Скиллы, агенты и хуки - в плагине `idea-to-deploy` (тот же набор, что у Claude Code); подробности - в самих скиллах и
+в документах репо методологии, а не здесь. Неподключенный проект подключается скиллом `adopt` только по просьбе
+пользователя: сначала осмотр и план, запись - после разрешения.
+
+Product Factory OS на этой машине - legacy: не загружать и не подключать без явной просьбы пользователя.

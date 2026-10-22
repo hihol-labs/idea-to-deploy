@@ -21,6 +21,7 @@ sys.path.insert(0, str(HERE))
 import egress_acceptance_probe as probe  # noqa: E402
 import hook_bench  # noqa: E402
 import runtime_digest  # noqa: E402
+import summarize_rounds  # noqa: E402
 
 
 def line(**record) -> str:
@@ -76,6 +77,20 @@ class TranscriptStatsTest(unittest.TestCase):
         # 10:01:00 -> 10:03:00: a tool result is not a human prompt; the run ends before 10:09:00.
         self.assertEqual(stats["sessionSave"], {"runs": 1, "secondsMedian": 120, "secondsMin": 120,
                                                 "secondsMax": 120})
+
+    def test_per_command_name_is_the_script_token(self) -> None:
+        tool = {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}
+        hooks = [("bash ~/.claude/hooks/a.sh --project /home/u/proj", 100),
+                 ('"C:/Program Files/nodejs/node.exe" "C:/p/hooks/pre.mjs" pre C:\\Users\\u\\x', 200),
+                 ("~/.claude/hooks/a.sh", 300)]
+        lines = [line(type="assistant", timestamp="2026-10-21T10:00:05Z", message={"content": [tool]})]
+        lines += [line(type="attachment", attachment={"type": "hook_success", "hookEvent": "PreToolUse",
+                                                      "toolUseID": "t1", "durationMs": ms, "command": command})
+                  for command, ms in hooks]
+        per_command = self.run_stats(lines)["perCommandMedianMs"]
+        # arguments after the script (paths above all) neither rename nor split a hook's statistics
+        self.assertEqual(per_command, {"Bash:PreToolUse:a.sh": {"n": 2, "median": 200.0},
+                                       "Bash:PreToolUse:pre.mjs": {"n": 1, "median": 200}})
 
     def test_event_median_counts_sessions_without_the_event(self) -> None:
         def ctx(uuid: str, event: str, text: str) -> str:
@@ -238,6 +253,36 @@ class DigestAndProbeTest(unittest.TestCase):
             for root in (Path(tmp, "missing"), Path(tmp, "empty"), Path(tmp, "a", "y.txt")):
                 with self.assertRaises(SystemExit):
                     runtime_digest.tree_digest(str(root))
+            script = [sys.executable, "-I", "-B", str(HERE / "runtime_digest.py")]
+            # a call without roots is a usage error, never an empty successful measurement
+            bare = subprocess.run(script, capture_output=True, text=True)
+            self.assertEqual((bare.returncode, bare.stdout), (2, ""))
+            self.assertIn("usage", bare.stderr)
+            done = subprocess.run([*script, str(Path(tmp, "a"))], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0)
+            self.assertEqual(done.stdout.split()[1:], [str(first[0]), first[1]])
+
+    def test_rounds_summary_is_the_median_of_round_medians(self) -> None:
+        def bench(total: int, chain: int, pre: int, post: int, exits: dict | None = None) -> str:
+            return line(home="h") + line(tool="Bash", processes={"pre": total - 3, "post": 3, "total": total},
+                                         preWallMs={"median": pre}, postWallMs={"median": post},
+                                         chainWallMs={"median": chain}, nonzeroExits=exits or {})
+        with tempfile.TemporaryDirectory() as tmp:
+            for index, (chain, pre, post) in enumerate(((900, 500, 400), (500, 300, 200), (700, 450, 250)), 1):
+                Path(tmp, f"bench-after-wsl-itd-r{index}.jsonl").write_text(bench(12, chain, pre, post))
+            Path(tmp, "bench-before-wsl-itd-r1.jsonl").write_text(bench(18, 1, 1, 1))  # another phase is not read
+            lines, problems = summarize_rounds.summary(Path(tmp), "after")
+            self.assertEqual(lines[3], "| wsl-itd | Bash | 12 (9+3) | 700 | 900 / 500 / 700 | 450 / 250 |")
+            self.assertEqual((len(lines), problems), (4, []))
+            # a round with another process count, a crashing hook or a broken line is flagged, and exits 1
+            Path(tmp, "bench-after-wsl-itd-r4.jsonl").write_text(bench(11, 600, 300, 300, {"Pre:user:a.sh": 1})
+                                                                 + "not json\n")
+            lines, problems = summarize_rounds.summary(Path(tmp), "after")
+            self.assertIn("VARIES [11, 12]", lines[3])
+            self.assertEqual(len(problems), 2)
+            script = [sys.executable, "-I", "-B", str(HERE / "summarize_rounds.py")]
+            self.assertEqual(subprocess.run([*script, tmp, "after"], capture_output=True).returncode, 1)
+            self.assertEqual(subprocess.run([*script, tmp], capture_output=True).returncode, 2)
 
     def test_probe_helpers(self) -> None:
         if os.name != "nt":
