@@ -71,6 +71,14 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 1199 с) оба теста падают; при аптайме 1909 с проходят. Задавать `startedNs` относительно текущего
 `monotonic_ns()` (на `maxSeconds + 1` секунду раньше), а не нулем.
 
+## P3 - флейк `tests/verify_cmp_protocol.py` при шаге часов WSL2 назад (2026-10-22, ITD-PLAN-S2)
+
+`FreezeTests.test_clock_clean_merged_source_exclusive_output` берет `before = now - 1 с` и требует
+`before <= createdAt`, где `createdAt` усечен до секунды. В полной ноге machine a8 ITD-PLAN-S2 (fdce4cd) он упал:
+`09:31:48.164736 not less than or equal to 09:31:48` - часы WSL2 шагнули назад больше чем на секунду; 5 повторов
+того же набора на том же дереве прошли. Допуск взять как у брокера ревью (`MAX_CLOCK_SKEW_SECONDS`, 60 с) или
+сравнивать с усеченным до секунды `before`; тест на шаг часов назад.
+
 ## P3 - предупреждение о параллельной сессии срабатывает на собственную сессию (2026-10-20)
 
 `session_lock_context` в `hooks/pre-flight-check.sh` смотрит только на свежесть `.itd-memory/.active-session.lock` и
