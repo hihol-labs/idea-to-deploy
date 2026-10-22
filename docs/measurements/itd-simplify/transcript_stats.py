@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 TOOLS = ("Bash", "Edit", "Read")
+CONTEXT_EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse")
 
 
 def ts(value: str) -> datetime:
@@ -145,10 +146,10 @@ def main() -> int:
             if path.stat().st_mtime >= since:
                 acc["files"] += 1
                 scan(path, acc)
-    by_event = collections.defaultdict(list)
-    for row in acc["sessionByEvent"]:
-        for event, size in row.items():
-            by_event[event].append(size)
+    # Every session counts for every event, with 0 when the event injected nothing there: the median is over
+    # sessions, not over the sessions where the event happened to inject.
+    events = sorted({event for row in acc["sessionByEvent"] for event in row} | set(CONTEXT_EVENTS))
+    by_event = {event: [row.get(event, 0) for row in acc["sessionByEvent"]] for event in events}
     print(json.dumps({
         "dirs": [str(d) for d in args.dirs], "since": args.since, "files": acc["files"], "sessions": acc["sessions"],
         "hooks": {f"{tool}:{event}": {"calls": len(v), "lowerBoundWallMsMedian": median(v)}

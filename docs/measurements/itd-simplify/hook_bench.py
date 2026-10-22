@@ -10,7 +10,8 @@ on Windows; the shell the Windows host itself uses is not checked).
 
 Per tool (Bash, Edit, Read) it does one unmeasured warm-up call and RUNS measured calls and prints one JSON line:
 the number of hook processes the host starts (Pre + Post commands), the median/min/max wall time of the Pre
-phase, the Post phase and the whole chain, and the median duration of each command.
+phase, the Post phase and the whole chain, the median duration of each command and the count of nonzero exits per
+command (warm-up included). Exit status 1 when any hook exited nonzero: its timing is then not a measurement.
 
 The payloads are inert: Bash `git status --short`, Read and Edit of README.md (no tool runs, nothing is edited).
 With --transcript the payload names a real session transcript (hooks only read it).
@@ -25,6 +26,7 @@ Usage (run natively on each host, the project as cwd):
 from __future__ import annotations
 
 import argparse
+import collections
 import concurrent.futures
 import json
 import os
@@ -121,22 +123,29 @@ def payload(event: str, tool: str, project: Path, transcript: str) -> dict:
     return data
 
 
-def run_one(bash: str, command: str, env: dict, stdin: str, project: Path) -> float:
+def run_one(bash: str, command: str, env: dict, stdin: str, project: Path) -> tuple[float, int]:
     start = time.perf_counter()
-    subprocess.run([bash, "-c", command], input=stdin.encode("utf-8"), stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL, cwd=str(project), env=env, timeout=120)
-    return time.perf_counter() - start
+    done = subprocess.run([bash, "-c", command], input=stdin.encode("utf-8"), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, cwd=str(project), env=env, timeout=120)
+    return time.perf_counter() - start, done.returncode
 
 
 def phase(bash: str, cmds, event: str, tool: str, project: Path, base_env: dict,
-          transcript: str) -> tuple[float, list[float]]:
+          transcript: str) -> tuple[float, list[float], list[int]]:
     stdin = json.dumps(payload(event, tool, project, transcript))
     start = time.perf_counter()
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(cmds))) as pool:
         futures = [pool.submit(run_one, bash, command, {**base_env, **env}, stdin, project)
                    for _, command, env in cmds]
-        durations = [f.result() for f in futures]
-    return time.perf_counter() - start, durations
+        results = [f.result() for f in futures]
+    return time.perf_counter() - start, [r[0] for r in results], [r[1] for r in results]
+
+
+def positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return value
 
 
 def ms(values: list[float]) -> dict:
@@ -148,7 +157,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--home", type=Path, required=True)
     ap.add_argument("--project", type=Path, required=True)
-    ap.add_argument("--runs", type=int, default=10)
+    ap.add_argument("--runs", type=positive, default=10)
     ap.add_argument("--bash", default="/bin/bash")
     ap.add_argument("--transcript", default="", help="a real session transcript the hooks may read (read-only)")
     args = ap.parse_args()
@@ -157,24 +166,30 @@ def main() -> int:
     sources = hook_sources(home, project)
     print(json.dumps({"home": str(home), "project": str(project), "runs": args.runs, "transcript": args.transcript,
                       "sources": [label for label, _, _ in sources]}, ensure_ascii=False))
+    failed = False
     for tool in TOOLS:
         pre, post = commands(sources, "PreToolUse", tool), commands(sources, "PostToolUse", tool)
-        phase(args.bash, pre, "PreToolUse", tool, project, base_env, args.transcript)  # warm-up, not measured
-        phase(args.bash, post, "PostToolUse", tool, project, base_env, args.transcript)
+        names = [f"{event}:{label}:{Path(command.split()[-1].strip(chr(34))).name}"
+                 for event, group in (("Pre", pre), ("Post", post)) for label, command, _ in group]
+        nonzero: collections.Counter = collections.Counter()
+        _, _, ca = phase(args.bash, pre, "PreToolUse", tool, project, base_env, args.transcript)  # warm-up
+        _, _, cb = phase(args.bash, post, "PostToolUse", tool, project, base_env, args.transcript)
+        nonzero.update(n for n, code in zip(names, ca + cb) if code != 0)
         pre_wall, post_wall, chain, per_command = [], [], [], [[] for _ in pre + post]
         for _ in range(args.runs):
-            a, da = phase(args.bash, pre, "PreToolUse", tool, project, base_env, args.transcript)
-            b, db = phase(args.bash, post, "PostToolUse", tool, project, base_env, args.transcript)
+            a, da, ca = phase(args.bash, pre, "PreToolUse", tool, project, base_env, args.transcript)
+            b, db, cb = phase(args.bash, post, "PostToolUse", tool, project, base_env, args.transcript)
             pre_wall.append(a), post_wall.append(b), chain.append(a + b)
             for slot, value in zip(per_command, da + db):
                 slot.append(value)
-        names = [f"{event}:{label}:{Path(command.split()[-1].strip(chr(34))).name}"
-                 for event, group in (("Pre", pre), ("Post", post)) for label, command, _ in group]
+            nonzero.update(n for n, code in zip(names, ca + cb) if code != 0)
+        failed = failed or bool(nonzero)
         print(json.dumps({"tool": tool, "processes": {"pre": len(pre), "post": len(post), "total": len(pre) + len(post)},
                           "preWallMs": ms(pre_wall), "postWallMs": ms(post_wall), "chainWallMs": ms(chain),
-                          "perCommandMedianMs": {n: round(statistics.median(v) * 1000) for n, v in zip(names, per_command)}},
-                         ensure_ascii=False))
-    return 0
+                          "perCommandMedianMs": {n: round(statistics.median(v) * 1000) for n, v in zip(names, per_command)},
+                          "nonzeroExits": dict(nonzero)}, ensure_ascii=False))
+    # A hook that exits nonzero on an inert payload (missing interpreter, crash, deny) makes its timing meaningless.
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

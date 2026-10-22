@@ -202,7 +202,8 @@ REL-1.109.1 закрывался 94 минуты и 6 модельными се�
 предкоммитного чекера и 13 попытками ревью GPT (`docs/measurements/ITD-SIMPLIFY-BASELINE.md`).
 
 **Когда применима.** Дерево опубликованного кандидата не менялось после принятого ревью: tree merge-коммита
-байт-в-байт равен `candidate.reviewedTree` квитанции, принятой маршрутом (`PASSED` или `ADJUDICATED`), а дифф
+байт-в-байт равен `candidate.reviewedTree` квитанции, принятой маршрутом (`PASSED`; `ADJUDICATED` - только для
+STATE-юнита, см. шаг 2), а дифф
 закрытия меняет только записи закрытия (Allowed Change Areas шаблона «REL-X.Y.Z ledger-close» выше). Любое
 другое изменение - новый кандидат и обычный маршрут с ревью.
 
@@ -212,16 +213,19 @@ REL-1.109.1 закрывался 94 минуты и 6 модельными се�
    (`python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["candidate"]["reviewedTree"])' <квитанция>`).
    Не равен - конвенция неприменима.
 2. Машинная проверка дельты закрытия:
-   - юнит из `.itd-memory/GOAL.json` с квитанцией adjudication исхода `PASSED`: `sh skills/_shared/itd_py.sh
-     scripts/itd_closure_delta.py --receipt <эта квитанция> --tree <дерево закрытия>` - exit 0 (инструмент
-     принимает только исход `PASSED`);
-   - юнит STATE-леджера (`REL-*`, переходы через `itd_unit_log.py`) или квитанция исхода `ADJUDICATED`, где
-     `itd_closure_delta.py` неприменим: переход записан харнессом (`itd_unit_log.py verified` для STATE,
-     `itd_goal_verify.py` для GOAL), не руками; `git diff --name-only <merge-sha> <кандидат закрытия>` содержит
-     только пути Allowed Change Areas шаблона ledger-close; `sh skills/_shared/itd_py.sh scripts/validate_state.py
-     .itd-memory/STATE.json .itd-memory/GOAL.json` - exit 0.
+   - юнит из `.itd-memory/GOAL.json`: только `sh skills/_shared/itd_py.sh scripts/itd_closure_delta.py --receipt
+     <квитанция adjudication юнита> --tree <дерево закрытия>` - exit 0. Инструмент принимает только квитанцию
+     исхода `PASSED`; для GOAL-юнита с квитанцией `ADJUDICATED` конвенция неприменима (обычный маршрут), пока
+     инструмент такой исход не принимает;
+   - юнит STATE-леджера (`REL-*`, переходы через `itd_unit_log.py`), для которого `itd_closure_delta.py` не
+     построен: переход записан `itd_unit_log.py verified`, не руками; `git diff --name-only <merge-sha> <кандидат
+     закрытия>` содержит только пути Allowed Change Areas шаблона ledger-close; `sh skills/_shared/itd_py.sh
+     scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - exit 0. Эта проверка слабее
+     `itd_closure_delta.py` (она смотрит пути, а не содержимое записей), поэтому содержимое дельты сверяет владелец
+     в шаге 3; узкая машинная проверка для таких юнитов - условная сессия 14 программы.
 3. Подпись владельца в смысле ADR-007: явное подтверждение человека в сессии, записанное в `.itd/DECISIONS.md` с
-   merge-коммитом, tree, путем и `receiptSha256` квитанции ревью и выводом шага 2. Квитанция модели не
+   merge-коммитом, tree, путем и `receiptSha256` квитанции ревью, выводом шага 2 и, для STATE-юнита, `git diff`
+   дельты закрытия, который владелец просмотрел. Квитанция модели не
    переписывается и не перевыпускается; новый модельный раунд и полный `tests/run-all.sh` не нужны - дерево,
    которое они проверяли, не изменилось, а записи закрытия проверены шагом 2.
 

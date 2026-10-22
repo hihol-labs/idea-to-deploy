@@ -28,9 +28,10 @@ def line(**record) -> str:
 
 
 class TranscriptStatsTest(unittest.TestCase):
-    def run_stats(self, lines: list[str]) -> dict:
+    def run_stats(self, lines: list[str], *more: list[str]) -> dict:
         with tempfile.TemporaryDirectory() as tmp:
-            Path(tmp, "s1.jsonl").write_text("".join(lines), encoding="utf-8")
+            for index, session in enumerate((lines, *more), 1):
+                Path(tmp, f"s{index}.jsonl").write_text("".join(session), encoding="utf-8")
             (Path(tmp) / "sub").mkdir()
             Path(tmp, "sub", "agent.jsonl").write_text(lines[0], encoding="utf-8")  # subagent dir is not read
             done = subprocess.run([sys.executable, "-I", "-B", str(HERE / "transcript_stats.py"), tmp,
@@ -75,6 +76,19 @@ class TranscriptStatsTest(unittest.TestCase):
         # 10:01:00 -> 10:03:00: a tool result is not a human prompt; the run ends before 10:09:00.
         self.assertEqual(stats["sessionSave"], {"runs": 1, "secondsMedian": 120, "secondsMin": 120,
                                                 "secondsMax": 120})
+
+    def test_event_median_counts_sessions_without_the_event(self) -> None:
+        def ctx(uuid: str, event: str, text: str) -> str:
+            return line(type="attachment", uuid=uuid, parentUuid="u",
+                        attachment={"type": "hook_additional_context", "hookEvent": event, "content": [text]})
+        user = line(type="user", uuid="u", timestamp="2026-10-21T10:00:00Z", message={"content": "go"})
+        stats = self.run_stats([user, ctx("a", "SessionStart", "x" * 10), ctx("b", "UserPromptSubmit", "ab")],
+                               [user, ctx("c", "UserPromptSubmit", "abcd")])
+        by_event = stats["context"]["perSessionBytesByEventMedian"]
+        self.assertEqual(stats["sessions"], 2)
+        self.assertEqual(by_event["SessionStart"], 5)  # median of [10, 0], not of [10]
+        self.assertEqual(by_event["UserPromptSubmit"], 3)
+        self.assertEqual(by_event["PreToolUse"], 0)
 
 
 class HookBenchTest(unittest.TestCase):
@@ -150,6 +164,24 @@ class HookBenchTest(unittest.TestCase):
             self.assertEqual(len(payloads), 15)
             self.assertEqual({p["session_id"] for p in payloads}, {"itd-baseline-bench"})
             self.assertTrue(all("tool_response" in p for p in payloads if p["hook_event_name"] == "PostToolUse"))
+            self.assertEqual(bash["nonzeroExits"], {})
+
+    @unittest.skipIf(os.name == "nt", "the bench run uses /bin/bash")
+    def test_bench_fails_on_a_crashing_hook_and_bad_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home, project = Path(tmp, "home"), Path(tmp, "proj")
+            home.mkdir(), project.mkdir()
+            (home / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": [
+                {"matcher": "Bash", "hooks": [{"type": "command", "command": "cat > /dev/null; exit 3"}]}]}}),
+                encoding="utf-8")
+            argv = [sys.executable, "-I", "-B", str(HERE / "hook_bench.py"), "--home", str(home),
+                    "--project", str(project)]
+            done = subprocess.run(argv + ["--runs", "1"], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 1)
+            bash = next(json.loads(x) for x in done.stdout.splitlines() if '"tool": "Bash"' in x)
+            self.assertEqual(bash["nonzeroExits"], {"Pre:user:3": 2})  # warm-up + 1 measured call
+            for bad in ("0", "-1"):
+                self.assertEqual(subprocess.run(argv + ["--runs", bad], capture_output=True).returncode, 2)
 
 
 class DigestAndProbeTest(unittest.TestCase):
@@ -164,6 +196,10 @@ class DigestAndProbeTest(unittest.TestCase):
             self.assertEqual(first[0], 2)
             Path(tmp, "b", "y.txt").write_bytes(b"z")
             self.assertNotEqual(first[1], runtime_digest.tree_digest(str(Path(tmp, "b")))[1])
+            Path(tmp, "empty").mkdir()
+            for root in (Path(tmp, "missing"), Path(tmp, "empty"), Path(tmp, "a", "y.txt")):
+                with self.assertRaises(SystemExit):
+                    runtime_digest.tree_digest(str(root))
 
     def test_probe_helpers(self) -> None:
         if os.name != "nt":
