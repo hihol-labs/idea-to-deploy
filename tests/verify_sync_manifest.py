@@ -122,21 +122,21 @@ def main() -> int:
 
         # an install synced BEFORE the opt-out file existed has the hooks registered...
         run_sync(optout_install, apply=True)
-        check(any("check-tool-skill.sh" in c for c in registered(optout_install)),
-              "fixture precondition: a plain sync registers check-tool-skill.sh")
+        check(any("careful.sh" in c for c in registered(optout_install)),
+              "fixture precondition: a plain sync registers careful.sh")
         # ...and the next sync after the file appears removes them (BOM, duplicate and typo included)
         (optout_install / "itd-disabled-hooks.txt").write_text(
-            "﻿check-review-before-commit.sh  # BOM first, trailing comment\n# owner opt-out\n"
-            "check-tool-skill.sh\ncheck-tool-skill.sh\ncheck-tool-skil\n",
+            "\ufeffwip-gate.sh  # BOM first, trailing comment\n# owner opt-out\n"
+            "careful.sh\ncareful.sh\ncarefull.sh\n",
             encoding="utf-8",
         )
         optout = run_sync(optout_install, apply=True)
-        check("names no registered hook: check-tool-skil" in optout,
+        check("names no ITD hook: carefull.sh" in optout,
               "a misspelled name in the opt-out list is accepted silently")
         commands = registered(optout_install)
-        check(not any("check-tool-skill.sh" in c for c in commands),
+        check(not any("careful.sh" in c for c in commands),
               "a hook listed in itd-disabled-hooks.txt is still registered")
-        check(not any("check-review-before-commit.sh" in c for c in commands),
+        check(not any("wip-gate.sh" in c for c in commands),
               "a listed hook with a trailing comment is still registered")
         check(any("check-predeploy-gate.sh" in c for c in commands),
               "the opt-out also dropped a hook that was not listed")
@@ -144,7 +144,7 @@ def main() -> int:
         rerun = run_sync(optout_install, apply=True)
         check((optout_install / "settings.json").read_bytes() == settings_before,
               "a re-run with the same opt-out list rewrote settings.json")
-        check(not any("check-tool-skill.sh" in c for c in registered(optout_install)),
+        check(not any("careful.sh" in c for c in registered(optout_install)),
               "a re-run brought a disabled hook back")
         check("hooks disabled by itd-disabled-hooks.txt: 2" in rerun,
               "the sync output does not count the distinct hooks the opt-out list disables")

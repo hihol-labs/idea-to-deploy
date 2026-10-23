@@ -132,5 +132,9 @@
       "hooks/hooks.json",
       "skills/adopt/references/codex-project-hooks.json"
     ]
+  },
+  "unregisteredHardGates": {
+    "rule": "Plan session 5 (ADR-016, owner decisions 2026-10-06 and 2026-10-20): these hard gates are not registered by any adapter registration source - they enforced the skill-decision line and the per-commit review that the global instructions no longer require. Their files and behavioural tests stay; no source may register them again without a new owner decision.",
+    "scripts": ["check-review-before-commit.sh", "check-tool-skill.sh"]
   }
 }

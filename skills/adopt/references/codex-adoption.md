@@ -93,8 +93,11 @@ still requires explicit approval.
 ## Hooks
 
 When the Idea to Deploy plugin is enabled, its `hooks/hooks.json` is canonical.
-Ask the user to inspect/trust it with `/hooks` if Codex reports untrusted hooks.
-Do not copy bundled hooks into the target project.
+Ask the user to inspect/trust it with `/hooks` if Codex reports untrusted hooks;
+`python3 scripts/itd_codex_hook_trust.py` (read-only) names the entries Codex will
+not run. Switch hooks on or off in `~/.claude/itd-enabled-hooks.txt` and
+`~/.claude/itd-disabled-hooks.txt` (the dispatcher reads them on Codex too), not
+by position in `/hooks`. Do not copy bundled hooks into the target project.
 
 Only when the user intentionally runs from a repository checkout without an
 enabled plugin:

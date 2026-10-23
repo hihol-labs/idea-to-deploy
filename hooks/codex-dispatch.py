@@ -6,6 +6,13 @@ material mutation difference is Codex's ``apply_patch`` tool: its input is a
 patch string rather than a single ``file_path``. This dispatcher expands the
 patch into synthetic Write events, invokes the unchanged shared hook once per
 affected path, and merges the results without weakening a deny decision.
+
+It is also the one place that decides which registered hooks run (plan
+session 5, ADR-016): the optional hooks below run only when the user names
+them in itd-enabled-hooks.txt, and a hook named in itd-disabled-hooks.txt
+never runs. scripts/sync-to-active.sh and skills/_shared/itd_project_hooks.py
+load this module for the same decision, so Codex and Claude Code read the same
+two lists and do not depend on Codex's positional hooks.state keys.
 """
 from __future__ import annotations
 
@@ -31,13 +38,65 @@ DEFAULT_SHARED_HOOK_TIMEOUT_SECONDS = 3
 # 120 seconds for bounded root/scope/baseline work and process overhead.
 SCRIPT_TIMEOUT_SECONDS = {
     "completion-gate.sh": 840,
+    # On a commit the DoD gate may run the project's .itd/checks, bounded at
+    # 120 seconds; the host registration is 150 seconds (plan session 5).
+    "check-dod-before-commit.sh": 140,
 }
+# Off by default, on through itd-enabled-hooks.txt: the diagnostics, plus crash-recovery, which writes a checkpoint
+# and runs git on every tool call whether or not the project keeps .itd-memory.
+OPTIONAL_HOOKS = frozenset({
+    "completion-stop.sh",
+    "context-aware.sh",
+    "context-budget.sh",
+    "cost-tracker.sh",
+    "crash-recovery.sh",
+    "execution-trace.sh",
+    "risk-score.sh",
+    "session-open-diagnostic.sh",
+    "stuck-detection.sh",
+})
+DISABLED_HOOKS_FILE = "itd-disabled-hooks.txt"
+ENABLED_HOOKS_FILE = "itd-enabled-hooks.txt"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--script", required=True)
     return parser.parse_args()
+
+
+def hook_lists_home() -> Path:
+    """The directory of the two hook lists: the Claude home sync-to-active.sh installs into."""
+    configured = os.environ.get("CLAUDE_HOME")
+    return Path(configured) if configured else Path.home() / ".claude"
+
+
+def read_hook_list(path: Path) -> set[str]:
+    """Hook file names, one per line; '#' starts a comment and a BOM from a Windows editor is dropped.
+
+    A missing or unreadable list is empty: a broken disabled list switches no hook off, and a broken enabled
+    list leaves the optional hooks off, as they are by default.
+    """
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except (OSError, UnicodeError):
+        return set()
+    return {line.split("#", 1)[0].strip() for line in text.splitlines()} - {""}
+
+
+def hook_selected(script_name: str, disabled: set[str], enabled: set[str]) -> bool:
+    if script_name in disabled:
+        return False
+    return script_name not in OPTIONAL_HOOKS or script_name in enabled
+
+
+def selected_for_user(script_name: str) -> bool:
+    try:
+        lists = hook_lists_home()
+    except RuntimeError:  # no home directory: no lists, the defaults apply
+        return script_name not in OPTIONAL_HOOKS
+    return hook_selected(script_name, read_hook_list(lists / DISABLED_HOOKS_FILE),
+                         read_hook_list(lists / ENABLED_HOOKS_FILE))
 
 
 def shared_hook_timeout(script_name: str) -> int:
@@ -205,6 +264,9 @@ def main() -> int:
     configure_utf8_stdio()
     args = parse_args()
     root = plugin_root()
+    if not selected_for_user(args.script):
+        sys.stdin.read()
+        return 0
     try:
         payload = json.load(sys.stdin) or {}
     except Exception:

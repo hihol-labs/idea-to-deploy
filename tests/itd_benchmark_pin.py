@@ -49,6 +49,9 @@ BENCHMARK_PIN_REASONS: dict[str, tuple[str, ...]] = {
         "hooks/validate_state_core.py",
         "hooks/wip-gate.sh",
         "scripts/validate_state.py",
+        # прогон 20261023T083757Z-667aa84f (ITD-PLAN-S5): шаблон blueprint требует правило /session-save в
+        # CLAUDE.md проекта, и модель прочитала скилл и его references
+        "skills/session-save",
     ),
 }
 

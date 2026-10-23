@@ -2,14 +2,15 @@
   "_comment_1": "Project-level .claude/settings.json template for idea-to-deploy adoption.",
   "_comment_2": "Placed by /adopt in $PROJECT_ROOT/.claude/settings.json — NOT in ~/.claude/settings.json.",
   "_comment_3": "Substitute {{PLUGIN_HOOKS_DIR}} with the resolved plugin hooks directory (default: ~/.claude/plugins/idea-to-deploy/hooks). Legacy sync-to-active.sh installs use ~/.claude/hooks.",
-  "_comment_4": "If the user already has .claude/settings.json, /adopt merges hooks entries (by command path) AND permissions.ask entries (by rule string) without duplicating. User's existing permissions.allow / permissions.deny / other permissions.ask rules, env, statusLine, and model are preserved — never removed.",
+  "_comment_4": "The hooks are the default registration of scripts/sync-to-active.sh (DESIRED_HOOKS; tests/verify_sync_manifest.py keeps them equal). itd_project_hooks.py installs the same selection: an optional hook (codex-dispatch.py OPTIONAL_HOOKS) only when ~/.claude/itd-enabled-hooks.txt names it, never a hook ~/.claude/itd-disabled-hooks.txt names, and no hook already registered user-level. If the user already has .claude/settings.json, /adopt merges hooks entries (by event, matcher and command) AND permissions.ask entries (by rule string) without duplicating. User's existing permissions.allow / permissions.deny / other permissions.ask rules, env, statusLine, and model are preserved — never removed.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/session-open-diagnostic.sh", "timeout": 5 },
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/pre-flight-check.sh",        "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-skills.sh",            "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/context-aware.sh",           "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/graph-route.sh",             "timeout": 10 }
         ]
       }
     ],
@@ -21,27 +22,22 @@
         ]
       },
       {
-        "matcher": "Task|Agent",
+        "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/model-policy.sh", "timeout": 5 }
-        ]
-      },
-      {
-        "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
-        "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-tool-skill.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/execution-trace.sh", "timeout": 5 }
         ]
       },
       {
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-commit-completeness.sh",   "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-review-before-commit.sh", "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-dod-before-commit.sh",   "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cross-review-precommit.sh",    "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-gate.sh",          "timeout": 900 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",              "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-predeploy-gate.sh",     "timeout": 90 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-dod-before-commit.sh",     "timeout": 150 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cross-review-precommit.sh",      "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/context-budget.sh",              "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/careful.sh",                     "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-gate.sh",              "timeout": 900 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",                  "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/check-predeploy-gate.sh",         "timeout": 90 }
         ]
       },
       {
@@ -61,9 +57,15 @@
         ]
       },
       {
-        "matcher": ".*",
+        "matcher": "*",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/pii-egress-guard.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/model-policy.sh", "timeout": 5 }
         ]
       }
     ],
@@ -81,31 +83,36 @@
         ]
       },
       {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/execution-trace.sh",   "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh",      "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/risk-score.sh",        "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/stuck-detection.sh",   "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/crash-recovery.sh",    "timeout": 5 }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-signals.sh", "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",        "timeout": 5 }
         ]
       },
       {
         "matcher": "PowerShell",
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-signals.sh", "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh", "timeout": 5 }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/cost-tracker.sh", "timeout": 5 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/risk-score.sh",   "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/state-guard.sh",        "timeout": 5 }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/handoff-readiness.sh", "timeout": 5 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/handoff-readiness.sh", "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/completion-stop.sh",   "timeout": 5 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/crash-recovery.sh",    "timeout": 5 }
         ]
       }
     ],
@@ -113,7 +120,8 @@
       {
         "hooks": [
           { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/narration-final.sh",  "timeout": 10 },
-          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/verdict-contract.sh", "timeout": 10 }
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/verdict-contract.sh", "timeout": 10 },
+          { "type": "command", "command": "{{PLUGIN_HOOKS_DIR}}/crash-recovery.sh",   "timeout": 5 }
         ]
       }
     ]

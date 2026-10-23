@@ -19,11 +19,12 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Hooks that ship but are intentionally NOT registered (activated on demand).
-# v1.42.0: freeze.sh is now REGISTERED (it is a no-op until a skill writes the
-# freeze state file, so always-on registration costs nothing) — the set is
-# empty, kept for the next genuinely opt-in hook.
-OPT_IN_HOOKS: set = set()
+# Hooks that ship but are intentionally NOT registered. v1.42.0: freeze.sh is
+# REGISTERED (a no-op until a skill writes the freeze state file). Plan session 5
+# (ADR-016): the skill-decision hooks are no longer registered; their files stay
+# until the conditional removal session (docs/HARNESS_TRUST_POLICY.json
+# unregisteredHardGates names the two hard gates among them).
+OPT_IN_HOOKS: set = {"check-skills.sh", "check-tool-skill.sh", "check-review-before-commit.sh"}
 
 PASS, FAIL = 0, 0
 

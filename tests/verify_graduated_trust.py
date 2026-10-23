@@ -74,7 +74,8 @@ def validate_policy(payload: Any) -> list[str]:
 
 def run_hook(script: str, payload: dict[str, Any], cwd: Path, host: str) -> tuple[int, str]:
     env = os.environ.copy()
-    env.update({"PYTHONUTF8": "1", "CLAUDE_SESSION_ID": "trust-low-risk", "PLUGIN_ROOT": str(ROOT)})
+    env.update({"PYTHONUTF8": "1", "CLAUDE_SESSION_ID": "trust-low-risk", "PLUGIN_ROOT": str(ROOT),
+                "CLAUDE_HOME": str(cwd / "hook-lists")})  # the user's own hook lists never decide a test
     command = [sys.executable, str(ROOT / "hooks" / script)]
     if host == "codex":
         command = [sys.executable, str(DISPATCHER), "--script", script]
@@ -164,7 +165,10 @@ def main() -> int:
                 )
 
         env = os.environ.copy()
-        env.update({"PYTHONUTF8": "1", "PLUGIN_ROOT": str(ROOT)})
+        env.update({"PYTHONUTF8": "1", "PLUGIN_ROOT": str(ROOT), "CLAUDE_HOME": str(cwd / "hook-lists")})
+        # execution-trace is optional (off by default): enabled here, so its transport is what is tested
+        (cwd / "hook-lists").mkdir(exist_ok=True)
+        (cwd / "hook-lists" / "itd-enabled-hooks.txt").write_text("execution-trace.sh\n", encoding="utf-8")
         hard_failure = subprocess.run(
             [sys.executable, str(DISPATCHER), "--script", "check-skill-completeness.sh"],
             input="not-json",
