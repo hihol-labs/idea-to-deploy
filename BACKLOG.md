@@ -96,7 +96,7 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 
 ## P3 - `verify_hooks_autoinstall.py` на Windows владельца: 3 проверки user-level и кодировка (2026-10-23, ITD-PLAN-S5)
 
-Нативный Python 3.12 на Windows владельца (профиль `C:\\Users\\Дмитрий`): без `PYTHONUTF8=1` тест падает
+Нативный Python 3.12 на Windows владельца (профиль `C:\Users\Дмитрий`): без `PYTHONUTF8=1` тест падает
 `UnicodeDecodeError` - дочерний процесс печатает путь в ANSI-кодировке, родитель читает UTF-8; с `PYTHONUTF8=1`
 красны три проверки «user-level» (plan reports it, not duplicated, every other hook installed). Те же три падают на
 версии main `a32a12e` (до сессии 5), в CI windows-verify (ASCII-профиль) тест зеленый. Похоже на несовпадение форм
