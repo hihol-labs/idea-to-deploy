@@ -30,7 +30,9 @@
   `verify_hooks_autoinstall`, `verify_registration_and_counts`, `verify_sync_manifest`); `tests/run-all.sh`.
 - The a4 follow-ups: `docs/measurements/itd-simplify/run_rounds.sh` and its test, `tests/verify_global_routers.py`,
   the count in `docs/measurements/ITD-SIMPLIFY-BASELINE.md`.
-- The live benchmark evidence under `tests/fixtures/live-model-evidence/` from one owner-budgeted run.
+- The live benchmark evidence under `tests/fixtures/live-model-evidence/` (the budgeted run and, by the owner's
+  decision of 2026-10-23, a second one) and `tests/itd_benchmark_pin.py` (`skills/session-save`, read by the first
+  run, joins the dynamic half).
 - `CHANGELOG.md` (`## [Unreleased]`), `.itd/ACCEPTANCE_CONTRACT.json` (the ITD-PLAN-S4 followup move, the
   ITD-PLAN-S5 followup and criteria), `.itd/DECISIONS.md`, `BACKLOG.md`, this scope, regenerated
   `.itd/IMPACT_GRAPH.json`.

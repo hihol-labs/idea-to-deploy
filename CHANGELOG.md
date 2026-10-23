@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   обрывал гейт на коммитах по таймауту 5 с.
 - Новый `scripts/itd_codex_hook_trust.py` (только чтение): какие записи Codex не запустит - без доверия, выключенные
   по позиции, устаревшие ключи. Тесты: `tests/verify_hook_selection.py`, `tests/verify_codex_hook_trust.py`.
+- Живой бенчмарк: прогон 20261023T083757Z-667aa84f прочитал `skills/session-save` (шаблон blueprint требует
+  правило /session-save) - он вошел в dynamic-половину пина, второй прогон 20261023T085326Z-45e3efb0 привязан к
+  новому пину (оба PASS).
 - Хвосты сессии 4: `run_rounds.sh` выходит с 1, если копию `hook_bench.py` для Windows не обновить;
   `verify_global_routers.py` пинует личную секцию по сырым байтам (строгий UTF-8, CRLF меняет пин); юнит
   ITD-PLAN-S4 verified.

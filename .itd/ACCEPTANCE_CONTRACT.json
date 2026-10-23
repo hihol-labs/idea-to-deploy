@@ -5599,10 +5599,10 @@
       "id": "ITD-PLAN-S5-AC6",
       "unitId": "ITD-PLAN-S5",
       "status": "pending",
-      "criterion": "The live benchmark evidence is fresh for the changed pin (hooks/codex-dispatch.py and the Codex project template are pinned): one owner-budgeted live run is recorded and tests/verify_live_model_benchmark.py passes.",
+      "criterion": "The live benchmark evidence is fresh for the changed pin (hooks/codex-dispatch.py and the Codex project template are pinned): the budgeted live run 20261023T083757Z-667aa84f passed and read skills/session-save, so by the owner's decision of 2026-10-23 skills/session-save joins the dynamic pin and a second run binds the new pin; both runs are recorded and tests/verify_live_model_benchmark.py --require-evidence passes.",
       "source": "Owner 2026-10-20 plan, session 5 (the registration changes the pin; one live run is budgeted); owner 2026-10-23 session 5 task.",
       "evidence": "",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The benchmark evidence is bound to the candidate tree.",
         "impactClasses": ["generated-artifact-freshness"],

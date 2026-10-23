@@ -6150,3 +6150,14 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   занимает `itd-disabled-hooks.txt`.
 - Ссылки: tests/verify_hook_selection.py, tests/verify_codex_hook_trust.py, hooks/README.md (раздел «Default
   registration»), BACKLOG (P2 Codex - закрыто, P2 check-dod - остаток в сессию 6).
+
+## 2026-10-23 - сессия 5: skills/session-save в пине живого бенчмарка, второй прогон
+- Почему: заложенный прогон 20261023T083757Z-667aa84f на fae14a0 прошел (fixture-03-cli-tool, codex exec, оракул
+  PASS), но в его транскрипте модель прочитала `skills/session-save/SKILL.md` и три его references - шаблон
+  blueprint требует правило /session-save в CLAUDE.md проекта. Пин обязан покрывать каждое измеренное чтение
+  успешного прогона, иначе `verify_live_model_benchmark` красный.
+- Решение (владелец 2026-10-23, из трех вариантов: пин + второй прогон / выбросить и перепрогнать / без улик):
+  `skills/session-save` вошел в dynamic-половину `tests/itd_benchmark_pin.py`, первый прогон сохранен как замер,
+  второй прогон 20261023T085326Z-45e3efb0 на 06f258e - PASS, `--require-evidence` 154 passed. Следствие: переписка
+  session-save в сессии 7 сменит пин и потребует живого прогона.
+- Ссылки: tests/itd_benchmark_pin.py, tests/fixtures/live-model-evidence/runs/20261023T08*.
