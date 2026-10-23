@@ -263,12 +263,17 @@ def invoke(script: str, host: str, patch_variant: str = "update") -> tuple[int, 
         env = os.environ.copy()
         env.update(extra_env)
         env.update({"PYTHONUTF8": "1", "CLAUDE_SESSION_ID": session, "PLUGIN_ROOT": str(ROOT)})
+        env.pop("CLAUDE_HOME", None)
         if host == "claude":
             command = [sys.executable, str(HOOKS / script)]
             env["ITD_HOST"] = "claude"
         else:
             command = [sys.executable, str(DISPATCHER), "--script", script]
             payload = codex_payload(payload, patch_variant)
+            # an optional gate (cost-tracker) runs only when the user enables it; the transport is what is tested
+            lists = Path(env["HOME"]) / ".claude"
+            lists.mkdir(parents=True, exist_ok=True)
+            (lists / "itd-enabled-hooks.txt").write_text(script + "\n", encoding="utf-8")
         proc = subprocess.run(
             command,
             input=json.dumps(payload, ensure_ascii=False),
@@ -351,14 +356,21 @@ def main() -> int:
     check("trust registry equals the source-derived hard-gate set", gate_names == derived, f"registry={sorted(gate_names)} derived={sorted(derived)}")
     check("trust registry contains exactly twelve hard gates", len(gates) == 12, f"count={len(gates)}")
 
+    unregistered = set(policy["unregisteredHardGates"]["scripts"])
+    check("unregistered hard gates are hard gates", unregistered <= gate_names,
+          f"unknown={sorted(unregistered - gate_names)}")
     for host, sources in policy["adapterRegistrationSources"].items():
         for source in sources:
             rows = registration_rows(ROOT / source)
             present = set(rows)
-            missing = gate_names - present
+            missing = gate_names - unregistered - present
             check(f"{host} registration is complete: {source}", not missing, f"missing={sorted(missing)}")
+            check(f"{host} registers no unregistered hard gate: {source}", not unregistered & present,
+                  f"registered={sorted(unregistered & present)}")
             for gate in gates:
                 script = gate["script"]
+                if script in unregistered:
+                    continue
                 expected_event = gate["event"]
                 matching_rows = rows.get(script, [])
                 event_ok = any(event == expected_event for event, _ in matching_rows)
@@ -378,7 +390,7 @@ def main() -> int:
                     f"expected={expected_event}/{sorted(required_tools)} actual={matching_rows} missing={sorted(missing_tools)}",
                 )
             if host == "codex":
-                mutation = {"check-tool-skill.sh", "check-skill-completeness.sh", "state-guard.sh"}
+                mutation = {"check-skill-completeness.sh", "state-guard.sh"}
                 routed = codex_apply_patch_scripts(ROOT / source)
                 check(
                     f"Codex apply_patch reaches every mutation hard gate: {source}",

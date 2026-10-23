@@ -37,10 +37,10 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ITD-PLAN-S4",
-    "goal": "Plan session 4 (ADR-016): a managed global instruction block of at most 60 lines in docs/templates/global-claude-md.md (the minimal route as the normal mode of ITD, when strict applies, what is always mandatory, where the skills live, no skill-decision line and no SKILL_BYPASS ritual), the same meaning in docs/templates/global-codex-agents.md, the personal section reduced to personal data, the template tests and docs/instruction-registry.json; carries the ITD-PLAN-S2 ledger record and the session 2-3 follow-ups (plan rule 5).",
+    "id": "ITD-PLAN-S5",
+    "goal": "Plan session 5 (ADR-016): one default hook registration for a new user and for the owner - the core hooks (pre-flight-check, pii-egress-guard, careful, check-predeploy-gate, completion-signals, completion-gate) plus the state hooks that stay silent without .itd-memory; the diagnostics off by default and enabled through itd-enabled-hooks.txt; check-skills, check-tool-skill and check-review-before-commit unregistered (record-agent-skill and check-dod-before-commit stay); codex-dispatch.py reads the same disabled and enabled lists as sync-to-active.sh; the /adopt project template does not register hooks already registered globally; one live benchmark run; carries the ITD-PLAN-S4 ledger record and the three a4 findings with tests (plan rule 5).",
     "status": "in_progress",
-    "startedAt": "2026-10-22T19:10:03Z",
+    "startedAt": "2026-10-23T07:47:50Z",
     "ledger": "STATE",
     "riskTier": "medium"
   },

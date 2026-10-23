@@ -6101,3 +6101,52 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   выбора скилла, которой в блоке больше нет; снятие с регистрации - сессия 5 плана.
 - Ссылки: docs/templates/global-claude-md.md, docs/templates/global-codex-agents.md, docs/instruction-registry.json,
   tests/verify_fable_snippets.py, tests/verify_global_routers.py.
+
+## 2026-10-23 - правило сходимости ревью программы; ITD-PLAN-S4 закрыт, ревью sol a4 ADJUDICATED
+- Почему: в сессии 4 ревью gpt-5.6-sol шло четыре раунда (a1-a3 BLOCKED, каждый раз с новыми находками); без
+  предела раундов маршрут не сходится. Запись не вошла в PR #372: его дерево было закреплено квитанцией.
+- Решение (владелец 2026-10-23, правило сходимости программы): четвертый раунд ревью (a4) - последний. PASSED ->
+  публикация; BLOCKED только с medium/low -> решение владельца (ADJUDICATED по ADR-007); high -> исправить и снова к
+  владельцу, без нового раунда по умолчанию. Правило действует для PR программы ADR-016, включая сессию 5.
+- ITD-PLAN-S4: a4 BLOCKED с 2 medium и 1 low -> ADJUDICATED по ADR-007: привязка v2
+  `f2d5f75d19df1cb0d7662dd8126d2697e4b8aeb31e6dfa4fa345d97ec74f2611`, квитанция
+  `.itd-memory/verification-loop/ITD-PLAN-S4-a4-adjudicated.json` (receiptSha256
+  `42b34c21619df6e34ab0b1ceb9303d1da3db526cd72b085089e42956726534bd`), 6 записей accepted-trade-off (3 находки по двум
+  ревьюерским выводам); на числа и приемку не влияют. Исправления с тестами - в PR сессии 5: `run_rounds.sh` - сбой
+  копии `hook_bench.py` на Windows -> exit 1; `verify_global_routers.py` - пин личной секции по сырым байтам вне
+  блока, строгий UTF-8 (регрессии CRLF и битого UTF-8); baseline «14 проверок» -> 15.
+- Закрытие: PR #372 смержен squash -> main a32a12e (tree 23f94d40 = ревьюированное; committed-head квитанция
+  ITD-PLAN-S4-machine-a5 PASSED 8/8, full fails:none; CI PR и main success; роутеры PASSED от main на WSL и
+  Windows). Юнит verified через `itd_unit_log.py`, followup -> closedFollowups; открыт юнит ITD-PLAN-S5.
+- Ссылки: .itd/ACCEPTANCE_CONTRACT.json (closedFollowups ITD-PLAN-S4), ADR-007, ADR-016.
+
+## 2026-10-23 - сессия 5 плана: одна регистрация хуков, диагностика по списку
+- Почему: план 2026-10-20, сессия 5 - новый пользователь получал 31 хук, включая три, просившие строку выбора
+  скилла, которой в глобальных правилах нет с сессии 4; Codex включал и выключал хуки по позиционным ключам
+  `hooks.state`, и после смены раскладки на WSL не запускалась вся Bash-группа ядра.
+- Решение: регистрация по умолчанию = действующая регистрация владельца на WSL и Windows (19 хуков): ядро (6), хуки
+  состояния (state-guard, wip-gate, freeze, handoff-readiness) и гейты, молчащие на обычной работе
+  (check-dod-before-commit + record-agent-skill по решению сессии 3, cross-review-precommit, check-commit-completeness,
+  check-skill-completeness, graph-route, model-policy, narration-final, verdict-contract). Опциональны и выключены по
+  умолчанию 8 хуков диагностики плана и crash-recovery: план его не называет, но он пишет чекпоинт и зовет git на
+  каждом вызове инструмента независимо от `.itd-memory`, и владелец выключил его в сессии 3. check-skills,
+  check-tool-skill, check-review-before-commit сняты с регистрации (файлы остаются до условной сессии 15);
+  `docs/HARNESS_TRUST_POLICY.json` называет два hard-гейта из них в `unregisteredHardGates`, тест паритета
+  проверяет, что их не регистрирует ни один источник.
+- Одно место решения - `hooks/codex-dispatch.py` (`OPTIONAL_HOOKS`, `hook_selected`): списки
+  `~/.claude/itd-enabled-hooks.txt` и `itd-disabled-hooks.txt` (CLAUDE_HOME, если задан); `sync-to-active.sh` и
+  `itd_project_hooks.py` загружают его, отдельной копии правила нет. Выключенный список сильнее включенного;
+  нечитаемый список ничего не выключает. На Codex выключенная запись выходит до запуска процесса хука.
+- `sync-to-active.sh` больше не заменяет пять событий целиком: убираются только команды, запускающие файл хука
+  этого репо из каталога установки (`~/.claude/hooks`, `$ACTIVE/hooks` или его Windows-форма); остальные хуки
+  пользователя, в том числе в той же группе, остаются. Проектные шаблоны `/adopt` равны регистрации своего агента
+  (тесты) и не регистрируют глобально зарегистрированное, выключенное и не включенное опциональное.
+- check-dod-before-commit: бюджет хоста 150 с на всех четырех регистрациях, дедлайн Codex 140 с - выше его
+  проектных проверок (120 с); на Windows хост обрывал гейт на коммитах по 5 с. Медленный старт Python на Windows
+  остается входом сессии 6.
+- Доверие Codex - граница безопасности самого Codex, ITD его не пишет: `scripts/itd_codex_hook_trust.py` только
+  называет записи без доверия, выключенные по позиции и устаревшие ключи; доверяет владелец в `/hooks` после
+  раскатки плагина. Позиционные `enabled = false` после смены раскладки указывают на другие хуки - их место
+  занимает `itd-disabled-hooks.txt`.
+- Ссылки: tests/verify_hook_selection.py, tests/verify_codex_hook_trust.py, hooks/README.md (раздел «Default
+  registration»), BACKLOG (P2 Codex - закрыто, P2 check-dod - остаток в сессию 6).

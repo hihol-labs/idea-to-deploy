@@ -73,7 +73,35 @@ All 31 hooks are written in Python 3 (works out of the box on macOS/Linux/WSL) â
 
 **Enforcement hooks are scoped to methodology-repo work only.** The two v1.5.0 hooks walk up from `cwd` looking for `.claude-plugin/plugin.json`; if not found, they return 0 immediately. You can safely install them globally and still use Claude Code on ordinary projects â€” they fire only when you're inside a methodology (or methodology-like) repository.
 
+## Default registration (plan session 5, ADR-016)
+
+`bash scripts/sync-to-active.sh` (Claude Code) and the plugin's `hooks/hooks.json` (Codex) register one set for
+every user, the owner included:
+
+- **core**: `pre-flight-check`, `pii-egress-guard`, `careful`, `check-predeploy-gate`, `completion-signals`,
+  `completion-gate`;
+- **state hooks**, silent without `.itd-memory` or their state file: `state-guard`, `wip-gate`, `freeze`,
+  `handoff-readiness`;
+- **gates that stay quiet on ordinary work**: `check-dod-before-commit` (host budget 150 s, above its 120 s project
+  checks) with `record-agent-skill`, `cross-review-precommit`, `check-commit-completeness`,
+  `check-skill-completeness`, `graph-route`, `model-policy`, `narration-final`, `verdict-contract`;
+- **optional, off by default**: `cost-tracker`, `context-budget`, `context-aware`, `stuck-detection`, `risk-score`,
+  `completion-stop`, `session-open-diagnostic`, `execution-trace`, `crash-recovery` - name them, one per line, in
+  `~/.claude/itd-enabled-hooks.txt`;
+- **not registered**: `check-skills`, `check-tool-skill`, `check-review-before-commit` (the skill-decision line and
+  the per-commit review are no longer in the global rules; the files stay).
+
+A hook named in `~/.claude/itd-disabled-hooks.txt` is never registered (the owner opt-out of ADR-012). Both lists are
+read by `hooks/codex-dispatch.py` - on Codex an entry that is off exits before its process starts - and by the sync and
+`/adopt` (`skills/_shared/itd_project_hooks.py`), so one file switches a hook on both agents. The sync replaces only ITD
+hook commands in `settings.json`; a user's own hooks stay, also in the same event and group. Codex keeps trust per
+entry position in `config.toml`; after a plugin update `python3 scripts/itd_codex_hook_trust.py` names the entries
+Codex will not run (untrusted, switched off by position, stale) - trust them in `/hooks`.
+
 ## Recommended setup
+
+The supported install is `bash scripts/sync-to-active.sh` (the default registration above); the manual steps below
+are the historical layout.
 
 ```bash
 # 1. Copy hooks to your user-level Claude config

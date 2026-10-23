@@ -21,14 +21,18 @@
 # What it syncs:
 #   1. skills/*              → ~/.claude/skills/
 #   2. hooks/*.sh            → ~/.claude/hooks/
-#   3. settings.json hooks   → registers the enforcement/guardrail hooks with
-#      correct matchers: UserPromptSubmit context hooks; PreToolUse (check-tool-skill,
-#      commit/review/dod gates, context-budget, check-skill-completeness,
-#      pii-egress-guard on all tools); PostToolUse (record-agent-skill on
-#      Task|Agent, cost-tracker + risk-score on *)
+#   3. settings.json hooks   → one default registration for every user (plan
+#      session 5, ADR-016): the core hooks (pre-flight-check, pii-egress-guard,
+#      careful, check-predeploy-gate, completion-signals, completion-gate), the
+#      state hooks that stay silent without .itd-memory and the commit, agent
+#      and methodology gates; the optional diagnostics only when
+#      itd-enabled-hooks.txt names them, never a hook itd-disabled-hooks.txt
+#      names (the same decision codex-dispatch.py makes for Codex). A user's
+#      own hooks in the same events are kept.
 #
 # What it does NOT touch:
-#   - ~/.claude/settings.json keys other than "hooks" (env, permissions, etc.)
+#   - ~/.claude/settings.json keys other than "hooks" (env, permissions, etc.),
+#     and hooks in it that do not run an ITD hook file from the install
 #   - ~/.claude/projects/* (per-project memory)
 #   - ~/.claude/CLAUDE.md
 #
@@ -379,13 +383,17 @@ if [ ! -f "$SETTINGS" ]; then
   fi
 fi
 
-# Build the desired hooks block as a JSON string
+# Build the desired hooks block as a JSON string: every hook ITD registers, the
+# optional ones included (the selection below drops what the lists switch off).
+# check-skills.sh, check-tool-skill.sh and check-review-before-commit.sh are not
+# registered since plan session 5 (they asked for a skill-decision line the
+# global instructions no longer have); their files stay in hooks/.
 # Matchers:
-#   UserPromptSubmit → pre-flight-check.sh, check-skills.sh (order matters:
-#     pre-flight first so skill-check sees its output)
-#   PreToolUse matcher=Bash|Edit|Write|NotebookEdit|Skill → check-tool-skill.sh
-#     (Skill in matcher = v1.24.0 forward-compat; harmless no-op until the
-#      harness emits Skill hook events)
+#   UserPromptSubmit → pre-flight-check.sh
+#   PreToolUse matcher=Bash → check-dod-before-commit.sh  timeout 150 s: on a
+#     commit it may run the project's .itd/checks (bounded at 120 s); under 5 s
+#     the host cut it on slow Windows commits and the DoD gate never decided
+#     (plan session 5, BACKLOG P2 2026-10-22). Non-commit commands exit at once.
 #   PreToolUse matcher=Bash → check-commit-completeness.sh  (no-op outside
 #     methodology repo, cheap)
 #   PreToolUse matcher=Write|Edit|MultiEdit → check-skill-completeness.sh
@@ -425,7 +433,6 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/session-open-diagnostic.sh", "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/pre-flight-check.sh",        "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/check-skills.sh",            "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-aware.sh",           "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/graph-route.sh",             "timeout": 10 }
       ]
@@ -439,12 +446,6 @@ DESIRED_HOOKS=$(cat <<'JSON'
       ]
     },
     {
-      "matcher": "Bash|Edit|Write|NotebookEdit|Skill",
-      "hooks": [
-        { "type": "command", "command": "~/.claude/hooks/check-tool-skill.sh", "timeout": 5 }
-      ]
-    },
-    {
       "matcher": "*",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/execution-trace.sh", "timeout": 5 }
@@ -454,8 +455,7 @@ DESIRED_HOOKS=$(cat <<'JSON'
       "matcher": "Bash",
       "hooks": [
         { "type": "command", "command": "~/.claude/hooks/check-commit-completeness.sh",   "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/check-review-before-commit.sh",  "timeout": 5 },
-        { "type": "command", "command": "~/.claude/hooks/check-dod-before-commit.sh",     "timeout": 5 },
+        { "type": "command", "command": "~/.claude/hooks/check-dod-before-commit.sh",     "timeout": 150 },
         { "type": "command", "command": "~/.claude/hooks/cross-review-precommit.sh",      "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/context-budget.sh",              "timeout": 5 },
         { "type": "command", "command": "~/.claude/hooks/careful.sh",                     "timeout": 5 },
@@ -553,46 +553,70 @@ DESIRED_HOOKS=$(cat <<'JSON'
 JSON
 )
 
-# ADR-012 owner opt-out: hook files listed in $ACTIVE/itd-disabled-hooks.txt (one file name per line, '#' starts a
-# comment) are dropped from the registration, so a later sync does not bring back hooks the owner switched off.
-# The event keys stay (possibly empty) so the merge below still treats them as ITD-managed and removes the entries.
-DISABLED_HOOKS_FILE="$ACTIVE/itd-disabled-hooks.txt"
-if [ -f "$DISABLED_HOOKS_FILE" ]; then
-  _meta="$(mktemp)"
-  _filtered="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_DISABLED="$DISABLED_HOOKS_FILE" ITD_META="$_meta" "$PYBIN" - <<'PYX'
-import json, os, re
-names = set()
-for raw in open(os.environ["ITD_DISABLED"], encoding="utf-8-sig"):  # -sig: a BOM from a Windows editor
-    line = raw.split("#", 1)[0].strip()
-    if line:
-        names.add(line)
+# Which registered hooks are installed (plan session 5, ADR-016). The decision is codex-dispatch.py's, loaded from it,
+# so Claude Code and Codex read the same two lists in $ACTIVE: the optional hooks (diagnostics and crash-recovery) only
+# when itd-enabled-hooks.txt names them, and never a hook that itd-disabled-hooks.txt names (the owner opt-out of
+# ADR-012). One hook file name per line, '#' starts a comment.
+_meta="$(mktemp)"
+_selected="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_ACTIVE="$ACTIVE" ITD_REPO="$REPO_ROOT" ITD_META="$_meta" "$PYBIN" -B - <<'PYX'
+import importlib.util, json, os, re
+from pathlib import Path
+repo, active = Path(os.environ["ITD_REPO"]), Path(os.environ["ITD_ACTIVE"])
+spec = importlib.util.spec_from_file_location("itd_codex_dispatch", repo / "hooks" / "codex-dispatch.py")
+dispatch = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dispatch)
+lists = {kind: active / getattr(dispatch, kind.upper() + "_HOOKS_FILE") for kind in ("disabled", "enabled")}
+disabled, enabled = (dispatch.read_hook_list(lists[kind]) for kind in ("disabled", "enabled"))
+known = {path.name for path in (repo / "hooks").glob("*.sh")}
 data = json.loads(os.environ["ITD_DESIRED"])
-matched = set()
+registered, off_disabled, off_optional, on_optional = set(), set(), set(), set()
 for event, groups in data.items():
     kept = []
     for group in groups:
         hooks = []
         for hook in group.get("hooks", []):
-            m = re.search(r"hooks/([^/\s\"]+)", hook.get("command", ""))
-            if m and m.group(1) in names:
-                matched.add(m.group(1))
-            else:
+            name = re.search(r"hooks/([^/\s\"]+)$", hook["command"]).group(1)
+            registered.add(name)
+            if dispatch.hook_selected(name, disabled, enabled):
                 hooks.append(hook)
+                if name in dispatch.OPTIONAL_HOOKS:
+                    on_optional.add(name)
+            else:
+                (off_disabled if name in disabled else off_optional).add(name)
         if hooks:
             group["hooks"] = hooks
             kept.append(group)
     data[event] = kept
+lines = []
+if lists["disabled"].is_file():
+    lines.append("OK hooks disabled by %s: %d" % (lists["disabled"].name, len(off_disabled)))
+if lists["enabled"].is_file():
+    lines.append("OK optional hooks enabled by %s: %d" % (lists["enabled"].name, len(on_optional)))
+if off_optional:
+    lines.append("OK optional hooks off by default: %d (name them in %s to enable)"
+                 % (len(off_optional), lists["enabled"].name))
+for kind, names in (("disabled", disabled), ("enabled", enabled)):
+    unknown = sorted(names - known)
+    if unknown:
+        lines.append("WARN %s names no ITD hook: %s (check the spelling, e.g. 'careful.sh')"
+                     % (lists[kind].name, " ".join(unknown)))
+not_optional = sorted((enabled & known) - dispatch.OPTIONAL_HOOKS)
+if not_optional:
+    lines.append("WARN %s: not an optional hook: %s (the default hooks always run; check-skills, check-tool-skill and "
+                 "check-review-before-commit are no longer registered)" % (lists["enabled"].name, " ".join(not_optional)))
 with open(os.environ["ITD_META"], "w", encoding="utf-8") as meta:
-    meta.write("%d\n%s\n" % (len(matched), " ".join(sorted(names - matched))))
+    meta.write("".join(line + "\n" for line in lines))
 print(json.dumps(data))
 PYX
-)" || { rm -f "$_meta"; err "itd-disabled-hooks.txt: filter failed"; exit 1; }
-  DESIRED_HOOKS="$_filtered"
-  { read -r _n_disabled; read -r _unknown || true; } < "$_meta"
-  rm -f "$_meta"
-  ok "hooks disabled by $(basename "$DISABLED_HOOKS_FILE"): $_n_disabled"
-  [ -z "${_unknown:-}" ] || warn "itd-disabled-hooks.txt names no registered hook: $_unknown (check the spelling, e.g. 'check-tool-skill.sh')"
-fi
+)" || { rm -f "$_meta"; err "hook selection (itd-disabled-hooks.txt / itd-enabled-hooks.txt) failed"; exit 1; }
+DESIRED_HOOKS="$_selected"
+while IFS= read -r _line; do
+  case "$_line" in
+    "OK "*) ok "${_line#OK }" ;;
+    "WARN "*) warn "${_line#WARN }" ;;
+  esac
+done < "$_meta"
+rm -f "$_meta"
 
 # v1.38.0: platform-aware command form. On a Windows target, rewrite each
 # "~/.claude/hooks/X.sh" into a python.exe invocation with an absolute Windows
@@ -643,68 +667,81 @@ else
   EFFECTIVE_HOOKS="$DESIRED_HOOKS"
 fi
 
-# Check if current settings.json hooks already matches desired. Compare only the
-# ITD-managed event keys — foreign keys (e.g. a SessionStart hook registered by
-# another plugin) are preserved by the merge below and must not read as "drift".
-current_hooks=$($PYBIN -c "
-import json, sys
-KEYS = ('UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'SubagentStop')
+# Merge into settings.json (plan session 5): in the ITD-managed event keys the ITD hooks are replaced and every other
+# hook is kept - a user's own hook stays even in the same event, matcher and group. An ITD hook is a command that runs
+# a hook file of this repository from the installed hooks directory (~/.claude/hooks, $ACTIVE/hooks or its Windows
+# form); foreign event keys (e.g. a SessionStart hook of another plugin) are not touched. Re-running gives the same
+# file. v1.73.1 fail-closed guard: an existing Windows python-wrapper registration is never downgraded to bare .sh
+# commands - on Windows Git-Bash would run python-bodied hooks as shell (exit 2) and the '*'-matcher PreToolUse hook
+# would deny EVERY tool call (live incident 2026-07-10); a non-windows target over such a file is refused.
+_mres="$(ITD_SETTINGS="$SETTINGS" ITD_HOOKS="$EFFECTIVE_HOOKS" ITD_ACTIVE="$ACTIVE" ITD_REPO="$REPO_ROOT" \
+  ITD_TARGET="$ITD_TARGET_OS" ITD_DRY="$DRY_RUN" "$PYBIN" -B - <<'PYX'
+import json, os, re, shutil, time
+from pathlib import Path
+KEYS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SubagentStop")
+path = os.environ["ITD_SETTINGS"]
+names = {p.name for p in Path(os.environ["ITD_REPO"], "hooks").glob("*.sh")}
+def to_win(p):
+    m = re.match(r'^/mnt/([a-zA-Z])/(.*)$', p) or re.match(r'^/([a-zA-Z])/(.*)$', p)
+    return '%s:/%s' % (m.group(1).upper(), m.group(2)) if m else p.replace('\\', '/')
+active = os.environ["ITD_ACTIVE"].rstrip("/")
+dirs = {"~/.claude/hooks", active + "/hooks", to_win(active) + "/hooks"}
+owned = [re.compile(re.escape(d.lower()) + r"/([a-z0-9._-]+\.sh)(?=$|[\"'\s])") for d in dirs]
+def itd_owned(hook):
+    command = str(hook.get("command", "")).replace("\\", "/").lower() if isinstance(hook, dict) else ""
+    return any(m.group(1) in names for rx in owned for m in rx.finditer(command))
 try:
-    with open('$SETTINGS') as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    h = data.get('hooks', {})
-    print(json.dumps({k: h.get(k) for k in KEYS}, sort_keys=True))
-except Exception as e:
-    print('ERROR:' + str(e))
-    sys.exit(0)
-" 2>/dev/null || echo "ERROR")
-
-desired_normalized=$(echo "$EFFECTIVE_HOOKS" | $PYBIN -c "
-import json, sys
-print(json.dumps(json.load(sys.stdin), sort_keys=True))
-")
-
-if [ "$current_hooks" = "$desired_normalized" ]; then
-  ok "settings.json hooks already up-to-date"
-# v1.73.1 fail-closed guard: never downgrade an existing Windows python-wrapper
-# registration to bare .sh commands. A bare-.sh registration on Windows makes
-# Git-Bash execute python-bodied hooks as shell → exit 2 → the '*'-matcher
-# PreToolUse hook denies EVERY tool call (live incident 2026-07-10). If the
-# target settings.json shows wrapper form but the target OS resolved non-
-# windows, the resolution is wrong — refuse and tell the operator, keep the
-# working registration untouched.
-elif [ "$ITD_TARGET_OS" != "windows" ] && printf '%s' "$current_hooks" | grep -qi '[A-Za-z]:/[^"]*python[^"]*\.exe'; then
-  err "settings.json registers hooks via a Windows python wrapper, but target OS resolved '$ITD_TARGET_OS'."
-  err "REFUSING to overwrite (would brick every tool call). Re-run with ITD_TARGET_OS=windows (+ ITD_WIN_PYTHON), or fix CLAUDE_HOME."
-else
-  if [ "$DRY_RUN" = "1" ]; then
-    warn "settings.json hooks would be updated (drift detected)"
-    printf "  current:  %s\n" "$(echo "$current_hooks" | head -c 120)..."
-    printf "  desired:  %s\n" "$(echo "$desired_normalized" | head -c 120)..."
-  else
-    ts=$(date +%Y%m%d-%H%M%S)
-    bak="$SETTINGS.bak-$ts"
-    cp "$SETTINGS" "$bak"
-    $PYBIN - "$SETTINGS" <<PYEOF
-import json, sys
-path = sys.argv[1]
-with open(path) as f:
-    data = json.load(f)
-_itd = $EFFECTIVE_HOOKS
-# Merge the ITD-managed event keys; preserve any foreign event keys (e.g. a
-# SessionStart hook registered by another plugin such as context-mode). ITD owns
-# UserPromptSubmit/PreToolUse/PostToolUse/Stop/SubagentStop in full, so replacing
-# those is correct.
-data.setdefault('hooks', {})
-for _k, _v in _itd.items():
-    data['hooks'][_k] = _v
-with open(path, 'w') as f:
+except FileNotFoundError:
+    data = {}
+except (OSError, ValueError) as exc:
+    print("ERROR:%s is not readable JSON (%s)" % (path, exc)); raise SystemExit(0)
+current = data.get("hooks") or {}
+desired = json.loads(os.environ["ITD_HOOKS"])
+merged = dict(current)
+for key in KEYS:
+    foreign = []
+    for group in current.get(key) or []:
+        hooks = group.get("hooks") if isinstance(group, dict) else None
+        if not isinstance(hooks, list):
+            foreign.append(group)
+            continue
+        rest = [hook for hook in hooks if not itd_owned(hook)]
+        if rest:
+            foreign.append(dict(group, hooks=rest))
+    if desired.get(key) or foreign:
+        merged[key] = (desired.get(key) or []) + foreign
+    else:
+        merged.pop(key, None)
+if merged == current:
+    print("UPTODATE"); raise SystemExit(0)
+managed = json.dumps({key: current.get(key) for key in KEYS})
+if os.environ["ITD_TARGET"] != "windows" and re.search(r'[A-Za-z]:/[^"\\]*python[^"\\]*\.exe', managed, re.I):
+    print("REFUSE"); raise SystemExit(0)
+if os.environ["ITD_DRY"] == "1":
+    print("DRIFT"); raise SystemExit(0)
+backup = ""
+if os.path.exists(path):
+    backup = path + ".bak-" + time.strftime("%Y%m%d-%H%M%S")
+    shutil.copy(path, backup)
+data["hooks"] = merged
+with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
-    f.write('\n')
-PYEOF
-    ok "settings.json hooks updated (backup: $(basename "$bak"))"
-  fi
-fi
+    f.write("\n")
+print("WROTE:" + os.path.basename(backup))
+PYX
+)"
+case "$_mres" in
+  UPTODATE) ok "settings.json hooks already up-to-date" ;;
+  DRIFT)    warn "settings.json hooks would be updated (drift detected)" ;;
+  WROTE:*)  ok "settings.json hooks updated (backup: ${_mres#WROTE:})" ;;
+  REFUSE)
+    err "settings.json registers hooks via a Windows python wrapper, but target OS resolved '$ITD_TARGET_OS'."
+    err "REFUSING to overwrite (would brick every tool call). Re-run with ITD_TARGET_OS=windows (+ ITD_WIN_PYTHON), or fix CLAUDE_HOME." ;;
+  ERROR:*)  err "settings.json: ${_mres#ERROR:}"; exit 1 ;;
+  *)        err "settings.json merge: unexpected result ($_mres)"; exit 1 ;;
+esac
 
 # -----------------------------------------------------------------------------
 # Step 6/6: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)

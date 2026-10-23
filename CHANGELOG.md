@@ -11,6 +11,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.109.2 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - программа ADR-016 (сессия 5): хуки по умолчанию
+
+- Одна регистрация для нового пользователя и для владельца: ядро (pre-flight-check, pii-egress-guard, careful,
+  check-predeploy-gate, completion-signals, completion-gate), хуки состояния (state-guard, wip-gate, freeze,
+  handoff-readiness) и гейты, молчащие на обычной работе (check-dod-before-commit с record-agent-skill,
+  cross-review-precommit, гейты коммита и скиллов методологии, graph-route, model-policy, narration-final,
+  verdict-contract) - 19 хуков. Новая установка совпадает с установкой владельца на WSL и Windows.
+- Диагностика выключена по умолчанию: cost-tracker, context-budget, context-aware, stuck-detection, risk-score,
+  completion-stop, session-open-diagnostic, execution-trace и crash-recovery включаются строкой в
+  `~/.claude/itd-enabled-hooks.txt`; `~/.claude/itd-disabled-hooks.txt` выключает любой хук.
+- check-skills, check-tool-skill и check-review-before-commit сняты с регистрации (просили строку выбора скилла,
+  которой в глобальных правилах больше нет); файлы остаются, `docs/HARNESS_TRUST_POLICY.json` называет два из них в
+  `unregisteredHardGates`.
+- `hooks/codex-dispatch.py` - одно место решения: на Codex выключенная запись выходит до запуска процесса хука, а
+  `sync-to-active.sh` и `/adopt` (`itd_project_hooks.py`) загружают то же решение; Codex больше не зависит от
+  позиционных ключей `hooks.state`. Проектные шаблоны `/adopt` равны регистрации своего агента и не дублируют
+  хуки, уже зарегистрированные глобально.
+- `sync-to-active.sh` заменяет в `settings.json` только команды хуков ITD: пользовательский хук остается, в том
+  числе в той же группе событий; повторный sync не меняет файл.
+- check-dod-before-commit: бюджет хоста 150 с (Codex 140 с) выше его проектных проверок (120 с) - на Windows хост
+  обрывал гейт на коммитах по таймауту 5 с.
+- Новый `scripts/itd_codex_hook_trust.py` (только чтение): какие записи Codex не запустит - без доверия, выключенные
+  по позиции, устаревшие ключи. Тесты: `tests/verify_hook_selection.py`, `tests/verify_codex_hook_trust.py`.
+- Хвосты сессии 4: `run_rounds.sh` выходит с 1, если копию `hook_bench.py` для Windows не обновить;
+  `verify_global_routers.py` пинует личную секцию по сырым байтам (строгий UTF-8, CRLF меняет пин); юнит
+  ITD-PLAN-S4 verified.
+
 ### Changed - программа ADR-016 (сессия 4): короткие глобальные инструкции
 
 - `docs/templates/global-claude-md.md`: управляемый блок 59 строк вместо 167 (предел 60). Минимальный маршрут

@@ -1,19 +1,31 @@
 {
-  "_comment": "Fallback for a repository-local methodology checkout. Prefer the enabled plugin's bundled hooks. Replace both path placeholders before use.",
+  "_comment": "Fallback for a repository-local methodology checkout. Prefer the enabled plugin's bundled hooks. Replace both path placeholders before use. The hooks equal the plugin's hooks/hooks.json (tests/verify_host_adapters.py keeps them equal); codex-dispatch.py runs an optional hook only when ~/.claude/itd-enabled-hooks.txt names it and never one ~/.claude/itd-disabled-hooks.txt names.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-skills.sh",
-            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-skills.sh",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script session-open-diagnostic.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script session-open-diagnostic.sh",
             "timeout": 5
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pre-flight-check.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script pre-flight-check.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script context-aware.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script context-aware.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script graph-route.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script graph-route.sh",
             "timeout": 5
           }
         ]
@@ -43,19 +55,14 @@
         ]
       },
       {
-        "matcher": "Bash|Edit|Write|apply_patch",
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-tool-skill.sh",
-            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-tool-skill.sh",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script execution-trace.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script execution-trace.sh",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pii-egress-guard.sh",
@@ -75,14 +82,26 @@
           },
           {
             "type": "command",
-            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-review-before-commit.sh",
-            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-review-before-commit.sh",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-dod-before-commit.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-dod-before-commit.sh",
+            "timeout": 150
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cross-review-precommit.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cross-review-precommit.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-dod-before-commit.sh",
-            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-dod-before-commit.sh",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script context-budget.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script context-budget.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script careful.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script careful.sh",
             "timeout": 5
           },
           {
@@ -116,6 +135,18 @@
           },
           {
             "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script wip-gate.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script wip-gate.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script freeze.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script freeze.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh",
             "timeout": 5
@@ -142,12 +173,47 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Edit|Write|apply_patch",
+        "matcher": "Edit|Write|apply_patch",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script execution-trace.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script execution-trace.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cost-tracker.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cost-tracker.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script risk-score.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script risk-score.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script stuck-detection.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script stuck-detection.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh",
             "timeout": 5
           }
         ]
@@ -160,6 +226,12 @@
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script completion-signals.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script completion-signals.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh",
+            "timeout": 5
           }
         ]
       }
@@ -171,6 +243,18 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script handoff-readiness.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script handoff-readiness.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script completion-stop.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script completion-stop.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh",
             "timeout": 5
           }
         ]
@@ -190,6 +274,12 @@
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script verdict-contract.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script verdict-contract.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
+            "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh",
+            "timeout": 5
           }
         ]
       }

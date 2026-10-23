@@ -37,7 +37,13 @@ fi
 # (freeze.sh с v1.42.0 зарегистрирован: он no-op без state-файла, регистрация
 # бесплатна и убирает фантомный «opt-in» компонент). Держим массив для
 # следующего действительно opt-in хука.
+# Сессия 5 плана (ADR-016): хуки строки выбора скилла и ревью на каждый коммит
+# сняты с регистрации (глобальные правила их больше не требуют); файлы остаются
+# до условной сессии удаления (docs/HARNESS_TRUST_POLICY.json unregisteredHardGates).
 EXEMPT=(
+  check-skills.sh
+  check-tool-skill.sh
+  check-review-before-commit.sh
 )
 
 is_exempt() {

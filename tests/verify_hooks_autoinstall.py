@@ -65,6 +65,7 @@ Run: sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py [--mutations]
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -154,12 +155,23 @@ def run(helper: Path, *args: str, home: str | None = None,
         return subprocess.CompletedProcess([str(helper), *args], 124, "", "TIMEOUT")
 
 
-def template_triples(hooks_dir: str) -> list[tuple[str, str, str]]:
+def optional_hooks() -> frozenset[str]:
+    spec = importlib.util.spec_from_file_location("itd_codex_dispatch", REPO / "hooks" / "codex-dispatch.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.OPTIONAL_HOOKS
+
+
+def template_triples(hooks_dir: str, enabled: tuple[str, ...] = ()) -> list[tuple[str, str, str]]:
+    """The template hooks a default install adds: an optional hook only when the user enabled it."""
     data = json.loads(TEMPLATE.read_text(encoding="utf-8"))
+    off = optional_hooks() - set(enabled)
     out = []
     for event, entries in data["hooks"].items():
         for entry in entries:
             for hook in entry["hooks"]:
+                if hook["command"].rsplit("/", 1)[-1] in off:
+                    continue
                 out.append((event, entry.get("matcher", ""),
                             hook["command"].replace(PLACEHOLDER, hooks_dir)))
     return out
@@ -228,7 +240,7 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         r = run(helper, "plan", *box.args())
         check(fails, r.returncode == 0, f"plan absent: exit 0 (got {r.returncode}: {r.stderr.strip()[:200]})")
         check(fails, not box.settings.exists(), "plan absent: file not created")
-        check(fails, "create" in r.stdout and "check-tool-skill.sh" in r.stdout,
+        check(fails, "create" in r.stdout and "careful.sh" in r.stdout,
               "plan absent: names create and the hooks to add")
 
         r = run(helper, "apply", *box.args())
@@ -317,13 +329,13 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         # Windows python-wrapper form (quoted, backslashes) still counts as user-level.
         box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
             {"type": "command", "command": '"C:\\Python312\\python.exe" "'
-             + (box.user_hooks.as_posix() + "/check-tool-skill.sh").replace("/", "\\") + '"'}]}]}},
+             + (box.user_hooks.as_posix() + "/careful.sh").replace("/", "\\") + '"'}]}]}},
             indent=2) + "\n", encoding="utf-8")
         r = run(helper, "plan", *box.args())
         check(fails, r.returncode == 0 and "user-level" in r.stdout and not box.settings.exists(),
               "user-level: Windows python-wrapper form detected")
         box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
-            {"type": "command", "command": "~/.claude/hooks/check-tool-skill.sh"}]}]}}, indent=2) + "\n",
+            {"type": "command", "command": "~/.claude/hooks/careful.sh"}]}]}}, indent=2) + "\n",
             encoding="utf-8")
         user_before = digest(box.user)
         r = run(helper, "plan", *box.args(), home=str(box.home))
@@ -332,8 +344,8 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         check(fails, r.returncode == 0, f"user-level: apply exit 0 (got {r.returncode}: {r.stderr.strip()[:200]})")
         data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
         got = triples(data)
-        rest = [t for t in expected if not t[2].endswith("/check-tool-skill.sh")]
-        check(fails, not any(t[2].endswith("/check-tool-skill.sh") for t in got),
+        rest = [t for t in expected if not t[2].endswith("/careful.sh")]
+        check(fails, not any(t[2].endswith("/careful.sh") for t in got),
               "user-level: the registered script is not duplicated at project level")
         check(fails, sorted(got) == sorted(rest), "user-level: every other hook still installed")
         check(fails, (data.get("permissions") or {}).get("ask") == template_ask(),
@@ -346,17 +358,17 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         box.settings.unlink(missing_ok=True)
         box.user.write_text('{"model": "opus"}\n', encoding="utf-8")
         disabled_list = box.user.parent / "itd-disabled-hooks.txt"
-        disabled_list.write_text("﻿# owner opt-out\ncheck-tool-skill.sh  # noisy\nno-such-hook.sh\n",
+        disabled_list.write_text("﻿# owner opt-out\ncareful.sh  # noisy\nno-such-hook.sh\n",
                                  encoding="utf-8")
         r = run(helper, "plan", *box.args())
         check(fails, r.returncode == 0 and "disabled for this user" in r.stdout
-              and "check-tool-skill.sh" in r.stdout.split("disabled for this user", 1)[-1],
+              and "careful.sh" in r.stdout.split("disabled for this user", 1)[-1],
               "disabled list: plan reports the skipped hook")
         r = run(helper, "apply", *box.args("--yes"))
         data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
         got = triples(data)
-        check(fails, r.returncode == 0 and not any(t[2].endswith("/check-tool-skill.sh") for t in got)
-              and sorted(got) == sorted(t for t in expected if not t[2].endswith("/check-tool-skill.sh")),
+        check(fails, r.returncode == 0 and not any(t[2].endswith("/careful.sh") for t in got)
+              and sorted(got) == sorted(t for t in expected if not t[2].endswith("/careful.sh")),
               "disabled list: the switched-off hook is not re-enabled at project level")
         disabled_list.unlink()
 
@@ -374,11 +386,11 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         (spaced / ".claude").mkdir(parents=True)
         spaced_user = spaced / ".claude" / "settings.json"
         spaced_user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
-            {"type": "command", "command": f'bash "{(spaced / ".claude" / "hooks").as_posix()}/check-tool-skill.sh"'}]}]}})
+            {"type": "command", "command": f'bash "{(spaced / ".claude" / "hooks").as_posix()}/careful.sh"'}]}]}})
             + "\n", encoding="utf-8")
         r = run(helper, "plan", "--root", str(box.root), "--hooks-dir", str(box.hooks),
                 "--user-settings", str(spaced_user))
-        check(fails, r.returncode == 0 and any("user-level" in line and "check-tool-skill.sh" in line
+        check(fails, r.returncode == 0 and any("user-level" in line and "careful.sh" in line
                                                for line in r.stdout.splitlines()),
               "quoted user-level path with a space: recognised")
 
@@ -401,7 +413,7 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         # Another project's .claude/hooks is not the user's idea-to-deploy install.
         box.settings.unlink(missing_ok=True)
         box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
-            {"type": "command", "command": f"{(box.tmp / 'other-project').as_posix()}/.claude/hooks/check-tool-skill.sh"}]}]}},
+            {"type": "command", "command": f"{(box.tmp / 'other-project').as_posix()}/.claude/hooks/careful.sh"}]}]}},
             indent=2) + "\n", encoding="utf-8")
         r = run(helper, "apply", *box.args("--yes"), home=str(box.home))
         data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
@@ -468,16 +480,16 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
 
         # The plugin hooks dir is recognised however it is spelled in the user-level settings.
         spelled = {
-            "dot-dot segment": f"{box.hooks.parent.as_posix()}/../{box.hooks.parent.name}/hooks/check-tool-skill.sh",
-            "$HOME form": "$HOME/plugin/hooks/check-tool-skill.sh",
-            "${HOME} form": "${HOME}/plugin/hooks/check-tool-skill.sh",
+            "dot-dot segment": f"{box.hooks.parent.as_posix()}/../{box.hooks.parent.name}/hooks/careful.sh",
+            "$HOME form": "$HOME/plugin/hooks/careful.sh",
+            "${HOME} form": "${HOME}/plugin/hooks/careful.sh",
         }
         for label, command in spelled.items():
             box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
                 {"type": "command", "command": command}]}]}}) + "\n", encoding="utf-8")
             r = run(helper, "plan", *box.args(), home=str(box.tmp))
             check(fails, r.returncode == 0 and any(
-                "user-level" in line and "check-tool-skill.sh" in line for line in r.stdout.splitlines()),
+                "user-level" in line and "careful.sh" in line for line in r.stdout.splitlines()),
                   f"plugin dir spelled with {label}: recognised as user-level")
         link = box.tmp / "hooks-link"
         try:
@@ -486,7 +498,7 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
             pass
         else:
             box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [
-                {"type": "command", "command": f"{box.hooks.as_posix()}/check-tool-skill.sh"}]}]}}) + "\n",
+                {"type": "command", "command": f"{box.hooks.as_posix()}/careful.sh"}]}]}}) + "\n",
                 encoding="utf-8")
             r = run(helper, "plan", "--root", str(box.root), "--hooks-dir", str(link),
                     "--user-settings", str(box.user))

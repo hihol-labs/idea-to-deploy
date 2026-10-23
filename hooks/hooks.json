@@ -17,12 +17,6 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-skills.sh",
-            "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-skills.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script context-aware.sh",
             "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script context-aware.sh",
             "timeout": 5
@@ -60,17 +54,6 @@
         ]
       },
       {
-        "matcher": "Bash|Edit|Write|apply_patch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-tool-skill.sh",
-            "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-tool-skill.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
         "matcher": ".*",
         "hooks": [
           {
@@ -98,15 +81,9 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-review-before-commit.sh",
-            "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-review-before-commit.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "python3 \"$PLUGIN_ROOT/hooks/codex-dispatch.py\" --script check-dod-before-commit.sh",
             "commandWindows": "py -3 \"$env:PLUGIN_ROOT\\hooks\\codex-dispatch.py\" --script check-dod-before-commit.sh",
-            "timeout": 5
+            "timeout": 150
           },
           {
             "type": "command",

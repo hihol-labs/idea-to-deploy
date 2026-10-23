@@ -338,6 +338,35 @@ class DigestAndProbeTest(unittest.TestCase):
                 problems = summarize_rounds.summary(Path(tmp), "after")[1]
                 self.assertEqual(len(problems), expected, problems)
 
+    def test_run_rounds_stops_when_the_windows_copy_cannot_be_refreshed(self) -> None:
+        def run(win_src: Path, tmp: Path) -> subprocess.CompletedProcess:
+            env = {**os.environ, "HOME": str(tmp), "RAW": str(tmp / "raw"), "WIN_SRC": str(win_src)}
+            return subprocess.run(["bash", str(HERE / "run_rounds.sh"), "after", "0"], env=env,
+                                  capture_output=True, text=True, timeout=60)
+        with tempfile.TemporaryDirectory() as raw_tmp:
+            tmp = Path(raw_tmp)
+            (tmp / "blocker").write_text("a file where the copy directory should be\n")
+            cases = {"the copy directory cannot be created": tmp / "blocker" / "baseline"}
+            if os.name != "nt" and os.geteuid() != 0:  # root writes into a read-only directory
+                stale = tmp / "stale"
+                stale.mkdir()
+                (stale / "hook_bench.py").write_text("# stale copy\n")
+                (stale / "hook_bench.py").chmod(0o444)
+                stale.chmod(0o555)
+                cases["a stale copy cannot be overwritten"] = stale
+            try:
+                for label, win_src in cases.items():
+                    with self.subTest(label):
+                        result = run(win_src, tmp)
+                        self.assertEqual(result.returncode, 1, result.stderr)
+                        self.assertIn("cannot refresh", result.stderr)
+                        self.assertFalse((tmp / "raw" / "meta-after.txt").exists(), "a round log was started")
+                if "a stale copy cannot be overwritten" in cases:
+                    self.assertEqual((tmp / "stale" / "hook_bench.py").read_text(), "# stale copy\n")
+            finally:
+                if (tmp / "stale").exists():
+                    (tmp / "stale").chmod(0o755)
+
     def test_probe_helpers(self) -> None:
         if os.name != "nt":
             self.assertEqual(probe.to_wsl('"C:/P/python.exe" -X utf8 "C:/h/g.sh"'),

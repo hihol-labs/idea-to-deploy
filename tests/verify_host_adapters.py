@@ -65,9 +65,17 @@ def main() -> int:
                     referenced_scripts.add(script)
                     check((ROOT / "hooks" / script).is_file(), f"missing shared hook {script}", errors)
 
-    hard_gates = {gate["script"] for gate in trust_policy["hardGates"]}
+    unregistered = set(trust_policy["unregisteredHardGates"]["scripts"])
+    hard_gates = {gate["script"] for gate in trust_policy["hardGates"]} - unregistered
     check(hard_gates <= referenced_scripts, f"hard Codex gates missing: {sorted(hard_gates - referenced_scripts)}", errors)
-    mutation_hard_gates = {"check-tool-skill.sh", "check-skill-completeness.sh", "state-guard.sh"}
+    check(not unregistered & referenced_scripts,
+          f"unregistered hard gates are registered: {sorted(unregistered & referenced_scripts)}", errors)
+    # the repository-local fallback registers exactly the plugin's hooks (plan session 5: one registration)
+    project_hooks = load_json(ROOT / "skills" / "adopt" / "references" / "codex-project-hooks.json")["hooks"]
+    rendered = json.loads(json.dumps(events).replace("$PLUGIN_ROOT/hooks/", "{{ITD_ROOT}}/hooks/")
+                          .replace("$env:PLUGIN_ROOT\\\\hooks\\\\", "{{ITD_ROOT_WINDOWS}}\\\\hooks\\\\"))
+    check(project_hooks == rendered, "codex-project-hooks.json differs from the plugin hooks/hooks.json", errors)
+    mutation_hard_gates = {"check-skill-completeness.sh", "state-guard.sh"}
     apply_patch_scripts: set[str] = set()
     for group in events.get("PreToolUse", []):
         if "apply_patch" not in str(group.get("matcher", "")):
@@ -168,6 +176,10 @@ def main() -> int:
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
     env["PLUGIN_ROOT"] = str(ROOT)
+    # the user's own hook lists never decide a test; execution-trace (optional) is enabled for the transport probe
+    lists_dir = tempfile.TemporaryDirectory(prefix="itd-hook-lists-")
+    Path(lists_dir.name, "itd-enabled-hooks.txt").write_text("execution-trace.sh\n", encoding="utf-8")
+    env["CLAUDE_HOME"] = lists_dir.name
     proc = subprocess.run(
         [sys.executable, str(dispatcher_path), "--script", "check-skill-completeness.sh"],
         input=json.dumps(probe),

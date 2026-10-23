@@ -483,7 +483,9 @@ Claude Code host only. On the Codex adapter (Step -1) the bundled
    and `permissions.ask` rule that would be added. A hook whose script is already
    registered user-level from an idea-to-deploy hooks dir (`~/.claude/settings.json`,
    read only) is listed as skipped and not added — a project duplicate would fire it
-   twice; the other hooks and the permissions are still offered. When
+   twice; so is a hook the user switched off (`~/.claude/itd-disabled-hooks.txt`) and an
+   optional diagnostic hook not named in `~/.claude/itd-enabled-hooks.txt`; the other
+   hooks and the permissions are still offered. When
    `.claude/settings.json` is a symlink the plan names the real file that will be written
    (quote it in the question); a link that resolves outside the project (dangling or not) is
    refused with WHY/FIX. A `warning:` line
