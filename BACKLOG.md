@@ -94,6 +94,15 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 улика принята PASS. Оракул (`tests/verify_snapshot.py` и проверки `run-live-model-benchmark.py`) должен проверять
 минимумы самого скилла и выполненный DA в фазе; тест на оба случая. Не блокирует продуктовую работу.
 
+## P3 - `verify_hooks_autoinstall.py` на Windows владельца: 3 проверки user-level и кодировка (2026-10-23, ITD-PLAN-S5)
+
+Нативный Python 3.12 на Windows владельца (профиль `C:\\Users\\Дмитрий`): без `PYTHONUTF8=1` тест падает
+`UnicodeDecodeError` - дочерний процесс печатает путь в ANSI-кодировке, родитель читает UTF-8; с `PYTHONUTF8=1`
+красны три проверки «user-level» (plan reports it, not duplicated, every other hook installed). Те же три падают на
+версии main `a32a12e` (до сессии 5), в CI windows-verify (ASCII-профиль) тест зеленый. Похоже на несовпадение форм
+пути каталога хуков (короткое 8.3-имя Temp против длинного) в `dir_forms`; проверить и добавить тест с
+не-ASCII профилем. Не блокирует продуктовую работу.
+
 ## P3 - `tests/verify_graph_study.py` красный при аптайме хоста меньше 30 минут (2026-10-21, REL-1.109.2)
 
 Два теста просроченного бюджета ставят `approval['policy']['startedNs'] = 0` и ждут отказа
