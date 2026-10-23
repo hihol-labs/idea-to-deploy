@@ -13,7 +13,8 @@ read-only report compares those keys with the installed hooks.json and names:
 - stale: a key of this plugin that no entry has any more.
 
 A recorded trusted_hash may still be for an older definition at that position; Codex /hooks shows that case.
-Never writes config.toml. Exit 0 - every entry trusted and enabled; 1 - findings; 2 - usage or unreadable input.
+Writes nothing. Exit 0 - every entry trusted and enabled; 1 - findings; 2 - usage or unreadable input (no
+config.toml, a hooks.state of another shape, no installed hooks.json under a semantic-version directory).
 
 Usage: python3 scripts/itd_codex_hook_trust.py [--codex-home DIR] [--plugin idea-to-deploy@personal]
                                                [--hooks-json PATH]
@@ -31,7 +32,11 @@ EVENTS = {"UserPromptSubmit": "user_prompt_submit", "PreToolUse": "pre_tool_use"
           "Stop": "stop", "SubagentStop": "subagent_stop"}
 
 
-VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?")
+# semver.org 2.0.0: no leading zeroes in numeric identifiers, no empty identifiers
+NUMERIC = r"0|[1-9]\d*"
+IDENT = r"(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+VERSION_RE = re.compile(rf"({NUMERIC})\.({NUMERIC})\.({NUMERIC})(?:-({IDENT}(?:\.{IDENT})*))?"
+                        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?")
 
 
 def version_key(name: str) -> tuple | None:
@@ -75,6 +80,12 @@ def hook_state(config: dict) -> dict:
     state = hooks.get("state", {}) if isinstance(hooks, dict) else None
     if not isinstance(state, dict) or not all(isinstance(value, dict) for value in state.values()):
         raise ValueError("hooks.state in config.toml is not a table of tables")
+    for key, record in state.items():
+        trusted, enabled = record.get("trusted_hash"), record.get("enabled")
+        if trusted is not None and not (isinstance(trusted, str) and trusted):
+            raise ValueError(f"hooks.state.{key}.trusted_hash is not a non-empty string")
+        if enabled is not None and not isinstance(enabled, bool):
+            raise ValueError(f"hooks.state.{key}.enabled is not a boolean")
     return state
 
 
@@ -107,8 +118,7 @@ def main() -> int:
     try:
         hooks_json = args.hooks_json or installed_hooks_json(args.codex_home, args.plugin)
         layout = entries(hooks_json)
-        config_path = args.codex_home / "config.toml"
-        config = tomllib.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
+        config = tomllib.loads((args.codex_home / "config.toml").read_text(encoding="utf-8"))
         state = hook_state(config)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, tomllib.TOMLDecodeError) as exc:
         print(f"cannot read the Codex hook state: {type(exc).__name__}: {exc}", file=sys.stderr)

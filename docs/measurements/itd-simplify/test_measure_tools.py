@@ -346,7 +346,11 @@ class DigestAndProbeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw_tmp:
             tmp = Path(raw_tmp)
             (tmp / "blocker").write_text("a file where the copy directory should be\n")
-            cases = {"the copy directory cannot be created": tmp / "blocker" / "baseline"}
+            occupied = tmp / "occupied"
+            (occupied / "hook_bench.py").mkdir(parents=True)  # any user, root and Windows included: cp lands inside
+            (occupied / "hook_bench.py" / "keep").write_text("stale\n")
+            cases = {"the copy directory cannot be created": tmp / "blocker" / "baseline",
+                     "the copy path is a directory": occupied}
             if os.name != "nt" and os.geteuid() != 0:  # root writes into a read-only directory
                 stale = tmp / "stale"
                 stale.mkdir()

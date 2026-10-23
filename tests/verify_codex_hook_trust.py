@@ -52,6 +52,11 @@ def home_with(tmp: Path, name: str, state: dict[str, dict] | None, layouts: dict
     return home
 
 
+def snapshot(home: Path) -> dict[str, bytes]:
+    return {path.relative_to(home).as_posix(): path.read_bytes() if path.is_file() else b"<dir>"
+            for path in sorted(home.rglob("*"))}
+
+
 def run(home: Path) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, "-B", str(SCRIPT), "--codex-home", str(home)], capture_output=True,
                           text=True, encoding="utf-8", timeout=60)
@@ -63,11 +68,11 @@ def main() -> int:
         tmp = Path(raw)
 
         home = home_with(tmp, "all", {key: trusted for key in KEYS})
-        before = (home / "config.toml").read_bytes()
+        before = snapshot(home)
         result = run(home)
         check("every entry trusted: exit 0 and OK", result.returncode == 0 and "OK:" in result.stdout,
               result.stdout + result.stderr)
-        check("the report never writes config.toml", (home / "config.toml").read_bytes() == before)
+        check("the report writes nothing under the Codex home", snapshot(home) == before)
 
         state = {key: trusted for key in KEYS[:2]}
         state["pre_tool_use:1:1"] = {"enabled": False}
@@ -85,9 +90,8 @@ def main() -> int:
         check("the fix names /hooks and the ITD list", "/hooks" in out and "itd-disabled-hooks.txt" in out, out)
 
         result = run(home_with(tmp, "noconfig", None))
-        check("no config.toml: every entry is untrusted", result.returncode == 1
-              and sum(line.startswith("untrusted ") for line in result.stdout.splitlines()) == len(KEYS),
-              result.stdout)
+        check("no config.toml: unreadable input, exit 2", result.returncode == 2 and "config.toml" in result.stderr,
+              result.stdout + result.stderr)
 
         old = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "python3 d.py --script x.sh"}]}]}}
         result = run(home_with(tmp, "versions", {key: trusted for key in KEYS}, {"1.9.0": old, "1.10.0": LAYOUT}))
@@ -103,10 +107,19 @@ def main() -> int:
                                {"1.10.0-beta.2": LAYOUT, "1.10.0-beta.10": LAYOUT, "1.10.0-alpha": old}))
         check("prereleases compare by numeric identifiers (beta.10 over beta.2)",
               result.returncode == 0 and "1.10.0-beta.10" in result.stdout, result.stdout + result.stderr)
+        result = run(home_with(tmp, "invalid-semver", {key: trusted for key in KEYS},
+                               {"1.9.0": LAYOUT, "1.10.0-alpha..1": old, "1.10.0-01": old, "01.10.0": old,
+                                "1.10": old}))
+        check("directories that are not valid semantic versions are ignored",
+              result.returncode == 0 and "/1.9.0/hooks" in result.stdout.replace("\\", "/"),
+              result.stdout + result.stderr)
 
         for label, text in (("hooks.state is a string", '[hooks]\nstate = "x"\n'),
                             ("a hooks.state value is not a table", '[hooks.state]\n"k" = 1\n'),
-                            ("hooks is a number", "hooks = 5\n")):
+                            ("hooks is a number", "hooks = 5\n"),
+                            ("trusted_hash is a number", '[hooks.state."k"]\ntrusted_hash = 1\n'),
+                            ("trusted_hash is empty", '[hooks.state."k"]\ntrusted_hash = ""\n'),
+                            ("enabled is a string", '[hooks.state."k"]\nenabled = "false"\n')):
             shaped = home_with(tmp, "shape-" + str(len(label)), None)
             (shaped / "config.toml").write_text(text, encoding="utf-8")
             result = run(shaped)

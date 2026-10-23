@@ -700,7 +700,8 @@ except FileNotFoundError:
     data = {}
 except (OSError, ValueError) as exc:
     print("ERROR:%s is not readable JSON (%s)" % (path, exc)); raise SystemExit(0)
-if not isinstance(data, dict) or not isinstance(data.get("hooks", {}), dict):
+hooks_value = data.get("hooks", {}) if isinstance(data, dict) else None
+if not isinstance(hooks_value, dict) or not all(isinstance(groups, list) for groups in hooks_value.values()):
     print("ERROR:%s must be a JSON object whose \"hooks\" is an object of event lists; fix it or move it aside" % path)
     raise SystemExit(0)
 current = data.get("hooks") or {}

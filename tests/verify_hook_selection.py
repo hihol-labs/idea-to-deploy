@@ -42,6 +42,12 @@ CORE = {"pre-flight-check.sh", "pii-egress-guard.sh", "careful.sh", "check-prede
         "completion-signals.sh", "completion-gate.sh"}
 STATE = {"state-guard.sh", "wip-gate.sh", "freeze.sh", "handoff-readiness.sh"}
 UNREGISTERED = {"check-skills.sh", "check-tool-skill.sh", "check-review-before-commit.sh"}
+# The acceptance sets, pinned here independently of the production code (plan session 5).
+DEFAULT_SET = CORE | STATE | {"check-commit-completeness.sh", "check-dod-before-commit.sh", "check-skill-completeness.sh",
+                              "cross-review-precommit.sh", "graph-route.sh", "model-policy.sh", "narration-final.sh",
+                              "record-agent-skill.sh", "verdict-contract.sh"}
+OPTIONAL = {"completion-stop.sh", "context-aware.sh", "context-budget.sh", "cost-tracker.sh", "crash-recovery.sh",
+            "execution-trace.sh", "risk-score.sh", "session-open-diagnostic.sh", "stuck-detection.sh"}
 
 spec = importlib.util.spec_from_file_location("itd_codex_dispatch", DISPATCHER)
 dispatch = importlib.util.module_from_spec(spec)
@@ -136,8 +142,11 @@ def main() -> int:
         got = names(rows(home))
         check("fresh install registers every core hook", CORE <= got, f"missing={sorted(CORE - got)}")
         check("fresh install registers the state hooks", STATE <= got, f"missing={sorted(STATE - got)}")
-        check("fresh install registers no optional hook", not got & dispatch.OPTIONAL_HOOKS,
-              f"optional={sorted(got & dispatch.OPTIONAL_HOOKS)}")
+        check("fresh install registers exactly the 19 default hooks", got == DEFAULT_SET,
+              f"diff={sorted(got ^ DEFAULT_SET)}")
+        check("the dispatcher's optional set is the accepted one", dispatch.OPTIONAL_HOOKS == OPTIONAL,
+              f"diff={sorted(dispatch.OPTIONAL_HOOKS ^ OPTIONAL)}")
+        check("fresh install registers no optional hook", not got & OPTIONAL, f"optional={sorted(got & OPTIONAL)}")
         check("fresh install registers none of the three skill-decision hooks", not got & UNREGISTERED,
               f"registered={sorted(got & UNREGISTERED)}")
         check("the sync names the optional hooks it left off",
@@ -261,7 +270,8 @@ def main() -> int:
 
         # 8. what the merge must refuse or still own
         for label, text in (("a JSON array", "[]\n"), ("hooks as a list", '{"hooks": []}\n'),
-                            ("an event as an object", '{"hooks": {"PreToolUse": {}}}\n')):
+                            ("an event as an object", '{"hooks": {"PreToolUse": {}}}\n'),
+                            ("a foreign event as a string", '{"hooks": {"SessionStart": "x"}}\n')):
             home = tmp / f"shape-{len(label)}"
             home.mkdir()
             (home / "settings.json").write_text(text, encoding="utf-8")
