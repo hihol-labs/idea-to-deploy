@@ -31,18 +31,29 @@ EVENTS = {"UserPromptSubmit": "user_prompt_submit", "PreToolUse": "pre_tool_use"
           "Stop": "stop", "SubagentStop": "subagent_stop"}
 
 
-def version_key(name: str) -> tuple:
-    return tuple(int(part) if part.isdigit() else -1 for part in re.split(r"[.-]", name))
+VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?")
+
+
+def version_key(name: str) -> tuple | None:
+    """Semantic-version precedence: a release after its prereleases, numeric identifiers below alphanumeric ones."""
+    match = VERSION_RE.fullmatch(name)
+    if not match:
+        return None
+    major, minor, patch, pre = match.groups()
+    if pre is None:
+        return int(major), int(minor), int(patch), 1, ()
+    ids = tuple((0, int(i), "") if i.isdigit() else (1, 0, i) for i in pre.split("."))
+    return int(major), int(minor), int(patch), 0, ids
 
 
 def installed_hooks_json(codex_home: Path, plugin: str) -> Path:
     name, _, marketplace = plugin.partition("@")
     base = codex_home / "plugins" / "cache" / marketplace / name
-    versions = sorted((p for p in base.glob("*") if (p / "hooks" / "hooks.json").is_file()),
-                      key=lambda p: version_key(p.name))
+    versions = [(version_key(p.name), p) for p in base.glob("*") if (p / "hooks" / "hooks.json").is_file()]
+    versions = sorted((pair for pair in versions if pair[0] is not None), key=lambda pair: pair[0])
     if not versions:
-        raise FileNotFoundError(f"no installed hooks.json under {base}")
-    return versions[-1] / "hooks" / "hooks.json"
+        raise FileNotFoundError(f"no installed hooks.json under a semantic-version directory of {base}")
+    return versions[-1][1] / "hooks" / "hooks.json"
 
 
 def entries(hooks_json: Path) -> dict[str, str]:
@@ -56,6 +67,15 @@ def entries(hooks_json: Path) -> dict[str, str]:
                 label = script.group(1) if script else hook.get("command", "")
                 found[f"{EVENTS.get(event, event)}:{g}:{h}"] = f"{label} ({group.get('matcher') or '*'})"
     return found
+
+
+def hook_state(config: dict) -> dict:
+    """The [hooks.state] table; a value of another shape is unreadable input, not an empty state."""
+    hooks = config.get("hooks", {})
+    state = hooks.get("state", {}) if isinstance(hooks, dict) else None
+    if not isinstance(state, dict) or not all(isinstance(value, dict) for value in state.values()):
+        raise ValueError("hooks.state in config.toml is not a table of tables")
+    return state
 
 
 def report(state: dict, plugin: str, layout: dict[str, str]) -> list[str]:
@@ -89,10 +109,11 @@ def main() -> int:
         layout = entries(hooks_json)
         config_path = args.codex_home / "config.toml"
         config = tomllib.loads(config_path.read_text(encoding="utf-8")) if config_path.is_file() else {}
-    except (OSError, ValueError, KeyError, tomllib.TOMLDecodeError) as exc:
+        state = hook_state(config)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, tomllib.TOMLDecodeError) as exc:
         print(f"cannot read the Codex hook state: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
-    lines = report((config.get("hooks") or {}).get("state") or {}, args.plugin, layout)
+    lines = report(state, args.plugin, layout)
     print(f"{hooks_json}: {len(layout)} entries")
     for line in lines:
         print(line)

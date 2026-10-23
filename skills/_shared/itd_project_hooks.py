@@ -17,7 +17,8 @@ string. A template hook whose script is already registered in the user-level set
 next to that settings file, or the resolved plugin hooks dir) is skipped, so it does not fire twice; the rest are still
 installed. The user's two hook lists next to that settings file select the rest as on the whole machine (plan session
 5): an optional hook only when `itd-enabled-hooks.txt` names it, never one `itd-disabled-hooks.txt` names - the
-decision of `hooks/codex-dispatch.py`, loaded from the hooks dir. A symlinked settings file is updated through its target, which must stay inside the
+decision of `hooks/codex-dispatch.py` of this helper's own install (never of `--hooks-dir`, so a preview runs no code
+from the directory it is asked about). A symlinked settings file is updated through its target, which must stay inside the
 project (a link that resolves outside `--root`, dangling or not, is refused). The user-level file
 is never written.
 
@@ -62,21 +63,21 @@ def default_template() -> Path:
     return Path(__file__).resolve().parent.parent / TEMPLATE_REL
 
 
-def hook_policy(hooks_dir: Path):
-    """The hook selection of codex-dispatch.py in the hooks dir (else in this install), loaded without bytecode."""
-    for path in (hooks_dir / "codex-dispatch.py",
-                 Path(__file__).resolve().parent.parent.parent / "hooks" / "codex-dispatch.py"):
-        if path.is_file():
-            spec = importlib.util.spec_from_file_location("itd_codex_dispatch", path)
-            module = importlib.util.module_from_spec(spec)
-            saved, sys.dont_write_bytecode = sys.dont_write_bytecode, True
-            try:
-                spec.loader.exec_module(module)
-            finally:
-                sys.dont_write_bytecode = saved
-            if hasattr(module, "hook_selected"):
-                return module
-    raise ValueError(f"no codex-dispatch.py with the hook selection in {hooks_dir}")
+def hook_policy():
+    """The hook selection of codex-dispatch.py next to this helper (the same install), loaded without bytecode."""
+    path = Path(__file__).resolve().parent.parent.parent / "hooks" / "codex-dispatch.py"
+    spec = importlib.util.spec_from_file_location("itd_codex_dispatch", path)
+    if spec is None or spec.loader is None or not path.is_file():
+        raise ValueError(f"{path} is missing")
+    module = importlib.util.module_from_spec(spec)
+    saved, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = saved
+    if not hasattr(module, "hook_selected"):
+        raise ValueError(f"{path} has no hook selection (an install older than plan session 5)")
+    return module
 
 
 def default_hooks_dir() -> Path | None:
@@ -368,10 +369,11 @@ def run(argv: list[str]) -> int:
     # The machine-wide selection (sync-to-active and codex-dispatch read the same lists): a hook the user switched
     # off is not re-enabled per project (INSTALL-OWNED-1), an optional hook only when the user enabled it.
     try:
-        policy = hook_policy(hooks_dir.absolute())
+        policy = hook_policy()
     except (OSError, ValueError, ImportError, SyntaxError) as exc:
         print(fail(f"hook selection is not loadable ({type(exc).__name__}: {exc})",
-                   "reinstall idea-to-deploy or pass --hooks-dir with its hooks directory"), file=sys.stderr)
+                   "reinstall idea-to-deploy (the helper loads hooks/codex-dispatch.py of its own install)"),
+              file=sys.stderr)
         return 1
     disabled_path = user_path.absolute().parent / policy.DISABLED_HOOKS_FILE
     enabled_path = user_path.absolute().parent / policy.ENABLED_HOOKS_FILE

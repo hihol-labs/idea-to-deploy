@@ -372,6 +372,34 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
               "disabled list: the switched-off hook is not re-enabled at project level")
         disabled_list.unlink()
 
+        # Plan session 5: an optional hook is added only when the user enabled it, under every event of its
+        # registration - the same lists as sync-to-active.sh and codex-dispatch.py.
+        box.settings.unlink(missing_ok=True)
+        enabled_list = box.user.parent / "itd-enabled-hooks.txt"
+        enabled_list.write_text("cost-tracker.sh  # diagnostics\n", encoding="utf-8")
+        r = run(helper, "plan", *box.args())
+        skip = [line for line in r.stdout.splitlines() if "not enabled in" in line]
+        check(fails, r.returncode == 0 and len(skip) == 1 and "cost-tracker.sh" not in skip[0]
+              and "risk-score.sh" in skip[0], f"enabled list: plan no longer skips the enabled optional hook {skip}")
+        r = run(helper, "apply", *box.args("--yes"))
+        data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
+        got = triples(data)
+        cost = sorted(t[:2] for t in got if t[2].endswith("/cost-tracker.sh"))
+        check(fails, r.returncode == 0 and sorted(got) == sorted(template_triples(hd, ("cost-tracker.sh",)))
+              and cost == [("PostToolUse", "*"), ("PreToolUse", "Bash|PowerShell|Task|Agent")],
+              f"enabled list: the optional hook is installed under each of its events ({cost})")
+        enabled_list.unlink()
+
+        # The selection comes from the helper's own install: a codex-dispatch.py planted in --hooks-dir never runs.
+        box.settings.unlink(missing_ok=True)
+        planted = box.tmp / "planted-ran"
+        (box.hooks / "codex-dispatch.py").write_text(
+            f"from pathlib import Path\nPath({str(planted)!r}).write_text('ran')\n", encoding="utf-8")
+        r = run(helper, "plan", *box.args())
+        check(fails, r.returncode == 0 and not planted.exists(),
+              "a codex-dispatch.py in --hooks-dir is not executed by plan")
+        (box.hooks / "codex-dispatch.py").unlink()
+
         # A same-named script outside an idea-to-deploy hooks dir is not a registration.
         box.settings.unlink(missing_ok=True)
         box.user.write_text(json.dumps({"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [

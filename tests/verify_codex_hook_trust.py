@@ -94,6 +94,25 @@ def main() -> int:
         check("the newest installed version is compared (1.10.0 over 1.9.0)",
               result.returncode == 0 and "1.10.0" in result.stdout, result.stdout + result.stderr)
 
+        result = run(home_with(tmp, "prerelease", {key: trusted for key in KEYS},
+                               {"1.10.0-beta.2": old, "1.10.0": LAYOUT, "1.10.0-rc.1": old, "latest": old}))
+        check("a release outranks its prereleases and a non-version directory is ignored",
+              result.returncode == 0 and "/1.10.0/hooks" in result.stdout.replace("\\", "/"),
+              result.stdout + result.stderr)
+        result = run(home_with(tmp, "prerelease-only", {key: trusted for key in KEYS},
+                               {"1.10.0-beta.2": LAYOUT, "1.10.0-beta.10": LAYOUT, "1.10.0-alpha": old}))
+        check("prereleases compare by numeric identifiers (beta.10 over beta.2)",
+              result.returncode == 0 and "1.10.0-beta.10" in result.stdout, result.stdout + result.stderr)
+
+        for label, text in (("hooks.state is a string", '[hooks]\nstate = "x"\n'),
+                            ("a hooks.state value is not a table", '[hooks.state]\n"k" = 1\n'),
+                            ("hooks is a number", "hooks = 5\n")):
+            shaped = home_with(tmp, "shape-" + str(len(label)), None)
+            (shaped / "config.toml").write_text(text, encoding="utf-8")
+            result = run(shaped)
+            check(f"an unexpected TOML shape is unreadable input, exit 2 ({label})",
+                  result.returncode == 2 and "Traceback" not in result.stderr, result.stdout + result.stderr)
+
         empty = tmp / "empty"
         empty.mkdir()
         result = run(empty)

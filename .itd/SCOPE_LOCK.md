@@ -54,3 +54,7 @@
 One independent review of the final candidate (plan rule 4). Convergence (owner 2026-10-23): the fourth round is the
 last; BLOCKED with only medium or low findings goes to the owner (ADJUDICATED under ADR-007); a high finding is fixed
 and brought to the owner. A reviewer finding outside this scope is brought to the owner before another round.
+The generated benchmark sample (`tests/fixtures/live-model-evidence/runs/*`: outputs and transcripts) is the
+recorded evidence of a live run, not shipped content (owner 2026-10-23, after review a1, as in REL-1.109.2): its
+content defects stay visible as evidence and are not edited - an edit would falsify the record; limits of the
+benchmark oracle go to BACKLOG.

@@ -670,8 +670,8 @@ fi
 # Merge into settings.json (plan session 5): in the ITD-managed event keys the ITD hooks are replaced and every other
 # hook is kept - a user's own hook stays even in the same event, matcher and group. An ITD hook is a command that runs
 # a hook file of this repository from the installed hooks directory (~/.claude/hooks, $ACTIVE/hooks or its Windows
-# form); foreign event keys (e.g. a SessionStart hook of another plugin) are not touched. Re-running gives the same
-# file. v1.73.1 fail-closed guard: an existing Windows python-wrapper registration is never downgraded to bare .sh
+# form) - a current hook file of hooks/ or a RETIRED one; foreign event keys (e.g. a SessionStart hook of another
+# plugin) are not touched. Re-running gives the same file. v1.73.1 fail-closed guard: an existing Windows python-wrapper registration is never downgraded to bare .sh
 # commands - on Windows Git-Bash would run python-bodied hooks as shell (exit 2) and the '*'-matcher PreToolUse hook
 # would deny EVERY tool call (live incident 2026-07-10); a non-windows target over such a file is refused.
 _mres="$(ITD_SETTINGS="$SETTINGS" ITD_HOOKS="$EFFECTIVE_HOOKS" ITD_ACTIVE="$ACTIVE" ITD_REPO="$REPO_ROOT" \
@@ -679,8 +679,11 @@ _mres="$(ITD_SETTINGS="$SETTINGS" ITD_HOOKS="$EFFECTIVE_HOOKS" ITD_ACTIVE="$ACTI
 import json, os, re, shutil, time
 from pathlib import Path
 KEYS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SubagentStop")
+# Hook files ITD registered once and no longer ships: their old registrations are still ITD's own and go away. A hook
+# file deleted from hooks/ moves here (tests/verify_hook_selection.py keeps the shipped inventory).
+RETIRED = set()
 path = os.environ["ITD_SETTINGS"]
-names = {p.name for p in Path(os.environ["ITD_REPO"], "hooks").glob("*.sh")}
+names = {p.name for p in Path(os.environ["ITD_REPO"], "hooks").glob("*.sh")} | RETIRED
 def to_win(p):
     m = re.match(r'^/mnt/([a-zA-Z])/(.*)$', p) or re.match(r'^/([a-zA-Z])/(.*)$', p)
     return '%s:/%s' % (m.group(1).upper(), m.group(2)) if m else p.replace('\\', '/')
@@ -697,12 +700,19 @@ except FileNotFoundError:
     data = {}
 except (OSError, ValueError) as exc:
     print("ERROR:%s is not readable JSON (%s)" % (path, exc)); raise SystemExit(0)
+if not isinstance(data, dict) or not isinstance(data.get("hooks", {}), dict):
+    print("ERROR:%s must be a JSON object whose \"hooks\" is an object of event lists; fix it or move it aside" % path)
+    raise SystemExit(0)
 current = data.get("hooks") or {}
 desired = json.loads(os.environ["ITD_HOOKS"])
 merged = dict(current)
 for key in KEYS:
     foreign = []
-    for group in current.get(key) or []:
+    groups = current.get(key)
+    groups = [] if groups is None else groups
+    if not isinstance(groups, list):
+        print("ERROR:%s: hooks.%s is not a list" % (path, key)); raise SystemExit(0)
+    for group in groups:
         hooks = group.get("hooks") if isinstance(group, dict) else None
         if not isinstance(hooks, list):
             foreign.append(group)
@@ -738,7 +748,8 @@ case "$_mres" in
   WROTE:*)  ok "settings.json hooks updated (backup: ${_mres#WROTE:})" ;;
   REFUSE)
     err "settings.json registers hooks via a Windows python wrapper, but target OS resolved '$ITD_TARGET_OS'."
-    err "REFUSING to overwrite (would brick every tool call). Re-run with ITD_TARGET_OS=windows (+ ITD_WIN_PYTHON), or fix CLAUDE_HOME." ;;
+    err "REFUSING to overwrite (would brick every tool call). Re-run with ITD_TARGET_OS=windows (+ ITD_WIN_PYTHON), or fix CLAUDE_HOME."
+    exit 1 ;;
   ERROR:*)  err "settings.json: ${_mres#ERROR:}"; exit 1 ;;
   *)        err "settings.json merge: unexpected result ($_mres)"; exit 1 ;;
 esac

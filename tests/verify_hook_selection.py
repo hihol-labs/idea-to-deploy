@@ -12,7 +12,10 @@
 - the Claude project template equals the sync registration and the Codex project template equals the plugin
   hooks.json, so /adopt installs the same set (and nothing registered user-level, see verify_hooks_autoinstall.py);
 - check-dod-before-commit.sh has a host budget above its dispatcher deadline and its project-check bound on every
-  registration (a 5 s budget cut it on slow Windows commits, BACKLOG P2 2026-10-22).
+  registration (a 5 s budget cut it on slow Windows commits, BACKLOG P2 2026-10-22);
+- the merge refuses what it cannot own safely: a non-object settings.json, a Windows python-wrapper registration
+  under a non-Windows target (exit 1, file untouched); a registration of a RETIRED hook file goes away, and every hook
+  ITD has shipped is a hook file or RETIRED.
 
 Every run is confined to temporary homes (CLAUDE_HOME / HOME); the user's real lists never decide a check.
 On Windows the sync runs in Git Bash (ITD_BASH, default bash) and registers python.exe wrappers; the checks compare
@@ -26,6 +29,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -59,10 +63,26 @@ def check(label: str, ok: bool, detail: str = "") -> None:
 USER_HOOKS = {"audit.sh", "my-own.sh"}
 
 
-def sync(home: Path) -> str:
+# Every hook file ITD shipped by plan session 5; a file deleted from hooks/ must move to RETIRED in the sync merge,
+# or its old registrations would stay behind as a user's hooks.
+SHIPPED = {"careful.sh", "check-commit-completeness.sh", "check-dod-before-commit.sh", "check-predeploy-gate.sh",
+           "check-review-before-commit.sh", "check-skill-completeness.sh", "check-skills.sh", "check-tool-skill.sh",
+           "completion-gate.sh", "completion-signals.sh", "completion-stop.sh", "context-aware.sh",
+           "context-budget.sh", "cost-tracker.sh", "crash-recovery.sh", "cross-review-precommit.sh",
+           "execution-trace.sh", "freeze.sh", "graph-route.sh", "handoff-readiness.sh", "model-policy.sh",
+           "narration-final.sh", "pii-egress-guard.sh", "pre-flight-check.sh", "record-agent-skill.sh",
+           "risk-score.sh", "session-open-diagnostic.sh", "state-guard.sh", "stuck-detection.sh",
+           "verdict-contract.sh", "wip-gate.sh"}
+
+
+def sync_raw(home: Path, script: Path = SYNC) -> subprocess.CompletedProcess:
     env = {**os.environ, "CLAUDE_HOME": home.as_posix()}
-    proc = subprocess.run([os.environ.get("ITD_BASH", "bash"), SYNC.as_posix()], cwd=ROOT, env=env,
+    return subprocess.run([os.environ.get("ITD_BASH", "bash"), script.as_posix()], cwd=script.parents[1], env=env,
                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+
+
+def sync(home: Path) -> str:
+    proc = sync_raw(home)
     if proc.returncode:
         raise AssertionError(f"sync exited {proc.returncode}: {proc.stderr[-400:]}")
     return proc.stdout + proc.stderr
@@ -238,6 +258,62 @@ def main() -> int:
         check("check-dod-before-commit has a budget above its checks on all four registrations",
               len(budgets) == 4 and min(budgets) > deadline > bound, f"budgets={budgets} deadline={deadline} "
               f"bound={bound}")
+
+        # 8. what the merge must refuse or still own
+        for label, text in (("a JSON array", "[]\n"), ("hooks as a list", '{"hooks": []}\n'),
+                            ("an event as an object", '{"hooks": {"PreToolUse": {}}}\n')):
+            home = tmp / f"shape-{len(label)}"
+            home.mkdir()
+            (home / "settings.json").write_text(text, encoding="utf-8")
+            proc = sync_raw(home)
+            check(f"a non-object settings.json is refused, exit 1, file untouched ({label})",
+                  proc.returncode == 1 and "Traceback" not in proc.stderr
+                  and (home / "settings.json").read_text(encoding="utf-8") == text, proc.stderr[-300:])
+        if os.name != "nt":
+            home = tmp / "wrapper"
+            home.mkdir()
+            wrapper = {"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command":
+                       '"C:/Python312/python.exe" -X utf8 "C:/Users/u/.claude/hooks/careful.sh"'}]}]}}
+            (home / "settings.json").write_text(json.dumps(wrapper) + "\n", encoding="utf-8")
+            before = (home / "settings.json").read_bytes()
+            proc = sync_raw(home)
+            check("a Windows wrapper under a non-Windows target is refused with exit 1",
+                  proc.returncode == 1 and "REFUSING" in proc.stderr
+                  and (home / "settings.json").read_bytes() == before, proc.stderr[-300:])
+
+        retired = re.search(r"^RETIRED = (.+)$", SYNC.read_text(encoding="utf-8"), re.M).group(1)
+        retired_names = set(re.findall(r"[\"']([a-z0-9-]+\.sh)[\"']", retired))
+        files = {path.name for path in (ROOT / "hooks").glob("*.sh")}
+        check("every hook ITD shipped is a hook file or RETIRED", SHIPPED <= files | retired_names,
+              f"missing={sorted(SHIPPED - files - retired_names)}")
+        # a copy of the sync whose hooks/ lost a file: its registration stays a user's hook until it is RETIRED
+        fake = tmp / "fake-repo"
+        (fake / "scripts").mkdir(parents=True)
+        (fake / "skills" / "x").mkdir(parents=True)
+        (fake / "skills" / "x" / "SKILL.md").write_text("x\n", encoding="utf-8")
+        (fake / ".claude-plugin").mkdir()
+        (fake / ".claude-plugin" / "plugin.json").write_text("{}\n", encoding="utf-8")
+        shutil.copytree(ROOT / "hooks", fake / "hooks", ignore=shutil.ignore_patterns("__pycache__"))
+        (fake / "hooks" / "freeze.sh").unlink()
+        text = SYNC.read_text(encoding="utf-8")
+        for variant, sync_text in (("kept", text), ("retired", text.replace("RETIRED = set()",
+                                                                             'RETIRED = {"freeze.sh"}', 1))):
+            (fake / "scripts" / "sync-to-active.sh").write_text(sync_text, encoding="utf-8")
+            home = tmp / f"retired-{variant}"
+            home.mkdir()
+            proc = sync_raw(home, fake / "scripts" / "sync-to-active.sh")
+            data = json.loads((home / "settings.json").read_text(encoding="utf-8"))
+            for groups in data["hooks"].values():
+                for group in groups:
+                    group["hooks"] = [h for h in group["hooks"] if not h["command"].endswith("/freeze.sh")]
+            data["hooks"]["PreToolUse"].append(
+                {"matcher": "Edit", "hooks": [{"type": "command", "command": "~/.claude/hooks/freeze.sh"}]})
+            (home / "settings.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            proc = sync_raw(home, fake / "scripts" / "sync-to-active.sh")
+            left = [row for row in rows(home) if hook_file(row[2]) == "freeze.sh" and row[1] == "Edit"]
+            expected = 1 if variant == "kept" else 0
+            check(f"a stale registration of a deleted hook file is {variant}",
+                  proc.returncode == 0 and len(left) == expected, f"left={left} {proc.stderr[-200:]}")
 
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
