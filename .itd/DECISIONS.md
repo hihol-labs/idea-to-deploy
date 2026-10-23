@@ -6041,3 +6041,63 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
   (medium) открыт через `itd_unit_log.py`; его закрытие едет в следующем PR программы.
 - Ссылки: docs/adr/ADR-016-itd-default-everywhere-program.md, docs/RELEASE_RUNBOOK.md «Конвенция закрытия»,
   docs/measurements/ITD-SIMPLIFY-BASELINE.md.
+
+## 2026-10-22 - ITD-PLAN-S2 закрыт; ревью sol a6 ADJUDICATED и правило сходимости
+- Почему: запись о завершении сессии 2 едет в PR сессии 4 (ADR-016 п.4.5; сессия 3 была без PR). Запись про
+  ADJUDICATED a6 не вошла в PR #371: его дерево было закреплено квитанцией.
+- Решение: PR #371 смержен squash -> main 2be6dd0 (tree b97a57de = ревьюированное дерево 65eec9b; committed-head
+  квитанция ITD-PLAN-S2-machine-a9 PASSED 7/7, CI PR и main success). Ревью gpt-5.6-sol: a2-a5 BLOCKED (5/5/2/3
+  находок в области, исправлены), a6 BLOCKED только с двумя low. Владелец после a5 назначил a6 последним раундом:
+  BLOCKED только с medium/low -> ADJUDICATED по ADR-007; обе находки a6 - accepted-trade-off (на числа baseline не
+  влияют), квитанция `.itd-memory/verification-loop/ITD-PLAN-S2-a6-adjudicated.json` (receiptSha256 f1e18421...).
+  Обе находки исправлены в PR сессии 4 с тестами: `runtime_digest.py` без корней - exit 2 и usage, метка хука в
+  `transcript_stats.py` - `hook_bench.command_label` (каждый откат ловится тестом). Юнит verified через
+  `itd_unit_log.py`, followup -> closedFollowups.
+- Ссылки: .itd/ACCEPTANCE_CONTRACT.json (closedFollowups ITD-PLAN-S2), BACKLOG P2 «правило сходимости Sol-маршрута»,
+  docs/measurements/itd-simplify/test_measure_tools.py.
+
+## 2026-10-22 - сессия 3 плана: пара record-agent-skill + check-dod-before-commit оставлена
+- Почему: план разрешал снять пару, только если проверка в invoices покажет, что его гейты от нее не зависят.
+- Решение (владелец, по проверке invoices): пара остается включенной на обоих хостах. `check-dod-before-commit.sh` -
+  единственный DoD-гейт платежных путей invoices (`invoice` в 148 из 665 путей); completion-gate и
+  cross-review-precommit от пары не зависят. Снятие нарушило бы приемку сессии 3 «check-dod в invoices как до
+  изменений» по построению. Данные (Windows-транскрипты invoices, 47 сессий, 2026-09-21..10-22, 169 коммитов):
+  0 deny, 32 успеха, 203 обрыва по таймауту хоста 5 с (BACKLOG P2), test-generator не вызывался
+  (`.itd-memory/host-inputs/ITD-PLAN-S3/invoices-pair-check.json`). Остальное сессии 3 - локальная конфигурация с
+  бэкапами в `.itd-memory/host-inputs/ITD-PLAN-S3/backups/`: 7 хуков в `itd-disabled-hooks.txt`, 6 ключей Codex
+  `enabled = false` (у execution-trace две записи), `permissions.ask` для git push, curl, wget, GOAL buying -
+  abandoned; замер «после» - `docs/measurements/ITD-SIMPLIFY-BASELINE.md` раздел 9.
+- Ссылки: BACKLOG P2 «check-dod-before-commit на Windows обрывается по таймауту», раздел 9 baseline.
+
+## 2026-10-22 - сессия 4 плана: один короткий слой глобальных правил
+- Почему: ADR-016 п.3 - управляемый блок переписывается до 60 строк вместе с тестами и реестром; решение владельца
+  2026-10-06 (минимальный маршрут) жило личной секцией-переопределением поверх 167 строк MANDATORY.
+- Решение: блок `docs/templates/global-claude-md.md` - 59 строк, пять разделов (штатный минимальный маршрут, когда
+  включается strict, что обязательно всегда, инвариант харнесса, где скиллы); строка выбора скилла,
+  SKILL_BYPASS-ритуал и прежние разделы маршрутизации удалены. Правила - по-русски (язык владельца и его решения),
+  vendor-canonical grounded claims и инвариант харнесса - дословно по-английски (их пинуют тесты Fable 5).
+  Codex-шаблон говорит то же; Verification Loop и квитанция adjudication остались только в strict-маршруте.
+  Приемка на хостах - `tests/verify_global_routers.py` (вне run-all: читает домашние каталоги обоих хостов).
+- Личная секция (владелец 2026-10-22, вариант «одна строка»): раздел «Решение владельца 2026-10-06» снят - его правила
+  теперь в блоке; осталась одна строка о развитии самого ITD (ADR-012 п.5 / ADR-016: правка ITD - только по
+  программе или если блокирует продуктовую работу; новая проверка - только после выигрыша на A/B-замере) и
+  caveman-lite без упоминания строки выбора скилла. Текст в репо не попадает; приемка пинует его sha256
+  `14d181cb4345838e0f5240029ba7c2bbf3f34f034e6f4ce7b4ea5ab09f0dfd3c` (одинаков на WSL и Windows).
+- Ревью gpt-5.6-sol a1 (BLOCKED, 4 находки в области, исправлены с тестами): сводка раундов проверяет наличие
+  всех сочетаний, инструментов и одинаковое число раундов (пустой каталог и опечатка в фазе - exit 1), VARIES - по
+  (Pre, Post, total); Codex-шаблон получил правило памяти (`session-save`, `--close`, `handoff`); хост-проверка
+  роутеров - шире набор маркеров, пин одобренной личной секции и `--self-test`.
+- Ревью gpt-5.6-sol a2 (BLOCKED, 2 high и 1 medium в области, исправлены с тестами): проектные `CLAUDE.md`,
+  `AGENTS.md`, `.itd/` и гейты имеют приоритет над блоком и Codex-правилами, кроме раздела «Всегда обязательно» -
+  его проект может только ужесточить; сводка раундов требует ровно одну запись каждого инструмента в каждом файле
+  раунда (дубль в одном раунде не прячет пропуск в другом). Блок - 59 строк; sync на обоих хостах повторен.
+- Ревью gpt-5.6-sol a3 (BLOCKED, 4 medium в области, исправлены с тестами): в Codex-шаблоне раздел «Всегда
+  обязательно» читается как в Claude-блоке (кроме синтаксиса вызова скиллов, с completion-gate и
+  `COMPLETION_BYPASS`) и есть тот же инвариант харнесса - тест сравнивает разделы целиком, а не отдельные слова;
+  `run_rounds.sh` пропускает раунд без спада нагрузки за 900 с (`load_timeout`) и выходит с 1 при любом сбое шага;
+  сводка требует журнал `meta-<фаза>.txt` с `exit=0` на каждый файл раунда.
+- Переходное состояние до сессии 5: для нового пользователя `sync-to-active.sh` по-прежнему регистрирует
+  check-skills и check-tool-skill (у владельца они сняты `itd-disabled-hooks.txt` с 2026-10-06), и они просят строку
+  выбора скилла, которой в блоке больше нет; снятие с регистрации - сессия 5 плана.
+- Ссылки: docs/templates/global-claude-md.md, docs/templates/global-codex-agents.md, docs/instruction-registry.json,
+  tests/verify_fable_snippets.py, tests/verify_global_routers.py.

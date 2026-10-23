@@ -28,8 +28,14 @@ import argparse
 import collections
 import json
 import statistics
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# The per-command name is the one the bench prints (the script token, not the last path segment of the whole
+# command line); `-I` drops the script directory from sys.path, so it is added explicitly.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from hook_bench import command_label  # noqa: E402
 
 TOOLS = ("Bash", "Edit", "Read")
 CONTEXT_EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse")
@@ -144,8 +150,7 @@ def scan(path: Path, acc: dict) -> None:
             continue
         acc["phaseLowerBound"][(tool, event)].append(max(h["durationMs"] for h in hooks))
         for hook in hooks:
-            command = str(hook.get("command", "")).strip('"').replace("\\", "/")
-            acc["perCommand"][(tool, event, command.split("/")[-1].strip('"'))].append(hook["durationMs"])
+            acc["perCommand"][(tool, event, command_label(str(hook.get("command", ""))))].append(hook["durationMs"])
     if latest is not None:
         acc["latestVersions"].append((path.stat().st_mtime, latest))
     # every scanned main transcript is a session, also one into which no hook injected anything

@@ -11,65 +11,61 @@
     "секции, осиротевшие записи, битые enforced_by-пути, просроченные",
     "review_by. Просроченный review_by = кандидат в proposals ретро:",
     "перечитать секцию против текущего кода — обновить или удалить,",
-    "инструкции управляются как зависимости (неиспользуемое удаляется)."
+    "инструкции управляются как зависимости (неиспользуемое удаляется).",
+    "Блок переписан в сессии 4 программы ADR-016 (2026-10-22, не длиннее 60 строк):",
+    "минимальный маршрут ADR-012 стал штатным режимом, строка выбора скилла и",
+    "SKILL_BYPASS-ритуал удалены; прежние секции Core routing rule, Always,",
+    "Skill decision, Bypass и Project profiles & markers сняты вместе с текстом."
   ],
   "entries": [
     {
-      "match": "Core routing rule",
-      "since": "≤v1.20 (до введения реестра, точная версия не зафиксирована)",
-      "enforced_by": ["hooks/check-skills.sh", "hooks/check-tool-skill.sh"],
-      "review_by": "2026-10-10"
+      "match": "Штатный режим",
+      "since": "ADR-012 (2026-10-06, личная секция владельца); в блоке - сессия 4 ADR-016 (2026-10-22)",
+      "enforced_by": ["hooks/wip-gate.sh"],
+      "review_by": "2027-01-31",
+      "notes": "минимальный маршрут - текст; WIP=1 enforce'ит wip-gate для проектов с активным юнитом"
     },
     {
-      "match": "Always",
-      "since": "≤v1.21 (WIP=1 и grounded claims дотегированы v1.50.0)",
+      "match": "Когда включается strict",
+      "since": "сессия 4 ADR-016 (2026-10-22); профиль data-sensitive - v1.35.0",
       "enforced_by": [
-        "hooks/check-review-before-commit.sh",
+        "skills/_shared/itd_risk_classes.py",
+        "skills/_shared/PROPORTIONALITY_POLICY.json",
+        "hooks/check-predeploy-gate.sh",
+        "scripts/itd_pre_push.py",
+        "hooks/state-guard.sh"
+      ],
+      "review_by": "2027-01-31",
+      "notes": "классы strict (money, prod-config, db-schema, auth, secrets) - PROPORTIONALITY_POLICY; гейты strict-проекта - его .itd/"
+    },
+    {
+      "match": "Всегда обязательно",
+      "since": "≤v1.21 (тесты, подтверждение); grounded claims - v1.50.0; completion gate - v1.51.0; блок - сессия 4 ADR-016",
+      "enforced_by": [
+        "hooks/completion-gate.sh",
+        "hooks/completion-signals.sh",
+        "hooks/completion_lib.py",
         "hooks/check-dod-before-commit.sh",
-        "hooks/wip-gate.sh",
-        "hooks/check-commit-completeness.sh",
+        "hooks/careful.sh",
+        "hooks/pii-egress-guard.sh",
         "docs/templates/itd/itd_hygiene.py"
       ],
-      "review_by": "2026-10-10"
+      "review_by": "2027-01-31",
+      "notes": "механика completion gate - docs/completion-gate.md; подтверждение внешнего - external-write gate за pii-egress-guard"
     },
     {
       "match": "Harness-native features",
       "since": "v1.50.0",
       "enforced_by": ["hooks/pii-egress-guard.sh"],
-      "review_by": "2027-01-10",
-      "notes": "пересмотрено retro 2026-07-10 (v1.74.0): rationale вынесен в docs/harness-best-effort.md, в entry — только поведенческие правила"
+      "review_by": "2027-01-31",
+      "notes": "пересмотрено retro 2026-07-10 (v1.74.0) и сессией 4 ADR-016 (2026-10-22): rationale - docs/harness-best-effort.md, в блоке - только поведенческие правила"
     },
     {
-      "match": "Определение завершения",
-      "since": "v1.51.0",
-      "enforced_by": [
-        "hooks/completion-gate.sh",
-        "hooks/completion-signals.sh",
-        "hooks/completion-stop.sh",
-        "hooks/completion_lib.py",
-        "docs/templates/itd/itd_hygiene.py"
-      ],
-      "review_by": "2026-10-10",
-      "notes": "полная механика вынесена в docs/completion-gate.md (v1.73.0, дедуп прозы и кода)"
-    },
-    {
-      "match": "Skill decision",
-      "since": "v1.35.0",
-      "enforced_by": ["hooks/check-skills.sh"],
-      "review_by": "2026-10-10"
-    },
-    {
-      "match": "Bypass",
-      "since": "≤v1.20 (SKILL_BYPASS-леджер — v1.23.0)",
-      "enforced_by": ["hooks/check-tool-skill.sh"],
-      "review_by": "2026-10-10"
-    },
-    {
-      "match": "Project profiles & markers",
-      "since": "v1.35.0",
-      "enforced_by": ["hooks/check-skills.sh"],
-      "review_by": "2026-10-10",
-      "notes": "включает memory-backbone (v1.35.0→v1.70.0) и порог 60% → /handoff (v1.70.0, датчик hooks/context-aware.sh)"
+      "match": "Где скиллы",
+      "since": "сессия 4 ADR-016 (2026-10-22); счетчик скиллов/агентов/хуков - с v1.35.0",
+      "enforced_by": ["scripts/sync-to-active.sh"],
+      "review_by": "2027-01-31",
+      "notes": "счетчик сверяет tests/verify_registration_and_counts.py"
     }
   ]
 }

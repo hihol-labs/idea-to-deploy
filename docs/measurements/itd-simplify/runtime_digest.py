@@ -4,7 +4,8 @@
 sha256 over the sorted lines "<relative POSIX path>\\0<sha256 of the file>\\n" of every file, so two hosts can be
 compared byte for byte without trusting the directory name.
 
-A missing, unreadable or empty root is an error (exit status 1 with the reason), never the digest of nothing.
+A missing, unreadable or empty root is an error (exit status 1 with the reason), never the digest of nothing; a call
+without any root is a usage error (exit status 2), not an empty successful measurement.
 
 Usage: python3 runtime_digest.py ~/.local/share/itd/runtime/<release>-<digest16> [more dirs ...]
 """
@@ -37,6 +38,14 @@ def tree_digest(root: str) -> tuple[int, str]:
     return count, digest.hexdigest()
 
 
-if __name__ == "__main__":
-    for root in sys.argv[1:]:
+def main(roots: list[str]) -> int:
+    if not roots:
+        print("usage: runtime_digest.py <runtime dir> [more dirs ...]", file=sys.stderr)
+        return 2
+    for root in roots:
         print(root, *tree_digest(root))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

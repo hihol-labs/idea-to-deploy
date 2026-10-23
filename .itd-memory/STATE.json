@@ -37,10 +37,10 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ITD-PLAN-S2",
-    "goal": "Plan session 2 (ADR-016): record the owner's bounded lift of ADR-012 item 5 for the ITD change program, the closure convention in docs/RELEASE_RUNBOOK.md and the before-baseline docs/measurements/ITD-SIMPLIFY-BASELINE.md with the command for every number; carries the REL-1.109.2 ledger record (plan rule 5).",
+    "id": "ITD-PLAN-S4",
+    "goal": "Plan session 4 (ADR-016): a managed global instruction block of at most 60 lines in docs/templates/global-claude-md.md (the minimal route as the normal mode of ITD, when strict applies, what is always mandatory, where the skills live, no skill-decision line and no SKILL_BYPASS ritual), the same meaning in docs/templates/global-codex-agents.md, the personal section reduced to personal data, the template tests and docs/instruction-registry.json; carries the ITD-PLAN-S2 ledger record and the session 2-3 follow-ups (plan rule 5).",
     "status": "in_progress",
-    "startedAt": "2026-10-21T19:55:58Z",
+    "startedAt": "2026-10-22T19:10:03Z",
     "ledger": "STATE",
     "riskTier": "medium"
   },

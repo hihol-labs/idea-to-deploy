@@ -91,6 +91,13 @@
       "why": "Сам исполняет tests/run-all.sh --quick внутри изолированного staged-tree кандидата; включение в зеркало дало бы зеркало внутри зеркала.",
       "reproduce": "python3 -I tests/verify_isolated_candidate_mirror.py",
       "precondition": "Кандидат материализуется вне репозитория (по умолчанию ~/.cache/itd-isolated-tmp): внутри .itd-memory/ краснеет verify_host_neutral_memory."
+    },
+    {
+      "suite": "tests/verify_global_routers.py",
+      "class": "external-evidence-absent",
+      "why": "Приемка сессии 4 ADR-016 на хостах владельца: вход - ~/.claude/CLAUDE.md и ~/.codex/AGENTS.md на WSL и Windows после sync, их нет в репозитории; в CI и в чужом HOME этих файлов нет или в них другой блок.",
+      "reproduce": "PATH=\"$PATH:/mnt/c/Windows/System32/WindowsPowerShell/v1.0:/mnt/c/Windows/System32\" python3 -I tests/verify_global_routers.py --windows-home /mnt/c/Users/Дмитрий",
+      "precondition": "Зеленый только на хостах владельца после sync из этого дерева и копии Codex-шаблона в ~/.codex/AGENTS.md на обоих хостах; приемка добавляет --personal-sha256 одобренной личной секции. Правила маркеров и пина без чтения HOME: python3 -I tests/verify_global_routers.py --self-test."
     }
   ],
   "note": "verify_snapshot в реестр НЕ входит: зеркало исполняет его хвостовой проверкой run_tail snapshot ... --all. Это поймал сам оракул при первом прогоне — прежний счёт «26 внезеркальных» брал только списки CORE/FULL и не видел run_tail; строгий счёт на entry-дереве 5731c77 даёт 25."

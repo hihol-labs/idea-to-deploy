@@ -5468,6 +5468,62 @@
         "impactClasses": ["correctness", "repository-hygiene"],
         "oracleIds": ["state", "docs-freshness"]
       }
+    },
+    {
+      "id": "ITD-PLAN-S4-AC1",
+      "unitId": "ITD-PLAN-S4",
+      "status": "passed",
+      "criterion": "docs/templates/global-claude-md.md holds only the managed block, at most 60 lines with its markers: project CLAUDE.md, AGENTS.md, .itd/ contracts and gates take precedence over it except over the always-mandatory section, which a project can only tighten, never lower or cancel; the minimal route as the normal mode of ITD (direct work, tests and a suite run, a short plan only for a large or unclear task, skills on request or when they shorten the work, WIP=1); when the strict route applies (ITD's critical mechanisms, a project that enabled its own .itd/ contracts and gates or declared itd-domain: data-sensitive, money, access, deploy, schema changes and production data, external actions) and that a strict project is never lowered; what is always mandatory (human confirmation of the irreversible or external, no secrets out, tests and a suite run before the commit with the completion gate, grounded progress claims, memory with explicit close and handoff); the harness invariant; where the skills live. It has no skill-decision line, no SKILL_BYPASS ritual and no MANDATORY routing; docs/templates/global-codex-agents.md says the same for Codex: its always-mandatory section reads as the Claude block's apart from the skill call syntax (including the completion gate with COMPLETION_BYPASS and the memory rule with the session-save skill, its --close and the handoff skill) and its harness invariant section is the Claude block's, its former 'lifecycle skill before every change' and 'Verification Loop by default' lines live only in the strict route, and it carries no owner override section; docs/instruction-registry.json has one entry per section of the block, every enforced_by path exists.",
+      "source": "Owner 2026-10-20 plan, session 4 and ADR-016 item 3; owner 2026-10-22 session 4 task.",
+      "evidence": "tests/verify_fable_snippets.py exits 0, 46 passed, 0 failed (leg templates; block 59 lines); in the session each of eighteen mutants (three extra lines, a skill-decision line, a SKILL_BYPASS mention, a dropped deploy trigger, no explicit close, no suite run before the commit, text outside the block, the old Codex router line, the Codex owner override, a renamed Codex strict section, a dropped Codex confirmation, a dropped Codex session-save --close, a dropped Codex handoff, blanket project precedence in the Claude block, blanket project precedence in the Codex router, a dropped Codex COMPLETION_BYPASS, a reworded Codex invariant, a dropped Codex invariant section) failed it. The retro registry scan of the repository reports 5 sections, 5 entries and no unregistered, stale, broken or overdue entry; the other template-reading suites run in leg full. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, templates, baseline-scripts, state, routers, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_fable_snippets.py",
+      "reviewEvidence": {
+        "claim": "The managed block and the Codex router state one rule layer: the minimal route by default, the strict route where it is needed, and every always-mandatory rule of the owner's decision, without the removed ritual.",
+        "impactClasses": ["correctness", "compatibility"],
+        "oracleIds": ["templates"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S4-AC2",
+      "unitId": "ITD-PLAN-S4",
+      "status": "passed",
+      "criterion": "The session 2-3 follow-ups ride in this PR (plan rule 5): runtime_digest.py called without roots exits 2 with usage and prints nothing to stdout; transcript_stats.py names a hook by hook_bench.command_label, so arguments after the script neither rename nor split its statistics; run_rounds.sh and summarize_rounds.py (repeated bench rounds and their summary; a combination without rounds, different round counts, a round file without exactly one record of each tool (a duplicate in one round never hides a gap in another), nonzero hook exits and unparsable lines make the summary exit 1, so an empty directory or a misspelled phase never passes, and the run log meta-<phase>.txt must exist, record '<combo> r<N> exit=0' for every round file and hold no nonzero step exit and no load_timeout; run_rounds.sh skips a round whose load does not settle within 900 s (load_timeout) and exits 1 on any skipped round or failed step; a process split that moves between rounds, also at the same total, is marked VARIES) live in docs/measurements/itd-simplify/ with tests; docs/measurements/ITD-SIMPLIFY-BASELINE.md section 9 gives the session 3 before/after table with the command for every number.",
+      "source": "Review sol a6 of ITD-PLAN-S2 (two low findings, accepted-trade-off with the fix promised for the next program PR); owner 2026-10-22 session 4 task.",
+      "evidence": "docs/measurements/itd-simplify/test_measure_tools.py exits 0, 15 tests OK (leg baseline-scripts); in the session the mutants 'no-root call returns 0', 'label from the last path segment', 'no-round check removed', 'per-round record check removed', 'aggregate count instead of per round', 'meta exits ignored', 'missing meta accepted', 'round without exit record accepted', 'VARIES on the total only' and 'round-count check removed' each failed a test. summarize_rounds.py over the git-ignored raw outputs .itd-memory/host-inputs/ITD-PLAN-S3/ exits 0 (all 4 combinations x 3 tools x 3 rounds present, meta-before.txt and meta-after.txt with every step exit=0) and prints exactly the output of the session 3 script, and every number of section 9 matches it. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, templates, baseline-scripts, state, routers, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py",
+      "reviewEvidence": {
+        "claim": "Both low findings of review a6 are fixed with tests and every number of the after-table is backed by its command and raw output.",
+        "impactClasses": ["correctness", "repository-hygiene"],
+        "oracleIds": ["baseline-scripts"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S4-AC3",
+      "unitId": "ITD-PLAN-S4",
+      "status": "passed",
+      "criterion": "The ITD-PLAN-S2 ledger record rides in this PR: the unit is verified through itd_unit_log.py with its merge, tree, machine and review evidence, its followup moves to closedFollowups with closure evidence, ITD-PLAN-S4 is activated through itd_unit_log.py; BACKLOG carries the four session 3 findings (Codex hooks.state without trust for the pre_tool_use:4 group, check-dod-before-commit timeouts on Windows, prefix permissions.ask forms, sync-to-active on /mnt/c) and DECISIONS the a6 adjudication with the convergence rule and the kept record-agent-skill + check-dod-before-commit pair; they describe only what the files and commands show.",
+      "source": "Owner 2026-10-22 session 4 task; HANDOFF after session 3.",
+      "evidence": "scripts/validate_state.py exits 0, OK: validated 2 state file(s) (leg state). The ITD-PLAN-S2 verified event (2026-10-22T19:09:58Z) and the ITD-PLAN-S4 activated event (2026-10-22T19:10:03Z) were written by itd_unit_log.py. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, templates, baseline-scripts, state, routers, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The ITD-PLAN-S2 record is consistent with its merge, tree and receipts, and the BACKLOG and DECISIONS entries match their sources.",
+        "impactClasses": ["correctness", "repository-hygiene"],
+        "oracleIds": ["state"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S4-AC4",
+      "unitId": "ITD-PLAN-S4",
+      "status": "passed",
+      "criterion": "After the owner-confirmed sync from this candidate on WSL and Windows (backups first), ~/.claude/CLAUDE.md on both hosts holds exactly one managed block equal to the template's and outside it exactly the personal section the owner approved (sha256 of its UTF-8 bytes pinned in the command; the text itself stays out of the repository) with none of the markers of a second rule layer (the removed ritual, routing words, an override of the block), and ~/.codex/AGENTS.md on both hosts equals docs/templates/global-codex-agents.md; tests/verify_global_routers.py checks this from WSL.",
+      "source": "Owner 2026-10-20 plan, session 4 acceptance; owner 2026-10-22 session 4 task.",
+      "evidence": "After the owner-confirmed host changes of 2026-10-22 (backups and MANIFEST.json with sha256 in the git-ignored .itd-memory/host-inputs/ITD-PLAN-S4/backups/; scripts/sync-to-active.sh on WSL and with CLAUDE_HOME on Windows, both exit 0 and 'methodology block synced (update)'; the Codex template copied to both ~/.codex/AGENTS.md; after the review a1, a2 and a3 fixes the router copies and, for a2, the sync on both hosts repeated with backups in backups/after-review-a1, after-review-a2 and after-review-a3; the personal section reduced to the owner's one-line rule on developing ITD and the caveman-lite preferences) tests/verify_global_routers.py --self-test exits 0 (7 passed) and the host run exits 0 with status PASSED, routers 4, personalPinned true (leg routers); ~/.claude/CLAUDE.md is byte-identical on both hosts. In the session the mutants 'pin ignored', 'case-sensitive markers' and 'routing markers dropped' each failed the self-test. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, templates, baseline-scripts, state, routers, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_global_routers.py --self-test && PATH=\"$PATH:/mnt/c/Windows/System32/WindowsPowerShell/v1.0:/mnt/c/Windows/System32\" sh skills/_shared/itd_py.sh tests/verify_global_routers.py --windows-home /mnt/c/Users/Дмитрий --personal-sha256 14d181cb4345838e0f5240029ba7c2bbf3f34f034e6f4ce7b4ea5ab09f0dfd3c",
+      "reviewEvidence": {
+        "claim": "Both hosts run one consistent rule layer for Claude and for Codex after the sync.",
+        "impactClasses": ["compatibility"],
+        "oracleIds": ["routers"]
+      }
     }
   ],
   "completion": {
@@ -5486,11 +5542,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S2",
+    "unitId": "ITD-PLAN-S4",
     "status": "in_progress",
-    "openedAt": "2026-10-21",
+    "openedAt": "2026-10-22",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-21: session 2 of the approved ITD change plan - ADR-016 by the pattern of ADR-013 (the pause of ADR-012 item 5 lifted for this program only), the closure convention in docs/RELEASE_RUNBOOK.md, the before-baseline in docs/measurements/ITD-SIMPLIFY-BASELINE.md, and the REL-1.109.2 ledger record in the same PR (plan rule 5); one review of the candidate, then itd pr create, CI and merge, each external step and every external model call on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-10-22: session 4 of the approved ITD change plan - a managed block of docs/templates/global-claude-md.md of at most 60 lines (the minimal route as the normal mode, when strict applies, what is always mandatory, where the skills live, no skill-decision line and no SKILL_BYPASS ritual), the same meaning in global-codex-agents.md without the conflict of its strict lines with the owner's decision, the personal section after ITD:END reduced to personal data, the template tests and docs/instruction-registry.json; the same PR carries the ITD-PLAN-S2 verified record, the two low fixes of review sol a6 with tests, the before/after table of session 3, BACKLOG findings of session 3 and the DECISIONS entry on the kept record-agent-skill + check-dod pair. One independent review of the final candidate; push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
@@ -6216,6 +6272,23 @@
         "adjudicator": "sealed-host-union"
       },
       "closureEvidence": "Release v1.109.2 at 162c9d3 (PR370 squash; tree e39bbf60 = the reviewed tree of 14a34e8: committed-head machine receipt REL-1.109.2-machine-a10 PASSED 8/8 legs, opposite-GPT review gpt-5.6-terra a13 PASSED after sol a1/a3-a5 had no verdict and terra a2/a6-a12 were BLOCKED), main CI success. Rollout WSL (backup ~/.local/share/itd/backups/REL-1.109.2-a1) and Windows (backup C:\\Users\\Дмитрий\\.codex\\plugin-backups\\REL-1.109.2-20261021T190404Z-6a0b7f49), runtime 1.109.2-4a575f29644e1989 on both, Claude 1.109.2 and Codex cache 1.109.2. Acceptance of the installed Claude hook re-run 2026-10-21 on WSL and Windows (docs/measurements/itd-simplify/egress_acceptance_probe.py): update_plan and a scan of an ssh- path pass, an HTTP POST with a data flag to an external URL asks; native Windows gate tests 323/0 and pii-egress PASSED in the publication session. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S2 PR (plan rule 5), no separate ledger-close PR."
+    },
+    {
+      "unitId": "ITD-PLAN-S2",
+      "status": "closed",
+      "closedAt": "2026-10-22T19:09:58Z",
+      "openedAt": "2026-10-21",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-21: session 2 of the approved ITD change plan - ADR-016 by the pattern of ADR-013 (the pause of ADR-012 item 5 lifted for this program only), the closure convention in docs/RELEASE_RUNBOOK.md, the before-baseline in docs/measurements/ITD-SIMPLIFY-BASELINE.md, and the REL-1.109.2 ledger record in the same PR (plan rule 5); one review of the candidate, then itd pr create, CI and merge, each external step and every external model call on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": ["correctness", "repository-hygiene", "compatibility"],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "PR #371 squash-merged to main 2be6dd0 on 2026-10-22; tree b97a57de equals the reviewed tree of 65eec9b: committed-head machine receipt ITD-PLAN-S2-machine-a9 PASSED 7/7 legs (receipt b71bc52d), review gpt-5.6-sol a6 BLOCKED with two low findings and ADJUDICATED by the owner under ADR-007 (accepted-trade-off, receipt f1e18421) after rounds a2-a5 found 5/5/2/3 in-scope findings; PR and main CI success. Both low findings (runtime_digest.py without roots, transcript_stats.py hook label) are fixed with tests in the ITD-PLAN-S4 PR. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S4 PR (plan rule 5), no separate ledger-close PR."
     }
   ]
 }
