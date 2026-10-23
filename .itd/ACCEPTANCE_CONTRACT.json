@@ -5528,10 +5528,10 @@
     {
       "id": "ITD-PLAN-S5-AC1",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "One default hook registration for every user: a sync into an empty HOME registers the core hooks (pre-flight-check, pii-egress-guard, careful, check-predeploy-gate, completion-signals, completion-gate), the state hooks and the gates that stay quiet on ordinary work, none of the optional hooks (cost-tracker, context-budget, context-aware, stuck-detection, risk-score, completion-stop, session-open-diagnostic, execution-trace, crash-recovery) and none of check-skills, check-tool-skill, check-review-before-commit; a repeated sync leaves settings.json byte-identical; a user's own hook in the same event, matcher and group and a foreign event key survive; itd-enabled-hooks.txt registers an optional hook under every event of its registration and itd-disabled-hooks.txt drops even a core hook; the hard-gate registration and behaviour tests hold with the two unregistered hard gates named in docs/HARNESS_TRUST_POLICY.json unregisteredHardGates.",
       "source": "Owner 2026-10-20 plan, session 5 and its acceptance; owner 2026-10-23 session 5 task.",
-      "evidence": "",
+      "evidence": "Leg selection exits 0: tests/verify_hook_selection.py 30 passed, verify_sync_manifest PASSED (17 checks), verify_hooks_autoinstall 151 passed, verify_registration_and_counts 9 passed, verify_all_hard_gate_host_parity 98 passed, verify_graduated_trust 19 passed, verify_host_adapters PASS. In the session seven mutants (dispatcher ignores the lists, disabled list ignored, optional hooks on by default, an unreadable list raises, sync ignores the enabled list, sync drops user hooks, the ~/.claude form not owned) each failed verify_hook_selection.py. Windows acceptance on the same tree (C:/itd-src/s5-candidate, native Python 3.12 and Git Bash, temporary homes): verify_hook_selection.py 30 passed; a Windows sync into an empty home registers the same 19 hooks as python.exe -X utf8 wrappers. A dry-run sync over a copy of the owner's WSL settings.json (with and without the disabled list) and over the owner's Windows home reports 'settings.json hooks already up-to-date': the new default equals the owner's registration. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_sync_manifest.py && sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && sh skills/_shared/itd_py.sh tests/verify_registration_and_counts.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py && sh skills/_shared/itd_py.sh tests/verify_graduated_trust.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
       "reviewEvidence": {
         "claim": "A new user and the owner get the same hooks; diagnostics are off unless enabled; the sync never deletes a user's hook and is idempotent.",
@@ -5542,10 +5542,10 @@
     {
       "id": "ITD-PLAN-S5-AC2",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "One selection on both agents: hooks/codex-dispatch.py decides from ~/.claude/itd-disabled-hooks.txt and itd-enabled-hooks.txt (CLAUDE_HOME when set) and exits before the hook process starts for an entry that is off; scripts/sync-to-active.sh and skills/_shared/itd_project_hooks.py load the same decision; for no lists, the owner's lists and a mixed pair the sync registers exactly the hooks the dispatcher runs; the Claude project template equals the sync registration and the Codex project template the plugin hooks.json; an unreadable list switches no hook off; check-dod-before-commit has a host budget of 150 s on all four registrations, above its Codex deadline of 140 s and its 120 s project checks.",
       "source": "Owner 2026-10-20 plan, session 5 (codex-dispatch.py reads the same lists; /adopt does not duplicate global hooks); BACKLOG P2 2026-10-22 (check-dod cut by the 5 s host timeout on Windows).",
-      "evidence": "",
+      "evidence": "Leg selection exits 0 (verify_hook_selection.py: sync and codex-dispatch select the same hooks for no lists, the owner's lists and a mixed pair; Codex does not start a disabled or not enabled hook; the templates equal the registrations; check-dod budgets 150/150/150/150 > deadline 140 > checks 120; verify_host_adapters: codex-project-hooks.json equals hooks/hooks.json). Windows: the same 30 checks pass with the native dispatcher. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
       "reviewEvidence": {
         "claim": "Codex and Claude Code run the same hooks from one pair of lists, so a disabled entry never runs on Codex regardless of its position in hooks.state.",
@@ -5556,10 +5556,10 @@
     {
       "id": "ITD-PLAN-S5-AC3",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "scripts/itd_codex_hook_trust.py reads config.toml and the newest installed plugin hooks.json without writing anything and names every entry Codex will not run: without trusted_hash (untrusted), switched off by position (enabled = false) and keys no entry has any more (stale); exit 0 when every entry is trusted and enabled, 1 with findings, 2 on unreadable input.",
       "source": "BACKLOG P2 2026-10-22 (Codex on WSL skips the pre_tool_use:4:* group as untrusted); owner 2026-10-23 session 5 task.",
-      "evidence": "",
+      "evidence": "Leg codex-trust exits 0: tests/verify_codex_hook_trust.py 13 passed (also on Windows Python); four mutants (trust check, stale keys, oldest version, positional switch-off) each failed it. On the owner's WSL Codex the report names 16 untrusted entries (the whole core Bash group, the Edit group, graph-route), 6 positional switch-offs and 10 stale keys - the BACKLOG P2 finding, now visible. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_hook_trust.py",
       "reviewEvidence": {
         "claim": "After an install the owner sees which Codex entries do not run, instead of a silently skipped core group.",
@@ -5570,10 +5570,10 @@
     {
       "id": "ITD-PLAN-S5-AC4",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "The three a4 findings of ITD-PLAN-S4 are fixed with tests: run_rounds.sh exits 1 before any round when the Windows copy of hook_bench.py cannot be refreshed (no copy directory, a read-only stale copy) and leaves no round log; verify_global_routers.py pins the personal section by the raw bytes outside the block cut at the ASCII markers, rejects invalid UTF-8 and lets a CRLF copy break the pin; the baseline header counts 15 checks.",
       "source": "Review sol a4 of ITD-PLAN-S4, ADJUDICATED by the owner 2026-10-23 with the fixes promised for this PR.",
-      "evidence": "",
+      "evidence": "Leg baseline-scripts exits 0 (test_measure_tools.py 16 tests OK; the original 'cmp || cp' line as a mutant fails the new test) and leg routers exits 0 (verify_global_routers.py --self-test 10 passed; the mutants 'hash of newline-normalised text' and 'lenient decode' each fail it); the baseline header reads 15 checks. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py && sh skills/_shared/itd_py.sh tests/verify_global_routers.py --self-test",
       "reviewEvidence": {
         "claim": "Every accepted a4 trade-off is now fixed and a regression fails a test.",
@@ -5584,10 +5584,10 @@
     {
       "id": "ITD-PLAN-S5-AC5",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "The ITD-PLAN-S4 ledger record rides in this PR: the unit is verified through itd_unit_log.py with its merge, tree, machine, review and router evidence, its followup moves to closedFollowups with closure evidence, ITD-PLAN-S5 is activated through itd_unit_log.py with risk tier medium, and DECISIONS records the owner's convergence rule and the a4 adjudication (binding f2d5f75d, receipt 42b34c21).",
       "source": "Owner 2026-10-23 session 5 task; HANDOFF after session 4.",
-      "evidence": "",
+      "evidence": "Leg state exits 0: scripts/validate_state.py OK, validated 2 state file(s). The ITD-PLAN-S4 verified event (2026-10-23T07:44:17Z) and the ITD-PLAN-S5 activated event were written by itd_unit_log.py; the S4 followup is in closedFollowups with its closure evidence. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
       "reviewEvidence": {
         "claim": "The ITD-PLAN-S4 record is consistent with its merge, tree and receipts.",
@@ -5598,10 +5598,10 @@
     {
       "id": "ITD-PLAN-S5-AC6",
       "unitId": "ITD-PLAN-S5",
-      "status": "pending",
+      "status": "passed",
       "criterion": "The live benchmark evidence is fresh for the changed pin (hooks/codex-dispatch.py and the Codex project template are pinned): the budgeted live run 20261023T083757Z-667aa84f passed and read skills/session-save, so by the owner's decision of 2026-10-23 skills/session-save joins the dynamic pin and a second run binds the new pin; both runs are recorded and tests/verify_live_model_benchmark.py --require-evidence passes.",
       "source": "Owner 2026-10-20 plan, session 5 (the registration changes the pin; one live run is budgeted); owner 2026-10-23 session 5 task.",
-      "evidence": "",
+      "evidence": "Leg benchmark exits 0: verify_live_model_benchmark.py --require-evidence --max-age-days 30, 154 passed. Runs 20261023T083757Z-667aa84f (on fae14a0) and 20261023T085326Z-45e3efb0 (on 06f258e, the latest) both PASS with the independent snapshot oracle. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, selection, codex-trust, baseline-scripts, routers, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The benchmark evidence is bound to the candidate tree.",
