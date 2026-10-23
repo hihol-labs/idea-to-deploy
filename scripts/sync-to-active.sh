@@ -668,15 +668,17 @@ else
 fi
 
 # Merge into settings.json (plan session 5): in the ITD-managed event keys the ITD hooks are replaced and every other
-# hook is kept - a user's own hook stays even in the same event, matcher and group. An ITD hook is a command that runs
-# a hook file of this repository from the installed hooks directory (~/.claude/hooks, $ACTIVE/hooks or its Windows
-# form) - a current hook file of hooks/ or a RETIRED one; foreign event keys (e.g. a SessionStart hook of another
-# plugin) are not touched. Re-running gives the same file. v1.73.1 fail-closed guard: an existing Windows python-wrapper registration is never downgraded to bare .sh
+# hook is kept - a user's own hook stays even in the same event, matcher and group. An ITD hook is a command in one of
+# the two forms sync writes - the bare path or the Windows wrapper `"<python>" -X utf8 "<path>"` - whose path is a hook
+# file of this repository (current or RETIRED) in the installed hooks directory (~/.claude/hooks, $ACTIVE/hooks or its
+# Windows form); a command that only mentions such a path is the user's. Foreign event keys (e.g. a SessionStart hook
+# of another plugin) are not touched. The file is replaced atomically (temp file + rename, mode kept); re-running
+# gives the same file. v1.73.1 fail-closed guard: an existing Windows python-wrapper registration is never downgraded to bare .sh
 # commands - on Windows Git-Bash would run python-bodied hooks as shell (exit 2) and the '*'-matcher PreToolUse hook
 # would deny EVERY tool call (live incident 2026-07-10); a non-windows target over such a file is refused.
 _mres="$(ITD_SETTINGS="$SETTINGS" ITD_HOOKS="$EFFECTIVE_HOOKS" ITD_ACTIVE="$ACTIVE" ITD_REPO="$REPO_ROOT" \
   ITD_TARGET="$ITD_TARGET_OS" ITD_DRY="$DRY_RUN" "$PYBIN" -B - <<'PYX'
-import json, os, re, shutil, time
+import json, os, re, shutil, tempfile, time
 from pathlib import Path
 KEYS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SubagentStop")
 # Hook files ITD registered once and no longer ships: their old registrations are still ITD's own and go away. A hook
@@ -688,11 +690,12 @@ def to_win(p):
     m = re.match(r'^/mnt/([a-zA-Z])/(.*)$', p) or re.match(r'^/([a-zA-Z])/(.*)$', p)
     return '%s:/%s' % (m.group(1).upper(), m.group(2)) if m else p.replace('\\', '/')
 active = os.environ["ITD_ACTIVE"].rstrip("/")
-dirs = {"~/.claude/hooks", active + "/hooks", to_win(active) + "/hooks"}
-owned = [re.compile(re.escape(d.lower()) + r"/([a-z0-9._-]+\.sh)(?=$|[\"'\s])") for d in dirs]
+dirs = "|".join(sorted(re.escape(d.lower()) for d in {"~/.claude/hooks", active + "/hooks", to_win(active) + "/hooks"}))
+owned = re.compile(r'(?:(?:%s)/([a-z0-9._-]+\.sh)|"[^"]+" -x utf8 "(?:%s)/([a-z0-9._-]+\.sh)")' % (dirs, dirs))
 def itd_owned(hook):
-    command = str(hook.get("command", "")).replace("\\", "/").lower() if isinstance(hook, dict) else ""
-    return any(m.group(1) in names for rx in owned for m in rx.finditer(command))
+    command = str(hook.get("command", "")).replace("\\", "/").strip().lower() if isinstance(hook, dict) else ""
+    match = owned.fullmatch(command)
+    return bool(match) and (match.group(1) or match.group(2)) in names
 try:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
@@ -737,9 +740,19 @@ if os.path.exists(path):
     backup = path + ".bak-" + time.strftime("%Y%m%d-%H%M%S")
     shutil.copy(path, backup)
 data["hooks"] = merged
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
-    f.write("\n")
+mode = os.stat(path).st_mode & 0o777 if os.path.exists(path) else 0o644
+fd, tmp = tempfile.mkstemp(prefix=".settings-", dir=os.path.dirname(os.path.abspath(path)))
+try:
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+except BaseException:
+    os.unlink(tmp)
+    raise
 print("WROTE:" + os.path.basename(backup))
 PYX
 )"

@@ -66,7 +66,7 @@ def check(label: str, ok: bool, detail: str = "") -> None:
         print(f"FAIL {label}" + (f": {detail}" if detail else ""))
 
 
-USER_HOOKS = {"audit.sh", "my-own.sh"}
+USER_HOOKS = {"audit.sh", "my-own.sh", "wrap.sh"}
 
 
 # Every hook file ITD shipped by plan session 5; a file deleted from hooks/ must move to RETIRED in the sync merge,
@@ -163,15 +163,25 @@ def main() -> int:
         data = json.loads(before)
         bash_group = next(g for g in data["hooks"]["PreToolUse"] if g.get("matcher") == "Bash")
         bash_group["hooks"].append({"type": "command", "command": "/opt/me/audit.sh", "timeout": 3})
+        mention = "~/.claude/hooks/careful.sh --version; /opt/me/wrap.sh"  # mentions an ITD hook path; the user's
+        bash_group["hooks"].append({"type": "command", "command": mention})
         data["hooks"]["PreToolUse"].append(
             {"matcher": "Read", "hooks": [{"type": "command", "command": "~/.claude/hooks/my-own.sh"}]})
         data["hooks"]["SessionStart"] = [{"hooks": [{"type": "command", "command": "other-plugin start"}]}]
         data["hooks"]["PreToolUse"][0]["hooks"].append({"type": "command", "command": "~/.claude/hooks/careful.sh"})
         (home / "settings.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        if os.name != "nt":
+            (home / "settings.json").chmod(0o640)
         sync(home)
         found = rows(home)
         check("a user hook in the ITD Bash group is kept",
               ("PreToolUse", "Bash", "/opt/me/audit.sh") in found)
+        check("a user command that only mentions an ITD hook path is kept", ("PreToolUse", "Bash", mention) in found)
+        check("the rewrite is atomic: no temporary file is left next to settings.json",
+              not list(home.glob(".settings-*")))
+        if os.name != "nt":
+            check("the rewrite keeps the file mode", (home / "settings.json").stat().st_mode & 0o777 == 0o640,
+                  oct((home / "settings.json").stat().st_mode & 0o777))
         check("a user hook in ~/.claude/hooks with its own name is kept",
               ("PreToolUse", "Read", "~/.claude/hooks/my-own.sh") in found)
         check("a foreign event key is kept", ("SessionStart", "", "other-plugin start") in found)
