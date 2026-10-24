@@ -36,6 +36,6 @@ def fail_closed(reason: str) -> int:
 if __name__ == "__main__":
     try:
         from itd_dispatch import main  # the hooks directory is sys.path[0] of this script
-    except Exception as exc:  # noqa: BLE001 - an unloadable dispatcher must not let a hard gate fail open
-        sys.exit(fail_closed(f"itd_dispatch is not loadable: {type(exc).__name__}: {exc}"))
+    except BaseException as exc:  # noqa: BLE001 - SystemExit at import too: an unloadable dispatcher must not let a
+        sys.exit(fail_closed(f"itd_dispatch is not loadable: {type(exc).__name__}: {exc}"))  # hard gate fail open
     sys.exit(main())

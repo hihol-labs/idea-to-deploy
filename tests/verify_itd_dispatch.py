@@ -316,6 +316,28 @@ def main() -> int:
             dispatch.dispatch = saved_dispatch
         check("a dispatcher crash never blocks a SubagentStop that already continues", looped[2] == 0
               and not looped[0] and b"synthetic dispatcher crash" in looped[1], repr(looped))
+        # review a4: SystemExit and KeyboardInterrupt in the dispatcher itself fail closed too
+        for raised in (SystemExit(0), KeyboardInterrupt()):
+            def leave(raw: bytes, hooks_dir: Path, exc=raised):
+                raise exc
+
+            dispatch.dispatch = leave
+            try:
+                left = dispatch.answer(json.dumps(pre()).encode(), base)
+            except BaseException as escaped:  # noqa: BLE001 - an escape is the failure under test, not the test's
+                left = (b"", repr(escaped).encode(), "escaped")
+            finally:
+                dispatch.dispatch = saved_dispatch
+            check(f"a {type(raised).__name__} in the dispatcher denies the tool call",
+                  left[2] == 2 and decision(left[0]) == "deny" and type(raised).__name__.encode() in left[0], repr(left))
+        read_end, write_end = os.pipe()
+        try:
+            dispatch.emit([(1, write_end)], b"answer through the saved original", b"")
+        finally:
+            os.close(write_end)
+        with os.fdopen(read_end, "rb") as pipe:
+            check("the answer is written through the saved copy of the original stdout, not the redirected fd 1",
+                  pipe.read() == b"answer through the saved original")
         check("a dispatcher crash blocks a SubagentStop and denies a tool call",
               fresh[2] == 2 and decision(fresh[0]) == "block" and tool_call[2] == 2 and decision(tool_call[0]) == "deny",
               f"{fresh!r} {tool_call!r}")
@@ -334,6 +356,11 @@ def main() -> int:
               repr(proc.stdout))
         proc = run(directory, {"hook_event_name": "Stop"}, root / "log")
         check("an unloadable itd_dispatch module: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
+              repr(proc.stdout))
+        (directory / MODULE.name).write_text("raise SystemExit(0)\n", encoding="utf-8")
+        proc = run(directory, pre(), root / "log")
+        check("a dispatcher module that raises SystemExit while it loads: the entry point denies a tool call",
+              proc.returncode == 2 and decision(proc.stdout) == "deny" and b"SystemExit" in proc.stdout,
               repr(proc.stdout))
 
         # --- a child process of a hook that does not capture its output -------------------------------------

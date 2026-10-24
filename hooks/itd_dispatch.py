@@ -443,12 +443,27 @@ def silence_descriptors() -> tuple[list[tuple[int, int]], bool]:
 
 
 def restore_descriptors(saved: list[tuple[int, int]]) -> None:
+    """Put fds 1 and 2 back for an in-process caller; every saved copy is closed, restored or not."""
     for fd, copy in saved:
         try:
             os.dup2(copy, fd)
-            os.close(copy)
         except OSError:
             pass
+        finally:
+            os.close(copy)
+
+
+def emit(saved: list[tuple[int, int]], stdout: bytes, stderr: bytes) -> None:
+    """Write the answer through the saved copies of the original fds 1 and 2 (review a4).
+
+    The process exits right after, so nothing has to be restored, and a restore that fails cannot send the answer to
+    the null device. A descriptor that was never redirected is written directly.
+    """
+    originals = dict(saved)
+    for fd, data in ((1, stdout), (2, stderr)):
+        target = originals.get(fd, fd)
+        while data:
+            data = data[os.write(target, data):]
 
 
 def payload_flags(raw: bytes) -> tuple[str, bool]:
@@ -465,19 +480,24 @@ def answer(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
     try:
         trust_bytecode(hooks_dir.parent)
         return dispatch(raw, hooks_dir)[0]
-    except Exception as exc:  # noqa: BLE001 - the dispatcher itself failed: fail closed
+    except BaseException as exc:  # noqa: BLE001 - SystemExit and KeyboardInterrupt included: fail closed (review a4)
         event, stop_hook_active = payload_flags(raw)
         return failure_answer(event, f"dispatcher crashed: {type(exc).__name__}: {exc}", stop_hook_active)
 
 
+def isolated_answer(raw: bytes, hooks_dir: Path, isolated: bool) -> tuple[bytes, bytes, int]:
+    """answer() once the descriptors are isolated; when they could not be, the event fails closed (review a2)."""
+    if not isolated:
+        event, stop_hook_active = payload_flags(raw)
+        return failure_answer(event, "the hook output descriptors cannot be isolated", stop_hook_active)
+    return answer(raw, hooks_dir)
+
+
 def respond(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
-    """answer() with the process descriptors isolated; when they cannot be, the event fails closed (review a2)."""
+    """isolated_answer() for an in-process caller: the descriptors are isolated around it and put back after."""
     saved, isolated = silence_descriptors()
     try:
-        if not isolated:
-            event, stop_hook_active = payload_flags(raw)
-            return failure_answer(event, "the hook output descriptors cannot be isolated", stop_hook_active)
-        return answer(raw, hooks_dir)
+        return isolated_answer(raw, hooks_dir, isolated)
     finally:
         restore_descriptors(saved)
 
@@ -487,13 +507,12 @@ def main() -> int:
     raw = real["stdin"].buffer.read()
     for name, stream in real.items():
         setattr(sys, name, _ThreadStream(name, stream))
-    stdout, stderr, code = respond(raw, Path(__file__).resolve().parent)
-    real["stdout"].buffer.write(stdout)
-    real["stdout"].flush()
-    if stderr:
-        real["stderr"].buffer.write(stderr if stderr.endswith(b"\n") else stderr + b"\n")
-        real["stderr"].flush()
+    saved, isolated = silence_descriptors()
+    stdout, stderr, code = isolated_answer(raw, Path(__file__).resolve().parent, isolated)
+    if stderr and not stderr.endswith(b"\n"):
+        stderr += b"\n"
+    emit(saved, stdout, stderr)
     # Leave without the interpreter shutdown: tearing down the hundred-odd modules the hooks loaded costs about 20 ms
-    # per call, and a hook that overran its budget may still run in its thread. The answer is flushed above; the hooks
-    # register no exit handlers (no atexit, finalizers, temporary directories or logging).
+    # per call, and a hook that overran its budget may still run in its thread. The answer is written above; the
+    # hooks register no exit handlers (no atexit, finalizers, temporary directories or logging).
     os._exit(code)
