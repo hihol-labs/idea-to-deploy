@@ -26,6 +26,7 @@ import importlib.util
 import io
 import json
 import marshal
+import math
 import os
 import re
 import sys
@@ -222,7 +223,8 @@ def valid_entry(entry: object) -> bool:
         return False
     timeout = entry["timeout"]
     return (isinstance(entry["matcher"], str) and isinstance(entry["script"], str) and bool(entry["script"])
-            and isinstance(timeout, (int, float)) and not isinstance(timeout, bool) and timeout > 0
+            and isinstance(timeout, (int, float)) and not isinstance(timeout, bool)
+            and math.isfinite(timeout) and timeout > 0  # JSON admits Infinity and NaN; a thread join does not
             and isinstance(entry["hardGate"], bool))
 
 

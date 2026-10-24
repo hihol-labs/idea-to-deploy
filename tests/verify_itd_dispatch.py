@@ -276,6 +276,16 @@ def main() -> int:
             proc, log = case({"a.sh": ""}, {"PreToolUse": [row]}, pre())
             check(f"table row with {label}: the table is unusable and a tool call is denied",
                   proc.returncode == 2 and decision(proc.stdout) == "deny" and not ran(log), repr(proc.stdout[-200:]))
+        # review a3: JSON admits Infinity and NaN; such a timeout is a malformed row, not a dispatcher crash
+        for label, literal in (("Infinity", "Infinity"), ("NaN", "NaN")):
+            proc, log = case({"a.sh": ""}, {}, pre(), table=False)
+            (log.parent / "hooks" / dispatch.TABLE_FILE).write_text(
+                '{"version": 1, "kind": "%s", "hooks": {"PreToolUse": [{"matcher": "*", "script": "a.sh", '
+                '"timeout": %s, "hardGate": false}]}}' % (dispatch.TABLE_KIND, literal), encoding="utf-8")
+            proc = run(log.parent / "hooks", pre(), log)
+            check(f"table row with timeout {label}: malformed (the table is unusable), not a dispatcher crash",
+                  proc.returncode == 2 and decision(proc.stdout) == "deny" and b"malformed" in proc.stdout
+                  and b"crashed" not in proc.stdout and not ran(log), repr(proc.stdout[-200:]))
         proc, log = case({"a.sh": ""}, {}, pre(), table=False)
         root = log.parent
         (root / "hooks" / dispatch.TABLE_FILE).write_text(json.dumps({"version": 1, "kind": dispatch.TABLE_KIND,

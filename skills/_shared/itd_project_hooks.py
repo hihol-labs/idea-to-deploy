@@ -230,11 +230,29 @@ def dispatched_names(hooks_dir: Path, template_names: set[str]) -> set[str]:
     except (OSError, ValueError, RecursionError):
         return set(template_names)
     hooks = table.get("hooks") if isinstance(table, dict) and table.get("kind") == DISPATCH_TABLE_KIND else None
+    try:
+        valid_entry = dispatch_row_check()
+    except (OSError, ValueError, ImportError, SyntaxError):
+        return set(template_names)
     if not isinstance(hooks, dict) or not all(
-            isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("script"), str) for row in rows)
-            for rows in hooks.values()):
+            isinstance(rows, list) and all(valid_entry(row) for row in rows) for rows in hooks.values()):
         return set(template_names)  # not a table this dispatcher would run: it fails closed, so assume everything
     return {row["script"] for rows in hooks.values() for row in rows}
+
+
+def dispatch_row_check():
+    """The row schema of hooks/itd_dispatch.py next to this helper (the same install), loaded without bytecode."""
+    path = Path(__file__).resolve().parent.parent.parent / "hooks" / "itd_dispatch.py"
+    spec = importlib.util.spec_from_file_location("itd_dispatch_rows", path)
+    if spec is None or spec.loader is None or not path.is_file():
+        raise ValueError(f"{path} is missing")
+    module = importlib.util.module_from_spec(spec)
+    saved, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = saved
+    return module.valid_entry
 
 
 def merge(current: dict, template: dict, user_names: set[str]) -> tuple[dict, list[str]]:

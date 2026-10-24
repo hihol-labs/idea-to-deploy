@@ -123,9 +123,13 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 `verify_all_hard_gate_host_parity` краснеют Codex-ноги, в `verify_predeploy_independent_review` - случай r83 (тот же
 диспетчер). Это ложный deny Codex на медленном хосте; на спокойной машине оба сьюта зеленые. Дедлайн - в
 `codex-dispatch.py` (пин бенчмарка): поднять до бюджета хоста или взять минимум, как у Claude-диспетчера (30 с для
-hard-гейта), при следующей правке пина.
-Закрыто в сессии 6 (причины были в тестах): `verify_predeploy_independent_review` - заглушка проверяющего была файлом
-`#!/bin/sh`, который Windows не исполняет; `verify_sync_manifest` брал `bash` из PATH (на этой машине - WSL).
+hard-гейта), при следующей правке пина. Открыто.
+
+## ЗАКРЫТО 2026-10-24 (сессия 6) - тесты, красные на Windows-профиле владельца по допущениям самих тестов
+
+`verify_predeploy_independent_review` - заглушка проверяющего была файлом `#!/bin/sh`, который Windows не исполняет;
+`verify_sync_manifest` брал `bash` из PATH (на этой машине - WSL) и узнавал только голую форму команды. Тесты
+исправлены, на Windows владельца оба зеленые.
 
 ## P3 - `verify_hooks_autoinstall.py` на Windows владельца: кодировка без `PYTHONUTF8` (2026-10-23, ITD-PLAN-S5; user-level - закрыто в сессии 6)
 

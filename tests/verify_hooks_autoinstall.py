@@ -369,7 +369,11 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
                               ("routing table of another kind", good_table.replace("claude-dispatch-table-v1", "other")),
                               ("routing table with a malformed row", json.dumps({
                                   "version": 1, "kind": "claude-dispatch-table-v1",
-                                  "hooks": {"PreToolUse": [{"matcher": "*"}]}}))):
+                                  "hooks": {"PreToolUse": [{"matcher": "*"}]}})),
+                              # review a3: the dispatcher's own row schema, not just a string script
+                              ("routing table with a row the dispatcher refuses", json.dumps({
+                                  "version": 1, "kind": "claude-dispatch-table-v1",
+                                  "hooks": {"PreToolUse": [{"script": "careful.sh", "matcher": "Bash"}]}}))):
             if broken is not None:
                 table.write_text(broken, encoding="utf-8")
             box.settings.unlink(missing_ok=True)
