@@ -692,17 +692,147 @@ def _has_script_file_argument(rest: list[str]) -> bool:
     return False
 
 
-def _split_invocations(command: str) -> list[list[str]]:
+# BACKLOG P2 2026-10-21 (plan session 6): every `$(…)` made the whole command
+# unresolvable, so `cd ~/x && echo "$(head -1 f)"` and `T=$(wslpath -w /tmp/a);
+# cd "<gated checkout>" && uptime` were denied although nothing in them ships
+# content. A substitution body is now judged by its own invocations (a transport
+# inside still gates) and replaced in the outer text by a word that starts with
+# `$`, so a substitution in command position, inside a command word or as a
+# `cd` target stays unresolvable. A body this scanner cannot delimit statically
+# keeps the old fail-closed sentinel.
+SUBSTITUTION_PLACEHOLDER = "$ITD_SUBSTITUTION"
+MAX_SUBSTITUTION_DEPTH = 8
+CASE_WORD_RE = re.compile(r"case\b")
+
+
+def _substitution_end(text: str, start: int) -> int | None:
+    """Index of the `)` closing the `$(`/`<(`/`>(` body that starts at `start`.
+
+    None when the end is not statically certain: a here-document, a `case`
+    (its patterns carry unbalanced `)`), a backtick or a shell comment in the
+    body, or no closing parenthesis at all.
+    """
+    depth, quote, escaped = 1, None, False
+    index = start
+    while index < len(text):
+        char = text[index]
+        if escaped:
+            escaped = False
+        elif char == "\\" and quote != "'":
+            escaped = True
+        elif quote == "'":
+            if char == "'":
+                quote = None
+        elif quote == '"':
+            if char == '"':
+                quote = None
+            elif char == "`":
+                return None
+            elif char == "$" and text[index + 1:index + 2] == "(":
+                end = _substitution_end(text, index + 2)
+                if end is None:
+                    return None
+                index = end
+        elif char in "'\"":
+            quote = char
+        elif char == "`":
+            return None
+        elif char == "#" and text[index - 1] in COMMENT_START_BEFORE:
+            return None
+        elif text.startswith("<<", index):
+            return None
+        elif CASE_WORD_RE.match(text, index) and (
+                index == start or text[index - 1] in COMMENT_START_BEFORE):
+            return None
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return None
+
+
+def _extract_substitutions(text: str) -> tuple[str, list[str]] | None:
+    """`text` with each substitution replaced by the placeholder, and the bodies.
+
+    Walks the text with the quoting rules of `_has_dynamic_execution`: `$(…)`
+    and backticks count outside single quotes, `<(…)`/`>(…)` only unquoted, an
+    unquoted word-start `#` comment is copied as it is. None when a body cannot
+    be delimited (see `_substitution_end`; a backtick body with a backslash).
+    """
+    out: list[str] = []
+    bodies: list[str] = []
+    quote: str | None = None
+    escaped = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        opens = text[index + 1:index + 2] == "("
+        substitution = quote != "'" and not escaped and (
+            (char == "$" and opens) or char == "`"
+            or (quote is None and char in "<>" and opens))
+        if substitution and char == "`":
+            end = text.find("`", index + 1)
+            if end == -1 or "\\" in text[index + 1:end]:
+                return None
+            bodies.append(text[index + 1:end])
+            out.append(SUBSTITUTION_PLACEHOLDER)
+            index = end + 1
+            continue
+        if substitution:
+            end = _substitution_end(text, index + 2)
+            if end is None:
+                return None
+            bodies.append(text[index + 2:end])
+            out.append(SUBSTITUTION_PLACEHOLDER)
+            index = end + 1
+            continue
+        if escaped:
+            escaped = False
+        elif char == "\\" and quote != "'":
+            escaped = True
+        elif quote == "'":
+            if char == "'":
+                quote = None
+        elif quote == '"':
+            if char == '"':
+                quote = None
+        elif char == "#" and (index == 0
+                              or text[index - 1] in COMMENT_START_BEFORE):
+            newline = text.find("\n", index)
+            end = len(text) if newline == -1 else newline
+            out.append(text[index:end])
+            index = end
+            continue
+        elif char in "'\"":
+            quote = char
+        out.append(char)
+        index += 1
+    return "".join(out), bodies
+
+
+def _split_invocations(command: str, _depth: int = 0) -> list[list[str]]:
     """Every command invocation in the string, as token lists.
 
-    Emits the sentinel ``["\\0dynamic"]`` when THIS level of the string
-    contains command/process substitution outside single quotes — the scan is
-    repeated per recursion level, so a substitution hidden inside a quoted
-    `sh -c` payload is caught when that payload is expanded (r53/S1).
+    A command/process substitution outside single quotes contributes the
+    invocations of its body (`_extract_substitutions`); the scan is repeated per
+    recursion level, so a substitution hidden inside a quoted `sh -c` payload is
+    caught when that payload is expanded (r53/S1). Emits the sentinel
+    ``["\\0dynamic"]`` when a substitution cannot be delimited statically or
+    nests deeper than MAX_SUBSTITUTION_DEPTH.
     """
     invocations: list[list[str]] = []
     if _has_dynamic_execution(command):
-        invocations.append(["\0dynamic"])
+        extracted = (_extract_substitutions(command)
+                     if _depth < MAX_SUBSTITUTION_DEPTH else None)
+        if extracted is None:
+            invocations.append(["\0dynamic"])
+        else:
+            command, bodies = extracted
+            for body in bodies:
+                invocations.extend(_split_invocations(body, _depth + 1))
     for segment in _split_segments(command):
         try:
             tokens = shlex.split(segment, comments=True)

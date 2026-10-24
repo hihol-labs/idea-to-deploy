@@ -15,7 +15,9 @@ hooks, other keys and permissions are kept; `permissions.ask` rules are added by
 string. A template hook whose script is already registered in the user-level settings
 (`~/.claude/settings.json`, read only) from an idea-to-deploy hooks directory (the `hooks` dir
 next to that settings file, or the resolved plugin hooks dir) is skipped, so it does not fire twice; the rest are still
-installed. The user's two hook lists next to that settings file select the rest as on the whole machine (plan session
+installed. A user-level `claude-dispatch.py` (plan session 6) registers every hook of its routing table
+`claude-dispatch.json` next to it, so those count as registered too (all of them when the table is unreadable).
+The user's two hook lists next to that settings file select the rest as on the whole machine (plan session
 5): an optional hook only when `itd-enabled-hooks.txt` names it, never one `itd-disabled-hooks.txt` names - the
 decision of `hooks/codex-dispatch.py` of this helper's own install (never of `--hooks-dir`, so a preview runs no code
 from the directory it is asked about). A symlinked settings file is updated through its target, which must stay inside the
@@ -39,6 +41,8 @@ from pathlib import Path
 
 PLACEHOLDER = "{{PLUGIN_HOOKS_DIR}}"
 TEMPLATE_REL = Path("adopt") / "references" / "project-settings-template.json"
+DISPATCHER = "claude-dispatch.py"
+DISPATCH_TABLE = "claude-dispatch.json"
 WRITTEN: list[Path] = []  # set once the settings file is written, so a later failure says so
 
 
@@ -175,7 +179,7 @@ def template_settings(template: Path, hooks_dir: Path) -> dict:
 
 
 def script_tokens(command: str) -> list[str]:
-    """`.sh` paths in a hook command, quoted paths with spaces kept whole, `/` separators."""
+    """`.sh` paths and the dispatcher entry point in a hook command, quoted paths kept whole, `/` separators."""
     try:
         lexer = shlex.shlex(command, posix=False)
         lexer.whitespace_split = True
@@ -187,7 +191,7 @@ def script_tokens(command: str) -> list[str]:
         if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
             token = token[1:-1]
         token = token.replace("\\", "/")
-        if token.endswith(".sh"):
+        if token.endswith(".sh") or token.rsplit("/", 1)[-1] == DISPATCHER:
             out.append(token)
     return out
 
@@ -213,6 +217,16 @@ def itd_script_names(settings: dict, itd_dirs: set[str]) -> set[str]:
                     if dir_forms(parent) & itd_dirs:
                         names.add(name)
     return names
+
+
+def dispatched_names(hooks_dir: Path, template_names: set[str]) -> set[str]:
+    """The hooks a user-level dispatcher runs: the scripts of its routing table, or every template hook when the
+    table is unreadable (the dispatcher then fails closed instead of running them, so none may be added twice)."""
+    try:
+        table = strict_json((hooks_dir / DISPATCH_TABLE).read_text(encoding="utf-8"))
+        return {str(row["script"]) for rows in table["hooks"].values() for row in rows}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return set(template_names)
 
 
 def merge(current: dict, template: dict, user_names: set[str]) -> tuple[dict, list[str]]:
@@ -365,7 +379,10 @@ def run(argv: list[str]) -> int:
     # (sync-to-active: ~/.claude/hooks) or in the plugin hooks dir; nowhere else counts.
     itd_dirs = dir_forms(hooks_dir.absolute().as_posix()) | dir_forms(
         (user_path.absolute().parent / "hooks").as_posix())
-    registered = itd_script_names(user or {}, itd_dirs) & template_names
+    user_names = itd_script_names(user or {}, itd_dirs)
+    registered = user_names & template_names
+    if DISPATCHER in user_names:
+        registered |= dispatched_names(user_path.absolute().parent / "hooks", template_names) & template_names
     # The machine-wide selection (sync-to-active and codex-dispatch read the same lists): a hook the user switched
     # off is not re-enabled per project (INSTALL-OWNED-1), an optional hook only when the user enabled it.
     try:

@@ -5608,6 +5608,90 @@
         "impactClasses": ["generated-artifact-freshness"],
         "oracleIds": ["benchmark"]
       }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC1",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "hooks/claude-dispatch.py with hooks/itd_dispatch.py runs, per hook event, only the hooks of the routing table whose matcher matches the whole tool name (one run per script), each as __main__ in its own thread with its own stdin, stdout and stderr; the first blocking answer (exit 2, deny or block) passes through byte for byte, asks are joined with their reasons and context is concatenated; a hard gate that crashes, exits with another code, raises SystemExit with a message, is missing, lies outside the hooks directory or overruns its budget denies a tool call and blocks a SubagentStop, an advisory hook in the same state is silent; an unusable table, payload or dispatcher module fails closed on PreToolUse and SubagentStop (never when stop_hook_active) and stays silent elsewhere; a child process of a hook cannot reach the answer; checked-hash bytecode of exactly the source on disk is used, stale or timestamp bytecode never, and a run writes no .pyc.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_itd_dispatch.py exits 0, 51 passed, 0 failed (WSL, 2026-10-24); on Windows, native Python 3.12 on the fresh tree copy C:/itd-src/s6-final, 51 passed. In the session eleven mutants of the dispatcher (a hard-gate failure silent, no minimum budget, bytecode without the source-hash check, the entry point failing open, a searching matcher, a silent unusable table, the real stdout shared by the hooks, a blocking answer merged away, a stop loop blocked again, the union matcher dropped, a child's output reaching the answer) and two of the installer (timestamp bytecode, stray bytecode kept) each failed it. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_dispatch.py",
+      "reviewEvidence": {
+        "claim": "The dispatcher keeps every hook decision and fails closed for hard gates.",
+        "impactClasses": ["correctness", "security"],
+        "oracleIds": ["dispatch"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC2",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "A sync registers hooks/claude-dispatch.py once per event (UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStop) under the union of the matchers with a timeout above the longest budget, writes the selected hooks with the hard-gate flags of docs/HARNESS_TRUST_POLICY.json into hooks/claude-dispatch.json, compiles the checked-hash bytecode of the hooks and the modules they load with the interpreter of the hooks and lists it in itd-bytecode.json (a .pyc without a source removed); a Bash call starts two ITD hook processes; a repeated sync changes nothing; a user's own hooks stay; the two hook lists still select the hooks; /adopt counts a user-level dispatcher as the registration of its table's hooks (all of them when the table is unreadable); the hook inventory (31 hook files, 12 hard gates) is unchanged.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_hook_selection.py 47 passed, verify_sync_manifest PASSED (17 checks), verify_hooks_autoinstall 156 passed, verify_registration_and_counts 9 passed (WSL). Windows (Git Bash sync, native Python): verify_hook_selection 46 passed with the check that the registered interpreter runs, verify_registration_and_counts 9 passed; verify_hooks_autoinstall 5 failed - the three user-level checks red on that profile before this unit and the two new user-level dispatcher checks of the same cause (BACKLOG P3); verify_sync_manifest runs the WSL bash from PATH there (BACKLOG P3). Mutants: sync keeping the per-hook registration, sync dropping the hard-gate flags, sync skipping the bytecode, /adopt ignoring a user-level dispatcher, /adopt trusting an unreadable table - each failed its test. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_sync_manifest.py && sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && sh skills/_shared/itd_py.sh tests/verify_registration_and_counts.py",
+      "reviewEvidence": {
+        "claim": "The install registers the dispatcher with the same selection and an exact bytecode inventory.",
+        "impactClasses": ["correctness", "host-parity", "compatibility"],
+        "oracleIds": ["selection"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC3",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "Every behavioural hard-gate test is green in both directions through the dispatcher: each registered hard gate with a table of that gate alone and with the default table produces its deny or block, and ordinary calls of every event (UserPromptSubmit, Bash, Read, Edit, Write, Agent, an MCP tool, Stop, SubagentStop) pass the default table without a deny, block or ask; the Claude-direct and Codex legs keep their parity.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_all_hard_gate_host_parity.py exits 0, 133 passed, 0 failed on WSL and on Windows (second Windows run; the first two were cut by the unchanged Codex leg's 3 s deadline under 100% CPU and a temp cleanup error, now tolerated by the test, BACKLOG P3). Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
+      "reviewEvidence": {
+        "claim": "No hard gate weakens and no ordinary call is blocked by the dispatcher.",
+        "impactClasses": ["security", "correctness"],
+        "oracleIds": ["selection"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC4",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The pre-deploy gate judges a command or process substitution by the invocations of its body: a local body no longer makes the command opaque (both BACKLOG P2 commands pass), a transport inside still gates, a substitution in command position, inside a command word or as a cd target stays unresolvable, and a body with a here-document, case, comment or backtick or deeper than 8 levels keeps the fail-closed sentinel.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_predeploy_independent_review.py PASSED and tests/verify_predeploy_gate.py PASSED (WSL); Windows: verify_predeploy_gate PASSED, the independent review suite 157 of 158 - its failing check 'validate_receipt: a zero-exit delegated checker is valid' fails on the 1.109.2 copy on that profile too (BACKLOG P3). Mutants: substitution bodies ignored, a placeholder without $, no depth bound, the old sentinel kept - each failed the suite. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_predeploy_independent_review.py && sh skills/_shared/itd_py.sh tests/verify_predeploy_gate.py",
+      "reviewEvidence": {
+        "claim": "The false denies are gone without opening a transport path.",
+        "impactClasses": ["security", "correctness"],
+        "oracleIds": ["predeploy"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC5",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The session 2 measurement is repeated on WSL and Windows for the main and the candidate install (docs/measurements/ITD-SIMPLIFY-BASELINE.md, section 10): at most 4 hook processes per Bash, the medians and their change against main and against the session 2 baseline, and the share of the third-party context-mode plugin in the chain, each number with its command and raw outputs.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "docs/measurements/itd-simplify/test_measure_tools.py: 16 tests OK. Baseline section 10 from the interleaved A/B rounds of 2026-10-23 (summarize_rounds.py .itd-memory/host-inputs/ITD-PLAN-S6/rounds3 s6-main s6-candidate exits 0; rounds2 the same): hook processes per Bash 12 -> 4 on all four combinations; Bash chain against main -7/-29/-26/-40%, against the session 2 before -46/-59/-68/-65%; the owner accepted WSL x ITD at -46% on 2026-10-24 (the context-mode chain alone is 361 ms there). Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh docs/measurements/itd-simplify/test_measure_tools.py",
+      "reviewEvidence": {
+        "claim": "The latency claim is grounded in the recorded rounds.",
+        "impactClasses": ["performance"],
+        "oracleIds": ["baseline-scripts"]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC6",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The ITD-PLAN-S5 verified record and its followup move ride in this PR (plan rule 5) with the a4 adjudication of session 5 in DECISIONS; the state ledgers validate; the full suite is green.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "scripts/validate_state.py: OK, validated 2 state file(s). The ITD-PLAN-S5 verified event (2026-10-23T14:18:37Z) and the ITD-PLAN-S6 activated event were written by itd_unit_log.py; the S5 followup is in closedFollowups with its closure evidence; DECISIONS holds the session 5 a4 adjudication. Full suite on WSL (2026-10-23): 175 of 189 suites of the mirror, one red - verify_ledger_reconciliation from git-ignored local .itd-memory files, 96 passed in a clean copy of the same tree (BACKLOG P3). Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The ledger records are exact and the suite is green.",
+        "impactClasses": ["repository-hygiene", "correctness"],
+        "oracleIds": ["state", "full"]
+      }
     }
   ],
   "completion": {
@@ -5626,15 +5710,15 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S5",
+    "unitId": "ITD-PLAN-S6",
     "status": "in_progress",
     "openedAt": "2026-10-23",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-23: session 5 of the approved ITD change plan - one default hook registration for a new user and for the owner (the core hooks plus the state hooks that stay silent without .itd-memory), the diagnostics off by default and enabled through itd-enabled-hooks.txt, check-skills, check-tool-skill and check-review-before-commit unregistered (record-agent-skill and check-dod-before-commit stay by the session 3 decision), codex-dispatch.py reading the same disabled and enabled lists as sync-to-active.sh, the /adopt project template not registering hooks already registered globally, one live benchmark run (the pin changes); inputs BACKLOG P2 'Codex on WSL skips the pre_tool_use:4:* group as untrusted' and P2 'check-dod-before-commit on Windows is cut by the 5 s host timeout'. The same PR carries the ITD-PLAN-S4 verified record, the owner's convergence rule and the a4 adjudication in DECISIONS and the three a4 findings with tests. Acceptance: a fresh install into an empty HOME gives the core and no diagnostics, a repeated sync is idempotent, a user's hook in the same event group is kept, a disabled entry does not run on Codex, the full suite is green, checked on WSL and Windows. One independent review of the final candidate; push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+    "sourceRequest": "Owner 2026-10-23: session 6 of the approved ITD change plan - one dispatcher per hook event for Claude Code by the pattern of codex-dispatch.py (one Python process runs the selected checks in memory instead of one process per hook); the heavy modules (the egress classifier, predeploy) imported, their bytecode prepared at install into the installed runtime and listed in its inventory (the 1.109.1 rule 'no .pyc written at run time' kept); a failing dispatcher denies for a hard gate and stays silent for an advisory hook. Inputs: BACKLOG P2 'check-dod-before-commit on Windows: slow hook start' and P2 'false denies of the pre-deploy gate on $(...) next to cd'. Acceptance: the session 2 measurement repeated on WSL and Windows (median hook latency per call -50% or more, at most 4 hook processes per Bash), every behavioural hard-gate test green in both directions, the full suite green, Windows acceptance on a fresh copy of the tree in C:\\itd-src (native Python and Git Bash through ITD_BASH and WSLENV). The same PR carries the ITD-PLAN-S5 verified record and the a4 adjudication of session 5 in DECISIONS. One independent review of the final candidate (convergence rule: a4 is the last round; findings about the benchmark sample are out of scope); push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
-      "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+      "requiredImpactClasses": ["correctness", "security", "host-parity", "performance", "repository-hygiene", "compatibility"],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
@@ -6390,6 +6474,23 @@
         "adjudicator": "sealed-host-union"
       },
       "closureEvidence": "PR #372 squash-merged to main a32a12e on 2026-10-23; tree 23f94d40 equals the reviewed tree: committed-head machine receipt ITD-PLAN-S4-machine-a5 PASSED 8/8 legs (full fails:none), review gpt-5.6-sol a1-a3 BLOCKED with every finding fixed with tests and mutants, a4 (the last round by the owner's convergence rule of 2026-10-23) BLOCKED with two medium and one low findings and ADJUDICATED by the owner under ADR-007 (accepted-trade-off, binding f2d5f75d, receipt 42b34c21); PR and main CI success; tests/verify_global_routers.py PASSED from main on WSL and Windows. The three a4 findings are fixed with tests in the ITD-PLAN-S5 PR. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S5 PR (plan rule 5), no separate ledger-close PR."
+    },
+    {
+      "unitId": "ITD-PLAN-S5",
+      "status": "closed",
+      "closedAt": "2026-10-23T14:18:37Z",
+      "openedAt": "2026-10-23",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-23: session 5 of the approved ITD change plan - one default hook registration for a new user and for the owner (the core hooks plus the state hooks that stay silent without .itd-memory), the diagnostics off by default and enabled through itd-enabled-hooks.txt, check-skills, check-tool-skill and check-review-before-commit unregistered (record-agent-skill and check-dod-before-commit stay by the session 3 decision), codex-dispatch.py reading the same disabled and enabled lists as sync-to-active.sh, the /adopt project template not registering hooks already registered globally, one live benchmark run (the pin changes); inputs BACKLOG P2 'Codex on WSL skips the pre_tool_use:4:* group as untrusted' and P2 'check-dod-before-commit on Windows is cut by the 5 s host timeout'. The same PR carries the ITD-PLAN-S4 verified record, the owner's convergence rule and the a4 adjudication in DECISIONS and the three a4 findings with tests. Acceptance: a fresh install into an empty HOME gives the core and no diagnostics, a repeated sync is idempotent, a user's hook in the same event group is kept, a disabled entry does not run on Codex, the full suite is green, checked on WSL and Windows. One independent review of the final candidate; push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "PR #373 squash-merged to main c94c50a on 2026-10-23; tree 811df8b8 equals the reviewed tree of a919aea: committed-head machine receipt ITD-PLAN-S5-machine-a7 PASSED 10/10 legs (full fails:none), review gpt-5.6-sol a1-a3 BLOCKED with every finding fixed with tests, a4 (the last round by the owner's convergence rule) BLOCKED with two medium findings about the generated benchmark sample and ADJUDICATED by the owner under ADR-007 (4 accepted-trade-off records, binding ba543183, receipt 423cb6bf); PR CI meta-review and windows-verify pass (the first windows-verify run was cancelled by its 10-minute limit, the rerun took 5 min 37 s); sync with backups on WSL and Windows (the only settings.json change: the check-dod timeout 5 -> 150 s), a repeated --check up to date, tests/verify_global_routers.py PASSED on both hosts. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S6 PR (plan rule 5), no separate ledger-close PR."
     }
   ]
 }

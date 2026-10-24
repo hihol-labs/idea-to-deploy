@@ -116,9 +116,14 @@ def main() -> int:
         optout_install.mkdir()
 
         def registered(install: Path) -> list[str]:
+            """settings.json commands; the dispatcher (plan session 6) stands for the hooks of its routing table."""
             data = json.loads((install / "settings.json").read_text(encoding="utf-8"))
-            return [h.get("command", "") for groups in data.get("hooks", {}).values()
-                    for g in groups for h in g.get("hooks", [])]
+            commands = [h.get("command", "") for groups in data.get("hooks", {}).values()
+                        for g in groups for h in g.get("hooks", [])]
+            if any(c.endswith("/claude-dispatch.py") for c in commands):
+                table = json.loads((install / "hooks" / "claude-dispatch.json").read_text(encoding="utf-8"))
+                commands += ["~/.claude/hooks/" + row["script"] for rows in table["hooks"].values() for row in rows]
+            return commands
 
         # an install synced BEFORE the opt-out file existed has the hooks registered...
         run_sync(optout_install, apply=True)

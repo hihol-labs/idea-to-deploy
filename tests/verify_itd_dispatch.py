@@ -1,0 +1,413 @@
+#!/usr/bin/env python3
+"""Behaviour of the Claude Code hook dispatcher (plan session 6, ADR-016): hooks/claude-dispatch.py + itd_dispatch.py.
+
+The dispatcher runs in a temporary hooks directory next to fake hook scripts and a routing table, as a real
+subprocess with the payload on stdin, the way the host runs it:
+- routing: only the hooks of the payload's event whose matcher matches the tool run (matchers match the whole tool
+  name; a script registered under two matching groups runs once); the event comes from hook_event_name;
+- merging: the first blocking answer (exit 2, a deny or a block) passes through byte for byte; asks are joined with
+  their reasons, context is concatenated, plain text is context on a prompt event and transcript-only elsewhere;
+- failure: a hard gate that crashes, exits 1, raises SystemExit with a message, is missing or overruns its budget
+  denies a tool call and blocks a SubagentStop; an advisory hook in the same states is silent; a missing or foreign
+  table, a broken payload and an unloadable itd_dispatch module fail closed on PreToolUse and SubagentStop (never
+  when the subagent already continues because of a stop hook) and stay silent elsewhere;
+- isolation: every hook reads the whole payload on its own stdin, runs as __main__ with its own __file__, and its
+  output is not mixed with another's, even when a slow hook writes while the next one runs;
+- bytecode: checked-hash bytecode of exactly the source on disk is used, stale bytecode is ignored, and a run
+  writes no .pyc (1.109.1); scripts/itd_hook_bytecode.py compiles, prunes, inventories and is idempotent;
+- routing(): the sync registration is one dispatcher command per event under the union of the matchers with a
+  timeout above the longest budget, and every hook of the canonical registration lands in the table.
+
+Usage: python3 tests/verify_itd_dispatch.py
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+from pathlib import Path
+import py_compile
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.dont_write_bytecode = True
+ROOT = Path(__file__).resolve().parents[1]
+ENTRY = ROOT / "hooks" / "claude-dispatch.py"
+MODULE = ROOT / "hooks" / "itd_dispatch.py"
+BYTECODE = ROOT / "scripts" / "itd_hook_bytecode.py"
+
+spec = importlib.util.spec_from_file_location("itd_dispatch_under_test", MODULE)
+dispatch = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dispatch)
+
+passed = failed = 0
+
+
+def check(label: str, ok: bool, detail: str = "") -> None:
+    global passed, failed
+    if ok:
+        passed += 1
+        print(f"PASS {label}")
+    else:
+        failed += 1
+        print(f"FAIL {label}: {detail}")
+
+
+HOOK = '''#!/usr/bin/env python3
+import json, os, sys, time
+payload = json.load(sys.stdin)
+with open(os.path.join(os.environ["ITD_TEST_LOG"], "{name}"), "w", encoding="utf-8") as log:
+    json.dump({{"main": __name__ == "__main__", "file": __file__, "tool": payload.get("tool_name"),
+               "bytes": len(json.dumps(payload))}}, log)
+{body}
+'''
+
+
+def make_hooks(base: Path, hooks: dict[str, str]) -> Path:
+    directory = base / "hooks"
+    directory.mkdir(parents=True)
+    shutil.copy2(ENTRY, directory / ENTRY.name)
+    shutil.copy2(MODULE, directory / MODULE.name)
+    for name, body in hooks.items():
+        (directory / name).write_text(HOOK.format(name=name, body=body), encoding="utf-8")
+    return directory
+
+
+def write_table(directory: Path, entries: dict[str, list[dict]], kind: str = dispatch.TABLE_KIND) -> None:
+    (directory / dispatch.TABLE_FILE).write_text(
+        json.dumps({"version": 1, "kind": kind, "hooks": entries}), encoding="utf-8")
+
+
+def run(directory: Path, payload: object, log: Path, timeout: float = 60) -> subprocess.CompletedProcess:
+    raw = payload if isinstance(payload, str) else json.dumps(payload)
+    env = dict(os.environ, ITD_TEST_LOG=str(log))
+    env.pop("PYTHONDONTWRITEBYTECODE", None)  # the dispatcher itself must not write bytecode
+    return subprocess.run([sys.executable, str(directory / ENTRY.name)], input=raw.encode("utf-8"),
+                          capture_output=True, env=env, timeout=timeout, cwd=str(directory.parent))
+
+
+def entry(script: str, matcher: str = "*", hard: bool = False, timeout: float = 5) -> dict:
+    return {"matcher": matcher, "script": script, "timeout": timeout, "hardGate": hard}
+
+
+def decision(stdout: bytes) -> str:
+    try:
+        data = json.loads(stdout or b"{}")
+    except ValueError:
+        return "not-json"
+    specific = data.get("hookSpecificOutput") or {}
+    return str(specific.get("permissionDecision") or data.get("decision") or "")
+
+
+def ran(log: Path) -> set[str]:
+    return {path.name for path in log.iterdir()}
+
+
+def pre(tool: str = "Bash", **extra) -> dict:
+    return {"hook_event_name": "PreToolUse", "session_id": "t", "tool_name": tool,
+            "tool_input": {"command": "git status"}, **extra}
+
+
+CONTEXT = 'print(json.dumps({{"hookSpecificOutput": {{"hookEventName": "PreToolUse", "additionalContext": "{0}"}}}}))'
+ASK = ('print(json.dumps({{"hookSpecificOutput": {{"hookEventName": "PreToolUse", "permissionDecision": "ask", '
+       '"permissionDecisionReason": "{0}"}}}}))')
+DENY = ('print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
+        '"permissionDecisionReason": "real deny"}})); print("deny detail", file=sys.stderr); sys.exit(2)')
+FAILURES = {
+    "crash": 'raise RuntimeError("boom")',
+    "exit 1": "sys.exit(1)",
+    "message exit": 'sys.exit("fatal message")',
+    "overrun": "time.sleep(30)",  # far beyond its 1 s budget: the dispatcher must not wait for it
+}
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory(prefix="itd-dispatch-") as tmp:
+        base = Path(tmp)
+        counter = iter(range(1000))
+
+        def case(hooks: dict[str, str], entries: dict[str, list[dict]], payload: object,
+                 kind: str = dispatch.TABLE_KIND, table: bool = True) -> tuple[subprocess.CompletedProcess, Path]:
+            root = base / f"c{next(counter)}"
+            directory = make_hooks(root, hooks)
+            if table:
+                write_table(directory, entries, kind)
+            log = root / "log"
+            log.mkdir()
+            return run(directory, payload, log), log
+
+        # --- routing -------------------------------------------------------------------------------------------
+        hooks = {"a.sh": "", "b.sh": "", "c.sh": "", "d.sh": ""}
+        table = {"PreToolUse": [entry("a.sh", "Bash"), entry("b.sh", "Write|Edit"), entry("c.sh", "*"),
+                                entry("a.sh", "Bash|PowerShell")],
+                 "PostToolUse": [entry("d.sh", "Bash")]}
+        proc, log = case(hooks, table, pre("Bash"))
+        check("routing: the matching hooks of the event run, a script under two groups once",
+              proc.returncode == 0 and ran(log) == {"a.sh", "c.sh"}, f"{ran(log)} {proc.stderr[-200:]!r}")
+        proc, log = case(hooks, table, pre("BashOutput"))
+        check("routing: a matcher matches the whole tool name (Bash is not BashOutput)", ran(log) == {"c.sh"},
+              str(ran(log)))
+        proc, log = case(hooks, table, {"tool_name": "Bash", "tool_response": {}, "session_id": "t"})
+        check("routing: without hook_event_name a tool_response means PostToolUse", ran(log) == {"d.sh"},
+              str(ran(log)))
+        proc, log = case(hooks, table, {"hook_event_name": "Stop"})
+        check("routing: an event without entries runs nothing and answers nothing",
+              proc.returncode == 0 and not proc.stdout and not ran(log), str(ran(log)))
+        proc, log = case({"a.sh": ""}, {"PreToolUse": [entry("a.sh")]}, pre())
+        record = json.loads((log / "a.sh").read_text(encoding="utf-8"))
+        check("isolation: a hook runs as __main__ with its own __file__ and the whole payload on stdin",
+              record["main"] and record["file"].endswith("a.sh") and record["bytes"] == len(json.dumps(pre())),
+              str(record))
+
+        # --- merging -------------------------------------------------------------------------------------------
+        proc, log = case({"a.sh": CONTEXT.format("first"), "b.sh": ASK.format("why b"), "c.sh": CONTEXT.format("third"),
+                          "d.sh": ASK.format("why d")},
+                         {"PreToolUse": [entry(name) for name in ("a.sh", "b.sh", "c.sh", "d.sh")]}, pre())
+        data = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {})
+        check("merge: asks are joined with every reason and the context is concatenated",
+              proc.returncode == 0 and data.get("permissionDecision") == "ask"
+              and data.get("permissionDecisionReason") == "why b\nwhy d"
+              and data.get("additionalContext") == "first\nthird" and data.get("hookEventName") == "PreToolUse",
+              proc.stdout[-300:].decode())
+        proc, log = case({"a.sh": CONTEXT.format("ctx"), "b.sh": DENY, "c.sh": ASK.format("later")},
+                         {"PreToolUse": [entry("a.sh"), entry("b.sh", hard=True), entry("c.sh")]}, pre())
+        hook_out = (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
+                    b'"permissionDecisionReason": "real deny"}}' + os.linesep.encode())  # print() as a process writes it
+        check("merge: a blocking answer passes through byte for byte with its exit code",
+              proc.returncode == 2 and proc.stdout == hook_out and proc.stderr == b"deny detail" + os.linesep.encode(),
+              f"{proc.returncode} {proc.stdout!r} {proc.stderr!r}")
+        proc, log = case({"a.sh": 'print("plain words")'},
+                         {"UserPromptSubmit": [entry("a.sh")], "PreToolUse": [entry("a.sh")]},
+                         {"hook_event_name": "UserPromptSubmit", "prompt": "x"})
+        data = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {})
+        check("merge: plain text of a prompt hook becomes context", data.get("additionalContext") == "plain words",
+              proc.stdout.decode())
+        proc, log = case({"a.sh": 'print("plain words")'}, {"PreToolUse": [entry("a.sh")]}, pre())
+        check("merge: plain text of a tool hook stays out of the answer (transcript only)",
+              proc.returncode == 0 and not proc.stdout and b"plain words" in proc.stderr, repr(proc.stdout))
+        proc, log = case({"a.sh": 'print("why", file=sys.stderr); sys.exit(2)'},
+                         {"PostToolUse": [entry("a.sh")]}, {"hook_event_name": "PostToolUse", "tool_name": "Bash"})
+        check("merge: exit 2 with stderr only passes through (PostToolUse feedback)",
+              proc.returncode == 2 and proc.stderr.strip() == b"why", repr(proc.stderr))
+
+        # --- failure: hard gates fail closed, advisory hooks stay silent ---------------------------------------
+        for label, body in FAILURES.items():
+            timeout = 1 if label == "overrun" else 5
+            for hard in (True, False):
+                hooks = {"bad.sh": body, "ok.sh": CONTEXT.format("kept")}
+                table = {"PreToolUse": [entry("bad.sh", hard=hard, timeout=timeout), entry("ok.sh")]}
+                if label == "overrun" and hard:
+                    continue  # a hard gate gets at least 30 s; its overrun is checked in process below
+                started = time.monotonic()
+                proc, log = case(hooks, table, pre())
+                elapsed = time.monotonic() - started
+                if hard:
+                    check(f"failure ({label}) of a hard gate denies the tool call",
+                          proc.returncode == 2 and decision(proc.stdout) == "deny"
+                          and b"bad.sh" in proc.stdout and b"failed closed" in proc.stdout,
+                          f"{proc.returncode} {proc.stdout[-300:]!r}")
+                else:
+                    context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext")
+                    check(f"failure ({label}) of an advisory hook is silent, the others still answer",
+                          proc.returncode == 0 and context == "kept" and (label != "overrun" or elapsed < 20),
+                          f"{proc.returncode} {proc.stdout[-200:]!r} {elapsed:.1f}s")
+        proc, log = case({"ok.sh": ""}, {"PreToolUse": [entry("gone.sh", hard=True), entry("ok.sh")]}, pre())
+        check("failure: a missing hard-gate file denies", proc.returncode == 2 and decision(proc.stdout) == "deny",
+              repr(proc.stdout))
+        proc, log = case({"ok.sh": ""}, {"PreToolUse": [entry("gone.sh"), entry("ok.sh")]}, pre())
+        check("failure: a missing advisory file is silent", proc.returncode == 0 and not proc.stdout, repr(proc.stdout))
+        proc, log = case({"ok.sh": ""}, {"PreToolUse": [entry("../ok.sh", hard=True)]}, pre())
+        check("failure: a table entry outside the hooks directory is not run and denies as a hard gate",
+              proc.returncode == 2 and not ran(log), repr(proc.stdout))
+        stop = {"hook_event_name": "SubagentStop", "session_id": "t"}
+        proc, log = case({"bad.sh": FAILURES["crash"]}, {"SubagentStop": [entry("bad.sh", hard=True)]}, stop)
+        check("failure: a hard SubagentStop gate that crashes blocks",
+              proc.returncode == 2 and decision(proc.stdout) == "block", repr(proc.stdout))
+
+        # in process: a hard gate that overruns its budget denies, and the dispatcher leaves at the budget
+        root = base / "overrun"
+        directory = make_hooks(root, {"slow.sh": "time.sleep(30)"})
+        write_table(directory, {"PreToolUse": [entry("slow.sh", hard=True, timeout=1)]})
+        (root / "log").mkdir()
+        saved, dispatch.HARD_GATE_MIN_BUDGET_SECONDS = dispatch.HARD_GATE_MIN_BUDGET_SECONDS, 0.5
+        os.environ["ITD_TEST_LOG"] = str(root / "log")
+        real_streams = sys.stdin, sys.stdout, sys.stderr
+        try:
+            for name in ("stdin", "stdout", "stderr"):
+                setattr(sys, name, dispatch._ThreadStream(name, getattr(sys, name)))
+            started = time.monotonic()
+            (out, err, code), abandoned = dispatch.dispatch(json.dumps(pre()).encode(), directory.resolve())
+            elapsed = time.monotonic() - started
+        finally:
+            sys.stdin, sys.stdout, sys.stderr = real_streams
+            dispatch.HARD_GATE_MIN_BUDGET_SECONDS = saved
+        check("failure: a hard gate that overruns its budget denies when the budget ends",
+              code == 2 and decision(out) == "deny" and b"overran" in out and abandoned and elapsed < 15,
+              f"{code} {out[-200:]!r} {abandoned} {elapsed:.1f}s")
+
+        # --- the table, the payload and the module itself ------------------------------------------------------
+        for label, kwargs in (("missing", {"table": False}), ("foreign kind", {"kind": "other"})):
+            proc, log = case({"a.sh": ""}, {"PreToolUse": [entry("a.sh")]}, pre(), **kwargs)
+            check(f"table {label}: a tool call is denied with the fix", proc.returncode == 2
+                  and decision(proc.stdout) == "deny" and b"sync-to-active" in proc.stdout and not ran(log),
+                  repr(proc.stdout))
+            proc, log = case({"a.sh": ""}, {}, stop, **kwargs)
+            check(f"table {label}: a SubagentStop is blocked", decision(proc.stdout) == "block", repr(proc.stdout))
+            proc, log = case({"a.sh": ""}, {}, dict(stop, stop_hook_active=True), **kwargs)
+            check(f"table {label}: a SubagentStop that already continues is never blocked again",
+                  proc.returncode == 0 and not proc.stdout, repr(proc.stdout))
+            proc, log = case({"a.sh": ""}, {}, {"hook_event_name": "UserPromptSubmit", "prompt": "x"}, **kwargs)
+            check(f"table {label}: a prompt event stays silent", proc.returncode == 0 and not proc.stdout,
+                  repr(proc.stdout))
+        proc, log = case({"a.sh": ""}, {"PreToolUse": [entry("a.sh")]}, "{not json")
+        check("payload that is not JSON: denied", proc.returncode == 2 and decision(proc.stdout) == "deny",
+              repr(proc.stdout))
+        root = base / "no-module"
+        directory = make_hooks(root, {})
+        (directory / MODULE.name).unlink()
+        write_table(directory, {})
+        (root / "log").mkdir()
+        proc = run(directory, pre(), root / "log")
+        check("an unloadable itd_dispatch module: the entry point denies a tool call",
+              proc.returncode == 2 and decision(proc.stdout) == "deny" and b"not loadable" in proc.stdout,
+              repr(proc.stdout))
+        proc = run(directory, {"hook_event_name": "Stop"}, root / "log")
+        check("an unloadable itd_dispatch module: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
+              repr(proc.stdout))
+
+        # --- a child process of a hook that does not capture its output -------------------------------------
+        noisy = ('import subprocess\n'
+                 'subprocess.run([sys.executable, "-c", "import sys; print(\'child noise\'); '
+                 'print(\'child err\', file=sys.stderr)"])\n' + CONTEXT.format("after child"))
+        proc, log = case({"noisy.sh": noisy, "deny.sh": DENY},
+                         {"PreToolUse": [entry("noisy.sh")], "PostToolUse": [entry("noisy.sh"), entry("deny.sh")]},
+                         pre())
+        check("isolation: a child's inherited stdout and stderr stay out of the merged answer",
+              proc.returncode == 0 and b"child noise" not in proc.stdout + proc.stderr
+              and b"child err" not in proc.stdout + proc.stderr
+              and json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"] == "after child",
+              f"{proc.stdout!r} {proc.stderr!r}")
+        proc, log = case({"noisy.sh": noisy, "deny.sh": DENY},
+                         {"PreToolUse": [entry("noisy.sh"), entry("deny.sh")]}, pre())
+        check("isolation: a deny after a noisy child is still passed through exactly",
+              proc.returncode == 2 and proc.stdout == hook_out and proc.stderr.strip() == b"deny detail",
+              f"{proc.stdout!r} {proc.stderr!r}")
+
+        # --- isolation of concurrent output -------------------------------------------------------------------
+        slow = ('time.sleep(0.6)\n'
+                'print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", '
+                '"additionalContext": "slow-" + "s" * 5000}}))')
+        fast = ('for i in range(50): time.sleep(0.01)\n'
+                'print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", '
+                '"additionalContext": "fast-" + "f" * 5000}}))')
+        proc, log = case({"slow.sh": slow, "fast.sh": fast},
+                         {"PreToolUse": [entry("slow.sh"), entry("fast.sh")]}, pre())
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        check("isolation: a slow hook still writing while the next one runs keeps its output apart",
+              context == "slow-" + "s" * 5000 + "\nfast-" + "f" * 5000, context[:60])
+
+        # --- bytecode ------------------------------------------------------------------------------------------
+        install = base / "install"
+        directory = make_hooks(install, {"a.sh": CONTEXT.format("from source v1")})
+        (directory / "helper.py").write_text("VALUE = 'helper'\n", encoding="utf-8")
+        (directory / "b.sh").write_text(HOOK.format(name="b.sh", body=(
+            'import helper\nprint(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", '
+            '"additionalContext": helper.VALUE}}))')), encoding="utf-8")
+        write_table(directory, {"PreToolUse": [entry("a.sh"), entry("b.sh")]})
+        (install / "log").mkdir()
+        proc = run(directory, pre(), install / "log")
+        check("bytecode: a run without install bytecode writes no .pyc anywhere",
+              proc.returncode == 0 and not list(install.rglob("*.pyc")) and not list(install.rglob("__pycache__")),
+              str(list(install.rglob("*.pyc"))))
+        out = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        inventory = json.loads((install / "itd-bytecode.json").read_text(encoding="utf-8"))
+        sources = {row["source"] for row in inventory["files"]}
+        check("bytecode: the installer compiles the python hooks and modules and lists them in the inventory",
+              out.returncode == 0 and {"hooks/a.sh", "hooks/b.sh", "hooks/helper.py", "hooks/itd_dispatch.py",
+                                       "hooks/claude-dispatch.py"} <= sources
+              and inventory["cacheTag"] == sys.implementation.cache_tag, out.stdout + out.stderr)
+        pyc = Path(importlib.util.cache_from_source(str(directory / "a.sh")))
+        code = dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes())
+        check("bytecode: checked-hash bytecode of exactly the source is loaded", code is not None and pyc.is_file())
+        before = {path: path.stat().st_mtime_ns for path in install.rglob("*.pyc")}
+        (directory / "a.sh").write_text(HOOK.format(name="a.sh", body=CONTEXT.format("from source v2")),
+                                        encoding="utf-8")
+        check("bytecode: bytecode of another source is ignored",
+              dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes()) is None)
+        proc = run(directory, pre(), install / "log")
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        after = {path: path.stat().st_mtime_ns for path in install.rglob("*.pyc")}
+        check("bytecode: a changed source runs as changed and nothing rewrites the bytecode at run time",
+              context == "from source v2\nhelper" and before == after, f"{context!r} {set(after) ^ set(before)}")
+        check_out = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install), "--check"],
+                                   capture_output=True, text=True)
+        check("bytecode: --check reports the stale bytecode and writes nothing",
+              check_out.returncode == 1 and "hooks/a.sh" in check_out.stdout
+              and {path: path.stat().st_mtime_ns for path in install.rglob("*.pyc")} == after, check_out.stdout)
+        stray = pyc.parent / "stray.cpython-312.pyc"
+        stray.write_bytes(b"x")
+        first = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        snapshot = {path: path.read_bytes() for path in install.rglob("*") if path.is_file()}
+        second = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        check("bytecode: the installer recompiles stale bytecode and removes a .pyc without a source",
+              first.returncode == 0 and "1 compiled, 1 removed" in first.stdout and not stray.exists()
+              and dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes()) is not None,
+              first.stdout + first.stderr)
+        check("bytecode: a repeated install changes no byte",
+              second.returncode == 0 and "0 compiled, 0 removed" in second.stdout
+              and snapshot == {path: path.read_bytes() for path in install.rglob("*") if path.is_file()},
+              second.stdout)
+        check("bytecode: --check after an install is clean",
+              subprocess.run([sys.executable, "-B", str(BYTECODE), str(install), "--check"],
+                             capture_output=True).returncode == 0)
+        timestamp_pyc = base / "ts" / "hooks"
+        timestamp_pyc.mkdir(parents=True)
+        (timestamp_pyc / "x.py").write_text("X = 1\n", encoding="utf-8")
+        source = str(timestamp_pyc / "x.py")
+        py_compile.compile(source, cfile=importlib.util.cache_from_source(source))
+        check("bytecode: timestamp bytecode (no source hash) is never loaded by the dispatcher",
+              dispatch.cached_code(timestamp_pyc / "x.py", (timestamp_pyc / "x.py").read_bytes()) is None)
+
+    # --- routing(): the registration sync writes ----------------------------------------------------------------
+    sync_text = (ROOT / "scripts" / "sync-to-active.sh").read_text(encoding="utf-8")
+    desired = json.loads(re.search(r"DESIRED_HOOKS=\$\(cat <<'JSON'\n(.+?)\nJSON\n\)", sync_text, re.DOTALL).group(1))
+    policy = json.loads((ROOT / "docs" / "HARNESS_TRUST_POLICY.json").read_text(encoding="utf-8"))
+    hard = {(gate["script"], gate["event"]) for gate in policy["hardGates"]}
+    table, registration = dispatch.routing(desired, hard)
+    canonical = {(event, hook["command"].rsplit("/", 1)[-1]) for event, groups in desired.items()
+                 for group in groups for hook in group["hooks"]}
+    routed = {(event, row["script"]) for event, rows in table["hooks"].items() for row in rows}
+    check("routing(): every hook of the canonical registration is in the table", routed == canonical,
+          str(canonical ^ routed))
+    commands = [hook["command"] for groups in registration.values() for group in groups for hook in group["hooks"]]
+    check("routing(): one dispatcher command per event", set(registration) == set(desired)
+          and commands == [dispatch.DISPATCHER_COMMAND] * len(desired), str(commands))
+    pre_group = registration["PreToolUse"][0]
+    narrow = {"PostToolUse": [group for group in desired["PostToolUse"] if group.get("matcher") != "*"]}
+    _, narrow_registration = dispatch.routing(narrow, hard)
+    check("routing(): the matcher is the union of the event's matchers ('*' when one group matches all)",
+          pre_group["matcher"] == "*" and registration["PostToolUse"][0]["matcher"] == "*"
+          and set(narrow_registration["PostToolUse"][0]["matcher"].split("|"))
+          == {alt for group in narrow["PostToolUse"] for alt in group["matcher"].split("|")}
+          and "matcher" not in registration["UserPromptSubmit"][0], json.dumps(narrow_registration)[:300])
+    check("routing(): the timeout covers the longest budget of the event",
+          pre_group["hooks"][0]["timeout"] >= 900 + dispatch.REGISTRATION_MARGIN_SECONDS
+          and registration["SubagentStop"][0]["hooks"][0]["timeout"]
+          >= dispatch.HARD_GATE_MIN_BUDGET_SECONDS + dispatch.REGISTRATION_MARGIN_SECONDS,
+          json.dumps(registration)[:300])
+    flagged = {(event, row["script"]) for event, rows in table["hooks"].items() for row in rows if row["hardGate"]}
+    check("routing(): the hard-gate flags are exactly the policy pairs that are registered",
+          flagged == {(event, script) for script, event in hard} & canonical
+          and ("PostToolUse", "state-guard.sh") not in flagged and ("PreToolUse", "state-guard.sh") in flagged,
+          str(flagged))
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

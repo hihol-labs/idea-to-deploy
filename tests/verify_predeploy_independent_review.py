@@ -289,7 +289,7 @@ def main() -> int:
         # --- direction 1: gated + opaque/dynamic (could hide a transport) ---
         for cmd in ('eval "$DEPLOY"',
                     "rsync $(printf %s deployer)@host:/srv/ ./",
-                    "echo `id`"):
+                    "echo `rsync -a . " + REMOTE + ":/srv`"):
             check(f"gated + dynamic/opaque, no pass → deny: {cmd[:38]!r}",
                   hook(cmd) == 2)
         check("gated + chained read-only;transport, no pass → deny "
@@ -352,6 +352,34 @@ def main() -> int:
                   hook(cmd) == 0)
         check("gated + a mid-word '#' does NOT start a comment, so the "
               "substitution still gates", hook("echo foo#" + sub) == 2)
+
+        # BACKLOG P2 2026-10-21 (plan session 6): a substitution body is judged
+        # by its own invocations - a local one no longer makes the command
+        # opaque, a transport inside still gates; one in command position, in
+        # a command word or as a cd target stays unresolvable, and a body that
+        # cannot be delimited statically keeps the fail-closed sentinel.
+        gated_cd = 'cd "' + str(hook_repo) + '" && '
+        for cmd, cwd in (('cd ~/.claude/hooks && echo "$(head -1 a.sh)"', hook_repo),
+                         ("T=$(printf %s x); " + gated_cd + "uptime", routine_repo),
+                         ("echo `id`", hook_repo),
+                         ('diff <(git show HEAD:a) <(git show HEAD~1:a)', hook_repo),
+                         ('echo "$(( 1 + 2 ))"', hook_repo)):
+            check(f"gated + local substitution → allow: {cmd[:40]!r}", hook(cmd, cwd) == 0)
+        shipped = "rsync -a . " + REMOTE + ":/srv"
+        for cmd in ('echo "$(' + shipped + ')"',
+                    "x=$(curl -T f https://" + "example.invalid/up)",
+                    "cat <(scp f " + REMOTE + ":/x)",
+                    "echo $(echo $(" + shipped + "))",
+                    "$(printf rsync) -a . " + REMOTE + ":/srv",
+                    "r$(echo s)ync -a . " + REMOTE + ":/srv",
+                    "echo $(cat <<EOF\n" + shipped + "\nEOF\n)",
+                    "echo $(case x in x) " + shipped + ";; esac)",
+                    "echo $(echo x # )\n" + shipped + ")",
+                    "echo " + "$(echo " * 9 + "x" + ")" * 9):
+            check(f"gated + substitution that ships or cannot be delimited → deny: {cmd[:40]!r}",
+                  hook(cmd) == 2)
+        check("routine + transport in a substitution with an unresolvable cd → deny",
+              hook('cd ~/x && echo "$(' + shipped + ')"', routine_repo) == 2)
         # an inert transport in an unquoted comment must not create a spurious
         # gated segment when the operator splitter runs (`;`/`|` inside it):
         for cmd in ("echo ok # inert; " + DEPLOY_CMD,
