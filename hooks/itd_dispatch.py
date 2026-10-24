@@ -42,6 +42,16 @@ SEQUENTIAL_WAIT_SECONDS = 0.25
 REGISTRATION_MARGIN_SECONDS = 10
 DISPATCHER_COMMAND = "~/.claude/hooks/claude-dispatch.py"
 CONTEXT_EVENTS = frozenset({"UserPromptSubmit", "SessionStart"})
+# The (script, event) pairs of the hard gates of docs/HARNESS_TRUST_POLICY.json (tests/verify_itd_dispatch.py keeps
+# them equal): a table row of one of them is a hard gate whatever its hardGate flag says, so a damaged or edited
+# table cannot turn a hard gate into a silent advisory hook.
+HARD_GATES = frozenset({
+    ("check-commit-completeness.sh", "PreToolUse"), ("check-dod-before-commit.sh", "PreToolUse"),
+    ("check-predeploy-gate.sh", "PreToolUse"), ("check-review-before-commit.sh", "PreToolUse"),
+    ("check-skill-completeness.sh", "PreToolUse"), ("check-tool-skill.sh", "PreToolUse"),
+    ("completion-gate.sh", "PreToolUse"), ("cost-tracker.sh", "PreToolUse"), ("pii-egress-guard.sh", "PreToolUse"),
+    ("state-guard.sh", "PreToolUse"), ("narration-final.sh", "SubagentStop"), ("verdict-contract.sh", "SubagentStop"),
+})
 CHECKED_HASH_PYC = 0b11
 
 _LOCAL = threading.local()
@@ -152,16 +162,30 @@ def matches(matcher: str, tool: str) -> bool:
         return matcher == tool
 
 
+def valid_entry(entry: object) -> bool:
+    """A table row exactly as routing() writes it: string matcher and script, a positive timeout, a boolean flag."""
+    if not isinstance(entry, dict) or set(entry) != {"matcher", "script", "timeout", "hardGate"}:
+        return False
+    timeout = entry["timeout"]
+    return (isinstance(entry["matcher"], str) and isinstance(entry["script"], str) and bool(entry["script"])
+            and isinstance(timeout, (int, float)) and not isinstance(timeout, bool) and timeout > 0
+            and isinstance(entry["hardGate"], bool))
+
+
 def selected(table: dict, event: str, tool: str) -> list[dict]:
-    entries = table.get("hooks", {}).get(event, [])
+    hooks = table.get("hooks")
+    if not isinstance(hooks, dict):
+        raise ValueError("table hooks are not an object")
+    entries = hooks.get(event, [])
     if not isinstance(entries, list):
         raise ValueError(f"table entries of {event} are not a list")
     chosen: dict[str, dict] = {}
     for entry in entries:
-        if not isinstance(entry, dict) or not isinstance(entry.get("script"), str):
-            raise ValueError(f"table entry of {event} is malformed")
-        if matches(str(entry.get("matcher") or ""), tool):
-            chosen.setdefault(entry["script"], entry)  # the host runs an identical command once
+        if not valid_entry(entry):
+            raise ValueError(f"table entry of {event} is malformed: {entry!r:.200}")
+        if matches(entry["matcher"], tool):
+            hard = entry["hardGate"] or (entry["script"], event) in HARD_GATES
+            chosen.setdefault(entry["script"], dict(entry, hardGate=hard))  # the host runs an identical command once
     return list(chosen.values())
 
 
@@ -371,22 +395,28 @@ def restore_descriptors(saved: list[tuple[int, int]]) -> None:
             pass
 
 
+def answer(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
+    """The dispatcher's answer to one payload; a crash of the dispatcher itself fails closed like a hard gate."""
+    event, stop_hook_active = "PreToolUse", False
+    try:
+        payload = json.loads(raw.decode("utf-8", "surrogateescape")) or {}
+        event, stop_hook_active = payload_event(payload), payload.get("stop_hook_active") is True
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return dispatch(raw, hooks_dir)[0]
+    except Exception as exc:  # noqa: BLE001 - the dispatcher itself failed: fail closed
+        return failure_answer(event, f"dispatcher crashed: {type(exc).__name__}: {exc}", stop_hook_active)
+
+
 def main() -> int:
     real = {name: getattr(sys, name) for name in ("stdin", "stdout", "stderr")}
     raw = real["stdin"].buffer.read()
     for name, stream in real.items():
         setattr(sys, name, _ThreadStream(name, stream))
-    event = "PreToolUse"
-    try:
-        event = payload_event(json.loads(raw.decode("utf-8", "surrogateescape")) or {})
-    except (ValueError, AttributeError):
-        pass
     saved = silence_descriptors()
     try:
-        (stdout, stderr, code), _ = dispatch(raw, Path(__file__).resolve().parent)
-    except Exception as exc:  # noqa: BLE001 - the dispatcher itself failed: fail closed
-        reason = f"dispatcher crashed: {type(exc).__name__}: {exc}"
-        stdout, stderr, code = failure_answer(event, reason)
+        stdout, stderr, code = answer(raw, Path(__file__).resolve().parent)
     finally:
         restore_descriptors(saved)
     real["stdout"].buffer.write(stdout)

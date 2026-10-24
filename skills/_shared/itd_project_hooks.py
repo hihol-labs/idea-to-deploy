@@ -16,7 +16,8 @@ string. A template hook whose script is already registered in the user-level set
 (`~/.claude/settings.json`, read only) from an idea-to-deploy hooks directory (the `hooks` dir
 next to that settings file, or the resolved plugin hooks dir) is skipped, so it does not fire twice; the rest are still
 installed. A user-level `claude-dispatch.py` (plan session 6) registers every hook of its routing table
-`claude-dispatch.json` next to it, so those count as registered too (all of them when the table is unreadable).
+`claude-dispatch.json` next to it, so those count as registered too (all of them when the table is unreadable or
+of another kind).
 The user's two hook lists next to that settings file select the rest as on the whole machine (plan session
 5): an optional hook only when `itd-enabled-hooks.txt` names it, never one `itd-disabled-hooks.txt` names - the
 decision of `hooks/codex-dispatch.py` of this helper's own install (never of `--hooks-dir`, so a preview runs no code
@@ -43,6 +44,7 @@ PLACEHOLDER = "{{PLUGIN_HOOKS_DIR}}"
 TEMPLATE_REL = Path("adopt") / "references" / "project-settings-template.json"
 DISPATCHER = "claude-dispatch.py"
 DISPATCH_TABLE = "claude-dispatch.json"
+DISPATCH_TABLE_KIND = "claude-dispatch-table-v1"  # hooks/itd_dispatch.py TABLE_KIND
 WRITTEN: list[Path] = []  # set once the settings file is written, so a later failure says so
 
 
@@ -221,12 +223,18 @@ def itd_script_names(settings: dict, itd_dirs: set[str]) -> set[str]:
 
 def dispatched_names(hooks_dir: Path, template_names: set[str]) -> set[str]:
     """The hooks a user-level dispatcher runs: the scripts of its routing table, or every template hook when the
-    table is unreadable (the dispatcher then fails closed instead of running them, so none may be added twice)."""
+    table is unreadable or not a dispatcher table (the dispatcher then fails closed instead of running them, so
+    none may be added twice)."""
     try:
         table = strict_json((hooks_dir / DISPATCH_TABLE).read_text(encoding="utf-8"))
-        return {str(row["script"]) for rows in table["hooks"].values() for row in rows}
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except (OSError, ValueError, RecursionError):
         return set(template_names)
+    hooks = table.get("hooks") if isinstance(table, dict) and table.get("kind") == DISPATCH_TABLE_KIND else None
+    if not isinstance(hooks, dict) or not all(
+            isinstance(rows, list) and all(isinstance(row, dict) and isinstance(row.get("script"), str) for row in rows)
+            for rows in hooks.values()):
+        return set(template_names)  # not a table this dispatcher would run: it fails closed, so assume everything
+    return {row["script"] for rows in hooks.values() for row in rows}
 
 
 def merge(current: dict, template: dict, user_names: set[str]) -> tuple[dict, list[str]]:

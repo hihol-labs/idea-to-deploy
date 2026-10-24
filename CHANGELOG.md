@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Отказ: hard-гейт, который упал, вышел с кодом не 0 и не 2, отсутствует или превысил бюджет (не меньше 30 с), дает
   deny вызова инструмента или block SubagentStop; advisory-хук в том же состоянии молчит. Нечитаемая таблица,
   payload или незагружаемый диспетчер - deny и block (block SubagentStop - не при `stop_hook_active`), прочие события
-  молчат. Раньше крах или таймаут hard-гейта у Claude Code был non-blocking error, то есть проходом.
+  молчат. Строка таблицы не той формы, что пишет sync, делает таблицу непригодной (fail closed), а hard-гейт
+  политики остается hard при любом флаге своей строки. Раньше крах или таймаут hard-гейта у Claude Code был
+  non-blocking error, то есть проходом.
 - Байткод при установке: sync компилирует checked-hash `.pyc` хуков и модулей, которые они грузят (`hooks/`,
   `skills/_shared`, `skills/review/scripts`, `skills/deploy/scripts`), интерпретатором хуков (на Windows - python.exe
   регистрации), удаляет прочие `.pyc` в этих каталогах и пишет инвентарь `~/.claude/itd-bytecode.json`

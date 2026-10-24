@@ -263,6 +263,52 @@ def main() -> int:
             proc, log = case({"a.sh": ""}, {}, {"hook_event_name": "UserPromptSubmit", "prompt": "x"}, **kwargs)
             check(f"table {label}: a prompt event stays silent", proc.returncode == 0 and not proc.stdout,
                   repr(proc.stdout))
+        # review a1: a row that routing() would not write makes the table unusable (fail closed), and a policy hard
+        # gate stays hard whatever its row's flag says
+        malformed = {"no hardGate": {"matcher": "*", "script": "a.sh", "timeout": 5},
+                     "hardGate not a bool": dict(entry("a.sh"), hardGate="yes"),
+                     "timeout a string": dict(entry("a.sh"), timeout="5"),
+                     "timeout a bool": dict(entry("a.sh"), timeout=True),
+                     "no matcher": {"script": "a.sh", "timeout": 5, "hardGate": False},
+                     "an extra key": dict(entry("a.sh"), extra=1)}
+        for label, row in malformed.items():
+            proc, log = case({"a.sh": ""}, {"PreToolUse": [row]}, pre())
+            check(f"table row with {label}: the table is unusable and a tool call is denied",
+                  proc.returncode == 2 and decision(proc.stdout) == "deny" and not ran(log), repr(proc.stdout[-200:]))
+        proc, log = case({"a.sh": ""}, {}, pre(), table=False)
+        root = log.parent
+        (root / "hooks" / dispatch.TABLE_FILE).write_text(json.dumps({"version": 1, "kind": dispatch.TABLE_KIND,
+                                                                       "hooks": []}), encoding="utf-8")
+        proc = run(root / "hooks", pre(), log)
+        check("table whose hooks are not an object: a tool call is denied", decision(proc.stdout) == "deny",
+              repr(proc.stdout))
+        proc, log = case({"pii-egress-guard.sh": FAILURES["crash"]},
+                         {"PreToolUse": [entry("pii-egress-guard.sh", hard=False)]}, pre())
+        check("a policy hard gate flagged advisory in the table still fails closed",
+              proc.returncode == 2 and decision(proc.stdout) == "deny", repr(proc.stdout))
+        policy = json.loads((ROOT / "docs" / "HARNESS_TRUST_POLICY.json").read_text(encoding="utf-8"))
+        check("the dispatcher's built-in hard gates are exactly the trust policy pairs",
+              dispatch.HARD_GATES == {(gate["script"], gate["event"]) for gate in policy["hardGates"]},
+              str(dispatch.HARD_GATES ^ {(gate["script"], gate["event"]) for gate in policy["hardGates"]}))
+        # review a1: a crash of the dispatcher itself keeps the no-stop-loop rule
+        saved_dispatch = dispatch.dispatch
+
+        def crash(raw: bytes, hooks_dir: Path):
+            raise RuntimeError("synthetic dispatcher crash")
+
+        dispatch.dispatch = crash
+        try:
+            looped = dispatch.answer(json.dumps(dict(stop, stop_hook_active=True)).encode(), base)
+            fresh = dispatch.answer(json.dumps(stop).encode(), base)
+            tool_call = dispatch.answer(json.dumps(pre()).encode(), base)
+        finally:
+            dispatch.dispatch = saved_dispatch
+        check("a dispatcher crash never blocks a SubagentStop that already continues", looped[2] == 0
+              and not looped[0] and b"synthetic dispatcher crash" in looped[1], repr(looped))
+        check("a dispatcher crash blocks a SubagentStop and denies a tool call",
+              fresh[2] == 2 and decision(fresh[0]) == "block" and tool_call[2] == 2 and decision(tool_call[0]) == "deny",
+              f"{fresh!r} {tool_call!r}")
+
         proc, log = case({"a.sh": ""}, {"PreToolUse": [entry("a.sh")]}, "{not json")
         check("payload that is not JSON: denied", proc.returncode == 2 and decision(proc.stdout) == "deny",
               repr(proc.stdout))

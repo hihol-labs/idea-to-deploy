@@ -1088,6 +1088,7 @@
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_pii_egress.py"
     ],

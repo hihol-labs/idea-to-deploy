@@ -378,6 +378,12 @@ def main() -> int:
                     "echo " + "$(echo " * 9 + "x" + ")" * 9):
             check(f"gated + substitution that ships or cannot be delimited → deny: {cmd[:40]!r}",
                   hook(cmd) == 2)
+        # review a1: a body that starts with a comment, a backtick inside a $() body and a substitution as the
+        # cd target keep the fail-closed classification
+        for cmd, cwd in (('echo "$(# )\n' + shipped + ')"', hook_repo),
+                         ("echo $(echo `" + shipped + "`)", hook_repo),
+                         ('cd "$(git rev-parse --show-toplevel)" && ' + shipped, routine_repo)):
+            check(f"substitution contour that cannot be judged statically → deny: {cmd[:40]!r}", hook(cmd, cwd) == 2)
         check("routine + transport in a substitution with an unresolvable cd → deny",
               hook('cd ~/x && echo "$(' + shipped + ')"', routine_repo) == 2)
         # an inert transport in an unquoted comment must not create a spurious

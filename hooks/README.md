@@ -112,8 +112,9 @@ without capturing its output cannot reach the answer.
 
 - **Failure**: a hard gate that crashes, exits with a code other than 0 or 2, is missing or overruns its budget (at
   least 30 s) denies the tool call or blocks the SubagentStop; an advisory hook in the same state is silent. An
-  unreadable table or payload and an unloadable dispatcher deny a tool call and block a SubagentStop (never when the
-  subagent already continues because of a stop hook); other events stay silent.
+  unreadable table or payload, a table row the sync would not write and an unloadable dispatcher deny a tool call
+  and block a SubagentStop (never when the subagent already continues because of a stop hook); other events stay
+  silent. A hard gate of the trust policy stays hard whatever the flag of its row says.
 - **Bytecode**: the sync compiles checked-hash bytecode of the hooks and of the modules they load (`hooks/`,
   `skills/_shared`, `skills/review/scripts`, `skills/deploy/scripts`) with the interpreter that runs the hooks,
   removes any other `.pyc` there and lists the result in `~/.claude/itd-bytecode.json`

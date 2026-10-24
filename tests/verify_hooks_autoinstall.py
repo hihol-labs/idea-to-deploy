@@ -363,14 +363,19 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
             "PreToolUse": [{"matcher": "Bash", "script": "careful.sh", "timeout": 5, "hardGate": False},
                            {"matcher": "*", "script": "pii-egress-guard.sh", "timeout": 5, "hardGate": True}]}}),
             encoding="utf-8")
-        for label, broken in (("routing table", False), ("unreadable routing table", True)):
-            if broken:
-                table.write_text("{not json", encoding="utf-8")
+        good_table = table.read_text(encoding="utf-8")
+        for label, broken in (("routing table", None), ("unreadable routing table", "{not json"),
+                              ("routing table of another kind", good_table.replace("claude-dispatch-table-v1", "other")),
+                              ("routing table with a malformed row", json.dumps({
+                                  "version": 1, "kind": "claude-dispatch-table-v1",
+                                  "hooks": {"PreToolUse": [{"matcher": "*"}]}}))):
+            if broken is not None:
+                table.write_text(broken, encoding="utf-8")
             box.settings.unlink(missing_ok=True)
             r = run(helper, "apply", *box.args("--yes"), home=str(box.home))
             data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
             got = triples(data)
-            rest = [] if broken else [t for t in expected
+            rest = [] if broken is not None else [t for t in expected
                                       if not t[2].endswith(("/careful.sh", "/pii-egress-guard.sh"))]
             check(fails, r.returncode == 0 and sorted(got) == sorted(rest)
                   and (data.get("permissions") or {}).get("ask") == template_ask(),
