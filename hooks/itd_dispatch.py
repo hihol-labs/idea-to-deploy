@@ -20,6 +20,8 @@ the hard gates of the event cannot be told apart then.
 """
 from __future__ import annotations
 
+import hashlib
+import importlib.machinery
 import importlib.util
 import io
 import json
@@ -53,6 +55,8 @@ HARD_GATES = frozenset({
     ("state-guard.sh", "PreToolUse"), ("narration-final.sh", "SubagentStop"), ("verdict-contract.sh", "SubagentStop"),
 })
 CHECKED_HASH_PYC = 0b11
+INVENTORY_FILE = "itd-bytecode.json"  # scripts/itd_hook_bytecode.py writes it into the install root
+INVENTORY_KIND = "itd-hook-bytecode-v1"
 
 _LOCAL = threading.local()
 
@@ -94,13 +98,63 @@ class HookResult:
         return self.code == 2 or parsed.get("decision") == "block" or specific.get("permissionDecision") == "deny"
 
 
-def cached_code(path: Path, source: bytes) -> types.CodeType | None:
-    """The install-time bytecode of `path` when it is checked-hash bytecode of exactly this source, else None."""
+_GUARD: dict = {"root": None, "trusted": {}}
+
+
+def _key(path: object) -> str:
+    """One spelling of a path: links and Windows 8.3 short names resolved, case folded where the host folds it."""
+    return os.path.normcase(os.path.realpath(os.fspath(path)))
+
+
+def trust_bytecode(root: Path) -> None:
+    """Use only the bytecode the installer produced (review a2).
+
+    A checked-hash header names its source, it does not prove the code object came from it. Under `root` (the
+    install) a .pyc is used only when its SHA-256 equals its bytecodeSha256 in itd-bytecode.json; any other is
+    refused and the source is compiled in memory instead. The guard covers every load of this process - the hook
+    scripts (cached_code) and the modules they import or load by path (SourceFileLoader.get_data) - and leaves
+    bytecode outside the install, such as the standard library's, alone.
+    """
+    trusted: dict[str, str] = {}
     try:
-        data = Path(importlib.util.cache_from_source(str(path))).read_bytes()
+        inventory = json.loads((root / INVENTORY_FILE).read_text(encoding="utf-8"))
+        if isinstance(inventory, dict) and inventory.get("kind") == INVENTORY_KIND:
+            trusted = {_key(root / row["bytecode"]): str(row["bytecodeSha256"]) for row in inventory["files"]}
+    except (OSError, ValueError, TypeError, KeyError, AttributeError):
+        trusted = {}
+    _GUARD.update(root=_key(root), trusted=trusted)
+    loader = importlib.machinery.SourceFileLoader  # every source module load reads its .pyc through it
+    if getattr(loader.get_data, "_itd_bytecode_guard", False):
+        return
+    original = loader.get_data
+
+    def get_data(self, path):
+        data = original(self, path)
+        if str(path).endswith(".pyc") and under_install(path) and not bytecode_trusted(path, data):
+            raise OSError(f"{path}: not the bytecode the install produced")  # the loader then compiles the source
+        return data
+
+    get_data._itd_bytecode_guard = True
+    loader.get_data = get_data
+
+
+def under_install(path: object) -> bool:
+    return _GUARD["root"] is not None and _key(path).startswith(_GUARD["root"] + os.sep)
+
+
+def bytecode_trusted(path: object, data: bytes) -> bool:
+    """True for a .pyc of the install whose SHA-256 is the one the inventory records."""
+    return under_install(path) and _GUARD["trusted"].get(_key(path)) == hashlib.sha256(data).hexdigest()
+
+
+def cached_code(path: Path, source: bytes) -> types.CodeType | None:
+    """The install-time bytecode of `path`: produced by the installer and checked-hash bytecode of this source."""
+    try:
+        pyc = Path(importlib.util.cache_from_source(str(path)))
+        data = pyc.read_bytes()
     except (OSError, ValueError, NotImplementedError):
         return None
-    if (len(data) < 16 or data[:4] != importlib.util.MAGIC_NUMBER
+    if (not bytecode_trusted(pyc, data) or len(data) < 16 or data[:4] != importlib.util.MAGIC_NUMBER
             or int.from_bytes(data[4:8], "little") != CHECKED_HASH_PYC
             or data[8:16] != importlib.util.source_hash(source)):
         return None
@@ -363,8 +417,8 @@ def dispatch(raw: bytes, hooks_dir: Path) -> tuple[tuple[bytes, bytes, int], boo
     return merge(results, event, stop_hook_active), abandoned
 
 
-def silence_descriptors() -> list[tuple[int, int]]:
-    """Point fds 1 and 2 at the null device while the hooks run; return the saved copies.
+def silence_descriptors() -> tuple[list[tuple[int, int]], bool]:
+    """Point fds 1 and 2 at the null device while the hooks run; return the saved copies and whether both moved.
 
     A child process a hook starts without capturing its output inherits the process descriptors: with one process
     per hook its noise stayed in that hook's own output, here it would land in the merged answer.
@@ -373,17 +427,17 @@ def silence_descriptors() -> list[tuple[int, int]]:
     try:
         sink = os.open(os.devnull, os.O_WRONLY)
     except OSError:
-        return saved
+        return saved, False
     try:
         for fd in (1, 2):
             try:
                 saved.append((fd, os.dup(fd)))
                 os.dup2(sink, fd)
             except OSError:
-                break
+                return saved, False
     finally:
         os.close(sink)
-    return saved
+    return saved, True
 
 
 def restore_descriptors(saved: list[tuple[int, int]]) -> None:
@@ -395,18 +449,35 @@ def restore_descriptors(saved: list[tuple[int, int]]) -> None:
             pass
 
 
-def answer(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
-    """The dispatcher's answer to one payload; a crash of the dispatcher itself fails closed like a hard gate."""
-    event, stop_hook_active = "PreToolUse", False
+def payload_flags(raw: bytes) -> tuple[str, bool]:
+    """The event of a payload (PreToolUse when it cannot be told) and its stop_hook_active flag."""
     try:
         payload = json.loads(raw.decode("utf-8", "surrogateescape")) or {}
-        event, stop_hook_active = payload_event(payload), payload.get("stop_hook_active") is True
+        return payload_event(payload), payload.get("stop_hook_active") is True
     except (ValueError, AttributeError):
-        pass
+        return "PreToolUse", False
+
+
+def answer(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
+    """The dispatcher's answer to one payload; a crash of the dispatcher itself fails closed like a hard gate."""
     try:
+        trust_bytecode(hooks_dir.parent)
         return dispatch(raw, hooks_dir)[0]
     except Exception as exc:  # noqa: BLE001 - the dispatcher itself failed: fail closed
+        event, stop_hook_active = payload_flags(raw)
         return failure_answer(event, f"dispatcher crashed: {type(exc).__name__}: {exc}", stop_hook_active)
+
+
+def respond(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
+    """answer() with the process descriptors isolated; when they cannot be, the event fails closed (review a2)."""
+    saved, isolated = silence_descriptors()
+    try:
+        if not isolated:
+            event, stop_hook_active = payload_flags(raw)
+            return failure_answer(event, "the hook output descriptors cannot be isolated", stop_hook_active)
+        return answer(raw, hooks_dir)
+    finally:
+        restore_descriptors(saved)
 
 
 def main() -> int:
@@ -414,11 +485,7 @@ def main() -> int:
     raw = real["stdin"].buffer.read()
     for name, stream in real.items():
         setattr(sys, name, _ThreadStream(name, stream))
-    saved = silence_descriptors()
-    try:
-        stdout, stderr, code = answer(raw, Path(__file__).resolve().parent)
-    finally:
-        restore_descriptors(saved)
+    stdout, stderr, code = respond(raw, Path(__file__).resolve().parent)
     real["stdout"].buffer.write(stdout)
     real["stdout"].flush()
     if stderr:

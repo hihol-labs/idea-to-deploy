@@ -219,7 +219,7 @@ def main() -> int:
               "(parsed, never shell-evaluated — r72)", shape_ok)
 
         if shape_ok:
-            with tempfile.TemporaryDirectory(prefix="itd-u16-disp-") as td:
+            with tempfile.TemporaryDirectory(prefix="itd-u16-disp-", ignore_cleanup_errors=True) as td:
                 base = Path(td)
                 gated = make_candidate(base, "gated-disp", data_sensitive=True)
                 routine = make_candidate(base, "routine-disp",
@@ -249,7 +249,7 @@ def main() -> int:
     # ------------------------------------------------------------------ #
     # SECTION 2 — ADR-008 behavioural matrix + receipt-core internals
     # ------------------------------------------------------------------ #
-    with tempfile.TemporaryDirectory(prefix="itd-u16-") as td:
+    with tempfile.TemporaryDirectory(prefix="itd-u16-", ignore_cleanup_errors=True) as td:
         base = Path(td)
         home = base / "home"
         home.mkdir()
@@ -687,10 +687,8 @@ def main() -> int:
         rcpt.write_text("{}", encoding="utf-8")
 
         def stub_validator(code: int) -> list[str]:
-            s = base / f"stub-validator-{code}.sh"
-            s.write_text(f"#!/bin/sh\nexit {code}\n", encoding="utf-8")
-            os.chmod(s, 0o755)
-            return [str(s)]
+            # an interpreter call, not a #!/bin/sh file: native Windows cannot execute a shell script directly
+            return [sys.executable, "-c", f"raise SystemExit({code})"]
 
         check("validate_receipt: a missing receipt file is 'missing' "
               "(fail-closed, no delegation needed)",
@@ -862,7 +860,7 @@ def main() -> int:
     # ------------------------------------------------------------------ #
     # SECTION 3 — trust anchor is the installed methodology, not the env
     # ------------------------------------------------------------------ #
-    with tempfile.TemporaryDirectory(prefix="itd-u16-anchor-") as td:
+    with tempfile.TemporaryDirectory(prefix="itd-u16-anchor-", ignore_cleanup_errors=True) as td:
         base = Path(td)
         evil_home = base / "evil-home"
         fake = (evil_home / ".claude" / "skills" / "deploy" / "scripts"

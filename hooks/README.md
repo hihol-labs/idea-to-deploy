@@ -108,7 +108,7 @@ of one per hook. The dispatcher (`hooks/itd_dispatch.py`) runs the same hook fil
 thread with its own stdin, stdout and stderr, one after another; a hook still running after 0.25 s keeps running while
 the next ones start. The first blocking answer passes through as its hook gave it; asks and context are joined.
 While the hooks run, the process descriptors 1 and 2 point at the null device, so a child process a hook starts
-without capturing its output cannot reach the answer.
+without capturing its output cannot reach the answer; when they cannot be redirected, the event fails closed.
 
 - **Failure**: a hard gate that crashes, exits with a code other than 0 or 2, is missing or overruns its budget (at
   least 30 s) denies the tool call or blocks the SubagentStop; an advisory hook in the same state is silent. An
@@ -119,7 +119,8 @@ without capturing its output cannot reach the answer.
   `skills/_shared`, `skills/review/scripts`, `skills/deploy/scripts`) with the interpreter that runs the hooks,
   removes any other `.pyc` there and lists the result in `~/.claude/itd-bytecode.json`
   (`scripts/itd_hook_bytecode.py`). At run time nothing writes `.pyc`; bytecode is used only for exactly the source on
-  disk. `bash scripts/sync-to-active.sh --check` reports stale bytecode.
+  disk and only when its SHA-256 is the one the inventory records (the hooks and every module they import);
+  otherwise the source is compiled in memory. `bash scripts/sync-to-active.sh --check` reports stale bytecode.
 - Codex keeps `hooks/hooks.json` with one `codex-dispatch.py` call per hook.
 
 ## Recommended setup

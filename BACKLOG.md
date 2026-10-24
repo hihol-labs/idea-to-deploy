@@ -116,16 +116,22 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 `.itd-memory`. В чистой копии дерева того же кандидата и в копии main `c94c50a` - 96/0. Вердикт оракула должен
 зависеть только от отслеживаемых файлов (класс OTK-HOST-TREE-1).
 
-## P3 - сьюты, красные на Windows-профиле владельца и до сессии 6 (2026-10-24, ITD-PLAN-S6)
+## P3 - Codex-дедлайн 3 с под загрузкой CPU Windows (2026-10-24, ITD-PLAN-S6)
 
-Нативный Python 3.12, профиль `C:\Users\Дмитрий`, копия дерева в `C:\itd-src`: `verify_predeploy_independent_review`
-- проверка «validate_receipt: a zero-exit delegated checker is 'valid'» красна и на копии 1.109.2 (там же флейк r83);
-`verify_sync_manifest` запускает `bash` из PATH, а на этой машине это WSL `bash.exe` (путь `C:itd-src...` теряет
-разделители) - нужен `ITD_BASH`, как в `verify_hook_selection`. В `verify_all_hard_gate_host_parity` Codex-нога
-(`codex-dispatch.py`, дедлайн 3 с) под загрузкой CPU Windows 100% дает `TimeoutExpired`, а очистка temp затем падает
-`WinError 32` (каталог занят оборванным хуком) - тест обрывается раньше остальных ног.
+На Windows владельца при загрузке CPU 100% (приложение Claude, браузер) `codex-dispatch.py` с дедлайном
+`DEFAULT_SHARED_HOOK_TIMEOUT_SECONDS = 3` обрывает хук (`TimeoutExpired`) и отвечает fail closed: в
+`verify_all_hard_gate_host_parity` краснеют Codex-ноги, в `verify_predeploy_independent_review` - случай r83 (тот же
+диспетчер). Это ложный deny Codex на медленном хосте; на спокойной машине оба сьюта зеленые. Дедлайн - в
+`codex-dispatch.py` (пин бенчмарка): поднять до бюджета хоста или взять минимум, как у Claude-диспетчера (30 с для
+hard-гейта), при следующей правке пина.
+Закрыто в сессии 6 (причины были в тестах): `verify_predeploy_independent_review` - заглушка проверяющего была файлом
+`#!/bin/sh`, который Windows не исполняет; `verify_sync_manifest` брал `bash` из PATH (на этой машине - WSL).
 
-## P3 - `verify_hooks_autoinstall.py` на Windows владельца: 3 проверки user-level и кодировка (2026-10-23, ITD-PLAN-S5)
+## P3 - `verify_hooks_autoinstall.py` на Windows владельца: кодировка без `PYTHONUTF8` (2026-10-23, ITD-PLAN-S5; user-level - закрыто в сессии 6)
+
+Закрыто 2026-10-24: три проверки user-level - тест задавал дочернему процессу только `HOME`, а Python на Windows
+раскрывает `~` по `USERPROFILE`; тест задает оба, с `PYTHONUTF8=1` на Windows владельца 137 passed, 0 failed.
+Открыто: запуск без `PYTHONUTF8=1` (ниже).
 
 Нативный Python 3.12 на Windows владельца (профиль `C:\Users\Дмитрий`): без `PYTHONUTF8=1` тест падает
 `UnicodeDecodeError` - дочерний процесс печатает путь в ANSI-кодировке, родитель читает UTF-8; с `PYTHONUTF8=1`
@@ -133,8 +139,7 @@ head -1 a.sh | cut -c1-10`, `cd ".../buying" && uptime > /tmp/x.jsonl 2>&1`). Г
 версии main `a32a12e` (до сессии 5), в CI windows-verify (ASCII-профиль) тест зеленый. Похоже на несовпадение форм
 пути каталога хуков (короткое 8.3-имя Temp против длинного) в `dir_forms`; проверить и добавить тест с
 не-ASCII профилем. Не блокирует продуктовую работу.
-Сессия 6 (2026-10-24): по той же причине на этом профиле красны и две новые проверки «user-level dispatcher»
-(диспетчер, зарегистрированный user-level, распознается тем же `itd_script_names`).
+Сессия 6: те же три и две новые проверки «user-level dispatcher» красны были по той же причине и тоже прошли.
 
 ## P3 - `tests/verify_graph_study.py` красный при аптайме хоста меньше 30 минут (2026-10-21, REL-1.109.2)
 

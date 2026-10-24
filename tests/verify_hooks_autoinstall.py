@@ -148,6 +148,7 @@ def run(helper: Path, *args: str, home: str | None = None,
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     if home:
         env["HOME"] = home
+        env["USERPROFILE"] = home  # Windows expands "~" from USERPROFILE, not HOME
     try:
         return subprocess.run([sys.executable, str(helper), *args], capture_output=True,
                               text=True, timeout=60, env=env, cwd=cwd, check=False)

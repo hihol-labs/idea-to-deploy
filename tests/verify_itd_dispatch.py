@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import marshal
 import os
 from pathlib import Path
 import py_compile
@@ -344,17 +345,37 @@ def main() -> int:
               f"{proc.stdout!r} {proc.stderr!r}")
 
         # --- isolation of concurrent output -------------------------------------------------------------------
-        slow = ('time.sleep(0.6)\n'
+        stamp = ('import threading\n'
+                 'with open(os.path.join(os.environ["ITD_TEST_LOG"], "{0}.times"), "a", encoding="utf-8") as t:\n'
+                 '    t.write(f"{{{1}}} {{time.time()}} {{threading.get_ident()}}\\n")\n')
+        slow = (stamp.format("slow", '"start"') + 'time.sleep(0.6)\n' + stamp.format("slow", '"end"') +
                 'print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", '
                 '"additionalContext": "slow-" + "s" * 5000}}))')
-        fast = ('for i in range(50): time.sleep(0.01)\n'
+        fast = (stamp.format("fast", '"start"') + 'for i in range(50): time.sleep(0.01)\n' +
                 'print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", '
                 '"additionalContext": "fast-" + "f" * 5000}}))')
         proc, log = case({"slow.sh": slow, "fast.sh": fast},
                          {"PreToolUse": [entry("slow.sh"), entry("fast.sh")]}, pre())
         context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        times = {name: {row.split()[0]: row.split()[1:] for row in (log / f"{name}.times").read_text().splitlines()}
+                 for name in ("slow", "fast")}
+        check("isolation: a hook still running after the sequential wait overlaps the next one, in its own thread",
+              float(times["fast"]["start"][0]) < float(times["slow"]["end"][0])
+              and times["fast"]["start"][1] != times["slow"]["start"][1], str(times))
         check("isolation: a slow hook still writing while the next one runs keeps its output apart",
               context == "slow-" + "s" * 5000 + "\nfast-" + "f" * 5000, context[:60])
+
+        # review a2: descriptors that cannot be isolated make the event fail closed
+        saved_devnull = os.devnull
+        os.devnull = str(base / "no-such-directory" / "null")
+        try:
+            refused = dispatch.respond(json.dumps(pre()).encode(), base)
+            looping = dispatch.respond(json.dumps(dict(stop, stop_hook_active=True)).encode(), base)
+        finally:
+            os.devnull = saved_devnull
+        check("descriptors that cannot be isolated: a tool call is denied, a continuing SubagentStop is not blocked",
+              refused[2] == 2 and decision(refused[0]) == "deny" and b"isolated" in refused[0]
+              and looping[2] == 0 and not looping[0], f"{refused!r} {looping!r}")
 
         # --- bytecode ------------------------------------------------------------------------------------------
         install = base / "install"
@@ -377,6 +398,7 @@ def main() -> int:
                                        "hooks/claude-dispatch.py"} <= sources
               and inventory["cacheTag"] == sys.implementation.cache_tag, out.stdout + out.stderr)
         pyc = Path(importlib.util.cache_from_source(str(directory / "a.sh")))
+        dispatch.trust_bytecode(install)
         code = dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes())
         check("bytecode: checked-hash bytecode of exactly the source is loaded", code is not None and pyc.is_file())
         before = {path: path.stat().st_mtime_ns for path in install.rglob("*.pyc")}
@@ -397,6 +419,7 @@ def main() -> int:
         stray = pyc.parent / "stray.cpython-312.pyc"
         stray.write_bytes(b"x")
         first = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        dispatch.trust_bytecode(install)  # the inventory now lists the recompiled bytecode
         snapshot = {path: path.read_bytes() for path in install.rglob("*") if path.is_file()}
         second = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
         check("bytecode: the installer recompiles stale bytecode and removes a .pyc without a source",
@@ -410,11 +433,38 @@ def main() -> int:
         check("bytecode: --check after an install is clean",
               subprocess.run([sys.executable, "-B", str(BYTECODE), str(install), "--check"],
                              capture_output=True).returncode == 0)
+        # review a2: a .pyc with the right header but another code object is not the install's bytecode
+        def tamper(source_path: Path, replacement: str) -> None:
+            pyc_path = Path(importlib.util.cache_from_source(str(source_path)))
+            pyc_path.write_bytes(pyc_path.read_bytes()[:16] + marshal.dumps(compile(replacement, str(source_path), "exec")))
+
+        tamper(directory / "a.sh", HOOK.format(name="a.sh", body=CONTEXT.format("tampered")))
+        tamper(directory / "helper.py", "VALUE = 'tampered helper'\n")
+        dispatch.trust_bytecode(install)
+        check("bytecode: a .pyc whose code object the installer did not produce is refused",
+              dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes()) is None)
+        proc = run(directory, pre(), install / "log")
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        check("bytecode: a tampered hook or imported-module .pyc never runs, its source does",
+              proc.returncode == 0 and context == "from source v2\nhelper", repr(context))
+        if os.name != "nt":  # Windows meets the same through its 8.3 short temp path; here a link plays that part
+            alias = base / "install-alias"
+            alias.symlink_to(install, target_is_directory=True)
+            proc = run(alias / "hooks", pre(), install / "log")
+            context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+            check("bytecode: the guard holds when the install is reached through another spelling of its path",
+                  proc.returncode == 0 and context == "from source v2\nhelper", repr(context))
+        spec_b = importlib.util.spec_from_file_location("itd_hook_bytecode_under_test", BYTECODE)
+        installer = importlib.util.module_from_spec(spec_b)
+        spec_b.loader.exec_module(installer)
+        check("bytecode: the dispatcher reads the inventory the installer writes",
+              (dispatch.INVENTORY_FILE, dispatch.INVENTORY_KIND) == (installer.INVENTORY_FILE, installer.INVENTORY_KIND))
         timestamp_pyc = base / "ts" / "hooks"
         timestamp_pyc.mkdir(parents=True)
         (timestamp_pyc / "x.py").write_text("X = 1\n", encoding="utf-8")
         source = str(timestamp_pyc / "x.py")
-        py_compile.compile(source, cfile=importlib.util.cache_from_source(source))
+        py_compile.compile(source, cfile=importlib.util.cache_from_source(source),
+                           invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)
         check("bytecode: timestamp bytecode (no source hash) is never loaded by the dispatcher",
               dispatch.cached_code(timestamp_pyc / "x.py", (timestamp_pyc / "x.py").read_bytes()) is None)
 

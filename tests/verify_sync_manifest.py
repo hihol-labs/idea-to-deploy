@@ -33,7 +33,7 @@ def run_sync(active: Path, *, apply: bool = False) -> str:
     environment = dict(os.environ)
     environment["CLAUDE_HOME"] = str(active)
     completed = subprocess.run(
-        ["bash", str(SYNC)] + ([] if apply else ["--check"]),
+        [os.environ.get("ITD_BASH", "bash"), SYNC.as_posix()] + ([] if apply else ["--check"]),
         cwd=str(ROOT), env=environment, capture_output=True, timeout=600,
     )
     if completed.returncode != 0:
@@ -120,7 +120,7 @@ def main() -> int:
             data = json.loads((install / "settings.json").read_text(encoding="utf-8"))
             commands = [h.get("command", "") for groups in data.get("hooks", {}).values()
                         for g in groups for h in g.get("hooks", [])]
-            if any(c.endswith("/claude-dispatch.py") for c in commands):
+            if any("/claude-dispatch.py" in c.replace("\\", "/") for c in commands):  # bare path or Windows wrapper
                 table = json.loads((install / "hooks" / "claude-dispatch.json").read_text(encoding="utf-8"))
                 commands += ["~/.claude/hooks/" + row["script"] for rows in table["hooks"].values() for row in rows]
             return commands
@@ -160,7 +160,7 @@ def main() -> int:
     check(".claude-plugin/plugin.json" in verify_source,
           "verify-sync-to-active.sh does not police the plugin manifest")
     completed = subprocess.run(
-        ["bash", str(VERIFY_SYNC)], cwd=str(ROOT),
+        [os.environ.get("ITD_BASH", "bash"), VERIFY_SYNC.as_posix()], cwd=str(ROOT),
         capture_output=True, timeout=120,
     )
     check(completed.returncode == 0,
