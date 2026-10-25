@@ -56,6 +56,8 @@ HARD_GATES = frozenset({
     ("state-guard.sh", "PreToolUse"), ("narration-final.sh", "SubagentStop"), ("verdict-contract.sh", "SubagentStop"),
 })
 CHECKED_HASH_PYC = 0b11
+# A script name exactly as routing() writes it: the base name of a hook file in the hooks directory (review a5).
+SCRIPT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.sh")
 INVENTORY_FILE = "itd-bytecode.json"  # scripts/itd_hook_bytecode.py writes it into the install root
 INVENTORY_KIND = "itd-hook-bytecode-v1"
 
@@ -222,7 +224,8 @@ def valid_entry(entry: object) -> bool:
     if not isinstance(entry, dict) or set(entry) != {"matcher", "script", "timeout", "hardGate"}:
         return False
     timeout = entry["timeout"]
-    return (isinstance(entry["matcher"], str) and isinstance(entry["script"], str) and bool(entry["script"])
+    return (isinstance(entry["matcher"], str) and isinstance(entry["script"], str)
+            and SCRIPT_NAME_RE.fullmatch(entry["script"]) is not None
             and isinstance(timeout, (int, float)) and not isinstance(timeout, bool)
             and math.isfinite(timeout) and timeout > 0  # JSON admits Infinity and NaN; a thread join does not
             and isinstance(entry["hardGate"], bool))

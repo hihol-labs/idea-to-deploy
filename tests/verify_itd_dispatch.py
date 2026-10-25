@@ -267,6 +267,9 @@ def main() -> int:
         # review a1: a row that routing() would not write makes the table unusable (fail closed), and a policy hard
         # gate stays hard whatever its row's flag says
         malformed = {"no hardGate": {"matcher": "*", "script": "a.sh", "timeout": 5},
+                     "a script path outside the hooks directory": entry("../a.sh"),
+                     "a script in a subdirectory": entry("sub/a.sh"),
+                     "a script that is not a hook file": entry("a.txt"),
                      "hardGate not a bool": dict(entry("a.sh"), hardGate="yes"),
                      "timeout a string": dict(entry("a.sh"), timeout="5"),
                      "timeout a bool": dict(entry("a.sh"), timeout=True),
@@ -357,6 +360,12 @@ def main() -> int:
         proc = run(directory, {"hook_event_name": "Stop"}, root / "log")
         check("an unloadable itd_dispatch module: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
               repr(proc.stdout))
+        proc = run(directory, stop, root / "log")
+        check("an unloadable itd_dispatch module: a SubagentStop is blocked",
+              proc.returncode == 2 and decision(proc.stdout) == "block", repr(proc.stdout))
+        proc = run(directory, dict(stop, stop_hook_active=True), root / "log")
+        check("an unloadable itd_dispatch module: a SubagentStop that already continues is not blocked again",
+              proc.returncode == 0 and not proc.stdout, repr(proc.stdout))
         (directory / MODULE.name).write_text("raise SystemExit(0)\n", encoding="utf-8")
         proc = run(directory, pre(), root / "log")
         check("a dispatcher module that raises SystemExit while it loads: the entry point denies a tool call",

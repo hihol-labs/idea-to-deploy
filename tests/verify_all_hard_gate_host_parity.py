@@ -563,7 +563,8 @@ def main() -> int:
             payload = {"session_id": "parity-allow", "cwd": str(work), "hook_event_name": event, **extra}
             result = run_dispatcher(hooks_dir, work, payload, env)
             check(f"Claude dispatcher, the default table, lets an ordinary {event} pass",
-                  result[0] == 0 and result[1] != "block", f"rc={result[0]} decision={result[1]!r} {result[2][-200:]!r}")
+                  result[0] == 0 and result[1] not in ("deny", "block", "ask"),
+                  f"rc={result[0]} decision={result[1]!r} {result[2][-200:]!r}")
 
     for script in ("check-tool-skill.sh", "check-skill-completeness.sh", "state-guard.sh"):
         for patch_variant in ("add", "delete", "move"):
