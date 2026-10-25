@@ -5608,6 +5608,46 @@
         "impactClasses": ["generated-artifact-freshness"],
         "oracleIds": ["benchmark"]
       }
+    },
+    {
+      "id": "ITD-REVIEW-CLAIM-COMPAT-1024-CC1",
+      "unitId": "ITD-REVIEW-CLAIM-COMPAT-1024",
+      "status": "passed",
+      "criterion": "Documented primary/general/security claims work and foreign/arbitrary/nested claims fail; risk, oracle presence, successful exit, exact tree and criterion ownership remain enforced.",
+      "source": "Reproduced Modivo producer failure plus red/green regression.",
+      "evidence": "Regression red: three documented-claim cases fail on the original module. Green:67 coverage checks on Windows and WSL; producer316, Loop121, cache65, native host adapters and quick78 suites passed for bootstrap-a5. This schema repair changes metadata only. The final exact-candidate machine receipt supplied to review must rerun the declared claim-compat oracle and bind these criteria; the earlier receipt does not accept the repaired tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_evidence.py && bash tests/run-all.sh --quick --fail-fast",
+      "reviewEvidence": {
+        "claim": "Documented primary/general/security claims work and foreign/arbitrary/nested claims fail; risk, oracle presence, successful exit, exact tree and criterion ownership remain enforced.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "claim-compat"
+        ]
+      }
+    },
+    {
+      "id": "ITD-REVIEW-CLAIM-COMPAT-1024-CC2",
+      "unitId": "ITD-REVIEW-CLAIM-COMPAT-1024",
+      "status": "passed",
+      "criterion": "Relevant coverage/producer/Verification Loop/cache/runtime and quick regressions pass; the focused coverage suite passes on native Windows and WSL.",
+      "source": "Reproduced Modivo producer failure plus red/green regression.",
+      "evidence": "Regression red: three documented-claim cases fail on the original module. Green:67 coverage checks on Windows and WSL; producer316, Loop121, cache65, native host adapters and quick78 suites passed for bootstrap-a5. This schema repair changes metadata only. The final exact-candidate machine receipt supplied to review must rerun the declared claim-compat oracle and bind these criteria; the earlier receipt does not accept the repaired tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_review_evidence.py && bash tests/run-all.sh --quick --fail-fast",
+      "reviewEvidence": {
+        "claim": "Relevant coverage/producer/Verification Loop/cache/runtime and quick regressions pass; the focused coverage suite passes on native Windows and WSL.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "claim-compat"
+        ]
+      }
     }
   ],
   "completion": {
@@ -5626,6 +5666,24 @@
     ]
   },
   "activeFollowup": {
+    "unitId": "ITD-REVIEW-CLAIM-COMPAT-1024",
+    "status": "in_progress",
+    "sourceRequest": "Owner continuation of the concrete ITD compatibility proposal, then Modivo PR/merge/diagnostic deployment; no order retries.",
+    "reviewPolicy": {
+      "mode": "evidence-first",
+      "riskTier": "high",
+      "requiredImpactClasses": [
+        "correctness",
+        "security",
+        "compatibility",
+        "host-parity"
+      ],
+      "minimumIndependentReviewers": 1,
+      "explorer": "isolated-machine-oracle",
+      "adjudicator": "sealed-host-union"
+    }
+  },
+  "priorFollowupAtBase": {
     "unitId": "ITD-PLAN-S5",
     "status": "in_progress",
     "openedAt": "2026-10-23",

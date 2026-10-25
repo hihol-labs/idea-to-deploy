@@ -6194,3 +6194,23 @@ _Записано 2026-10-06 (docs-PR ретро, после ledger-close OTK-HO
 - Вне области (решение владельца после a1): четыре находки о содержании образца бенчмарка; оракул - BACKLOG P2.
 - Следующий раунд a4 - последний по правилу сходимости: PASSED -> публикация после подтверждения; BLOCKED только с
   medium/low -> решение владельца (ADJUDICATED по ADR-007); high -> исправить и к владельцу.
+
+
+## 2026-10-24: exact review claim compatibility
+The producer rejects the documented general/security suffixes before dispatch. Repair only their closed identity mapping, retaining the root criteria and all evidence checks. Red: three regressions fail; green:67/67 on WSL and Windows. Publication remains conditional on independent exact-candidate adjudication; Modivo order retries remain forbidden.
+
+
+## 2026-10-24: bootstrap review schema finding
+The first fresh Terra review blocked the candidate: the two new active criteria lacked the contract-required evidence and verificationCommand fields. Restore both fields and add an explicit active-schema oracle (red:four missing fields, then green). Preserve the negative review; require a new exact-candidate machine run and fresh mandatory review before publication.
+
+
+## 2026-10-25: reconcile the unit through its lifecycle writer
+The second fresh Terra review blocked the manually prepared unit record: startedAt and an activation event were missing. Run the installed canonical itd_unit_log.py activate for the current isolated unit, high risk, STATE ledger; retain its generated timestamp and event rather than inventing past history. The active contract/lifecycle oracle reproduces the missing start before this repair and passes after the harness activation. Other checkouts and the prior base followup remain untouched; negative reviews are retained.
+
+
+## 2026-10-25: preserve the existing prior-unit completion record
+The lifecycle reader exposed two open STATE units: S5 from the base and the new compatibility unit. The canonical repository already recorded S5 verified after PR373, before this task, in commit c0a7a1527fe3fdbcfce8bbc659be90be90f3436f (events blob00dc50adfc2639c8aa5f87f9c73bc87864a03b42). Carry that exact harness-produced line through the installed durable append writer, preserving every previous byte and its original timestamp, actor and evidence. The source blob is a declared hash-bound oracle input. The same lifecycle reader then reports only the compatibility unit open. This transports the prior owner acceptance; current candidate acceptance still requires its own clean fresh mandatory review.
+
+
+## 2026-10-25: reject reserved segments in primary identities
+The third fresh Terra review found that a primary already containing :general-review could mint a nested claim. Fresh-context security refutation confirmed the contract violation and did not establish a separate foreign-evidence privilege bypass. Add twelve failing reserved-primary cases, including inner reserved segments, and six neighboring-name compatibility cases: red73/12, then green85/0. Reject reserved review segments only at colon boundaries; preserve exact primary ownership and all risk, oracle and reviewer checks. The current candidate still needs its own clean mandatory review.
