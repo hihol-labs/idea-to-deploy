@@ -275,7 +275,14 @@ def coverage_matrix(
     followup = acceptance.get("activeFollowup")
     assert isinstance(followup, dict)
     unit_id = followup.get("unitId")
-    if not isinstance(unit_id, str) or not unit_id or machine.get("unitId") != unit_id:
+    machine_unit_id = machine.get("unitId")
+    if (not isinstance(unit_id, str) or not unit_id
+            or any(part in ("general-review", "security-review")
+                   for part in unit_id.split(":"))
+            or not isinstance(machine_unit_id, str)
+            or machine_unit_id not in (
+                unit_id, f"{unit_id}:general-review", f"{unit_id}:security-review"
+            )):
         raise ReviewEvidenceError("active unit and machine evidence differ")
     if machine.get("riskTier") != policy["riskTier"]:
         raise ReviewEvidenceError("machine and review risk tiers differ")

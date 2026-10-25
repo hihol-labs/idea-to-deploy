@@ -507,6 +507,55 @@ check("a1-legacy-prefix-fallback",
       isinstance(m, dict) and len(m.get("criteria", [])) == 1, str(m)[:120])
 
 
+
+# Documented review claims retain all primary-unit evidence requirements.
+for claim in ["UNIT", "UNIT:general-review", "UNIT:security-review"]:
+    result = matrix_or_error(acceptance_fixture(), machine_fixture(unit=claim))
+    check("claim-accept-" + claim, isinstance(result, dict)
+          and result.get("unitId") == "UNIT"
+          and result.get("minimumIndependentReviewers") == 1)
+for claim in ["OTHER", "OTHER:security-review", "UNIT-extra:general-review",
+              "UNIT:other-review", "UNIT:general-review:security-review"]:
+    result = matrix_or_error(acceptance_fixture(), machine_fixture(unit=claim))
+    check("claim-refuse-" + claim, isinstance(result, str))
+for claim in ["UNIT:general-review", "UNIT:security-review"]:
+    wrong_risk = machine_fixture(unit=claim, risk="medium")
+    check("claim-refuse-risk-" + claim,
+          isinstance(matrix_or_error(acceptance_fixture(), wrong_risk), str))
+    missing = machine_fixture(unit=claim); missing["runs"] = []
+    check("claim-refuse-missing-oracle-" + claim,
+          isinstance(matrix_or_error(acceptance_fixture(), missing), str))
+    wrong_tree = machine_fixture(unit=claim); wrong_tree["runs"][0]["executedTree"] = "b" * 40
+    check("claim-refuse-foreign-tree-" + claim,
+          isinstance(matrix_or_error(acceptance_fixture(), wrong_tree), str))
+    failed = machine_fixture(unit=claim); failed["runs"][0]["exitCode"] = 1
+    check("claim-refuse-failed-oracle-" + claim,
+          isinstance(matrix_or_error(acceptance_fixture(), failed), str))
+scoped = acceptance_fixture(unit="R1")
+scoped["criteria"][0]["unitId"] = "R1"
+foreign = copy.deepcopy(scoped["criteria"][0]); foreign["id"] = "R1-foreign"; foreign["unitId"] = "R1-other"; foreign["status"] = "pending"
+scoped["criteria"].append(foreign)
+result = matrix_or_error(scoped, machine_fixture(unit="R1:security-review"))
+check("claim-does-not-capture-foreign-criteria", isinstance(result, dict)
+      and [row["criterionId"] for row in result["criteria"]] == ["R1-AC1"])
+
+# A primary identity must not itself contain one of the reserved review
+# segments, otherwise deriving an allowed suffix would mint a nested claim.
+for primary in ["general-review", "security-review",
+                "general-review:child", "security-review:child",
+                "UNIT:general-review", "UNIT:security-review",
+                "UNIT:general-review:child", "UNIT:security-review:child"]:
+    for claim in [primary, primary + ":general-review", primary + ":security-review"]:
+        result = matrix_or_error(acceptance_fixture(unit=primary), machine_fixture(unit=claim))
+        check("claim-reserved-primary-refused/" + primary + "/" + claim,
+              isinstance(result, str))
+for primary in ["general-review-extra", "security-review-extra",
+                "UNIT:general-review-extra", "UNIT:security-review-extra"]:
+    for claim in [primary, primary + ":general-review", primary + ":security-review"]:
+        result = matrix_or_error(acceptance_fixture(unit=primary), machine_fixture(unit=claim))
+        check("claim-neighbor-primary-accepted/" + primary + "/" + claim,
+              isinstance(result, dict) and result.get("unitId") == primary)
+
 if fails:
     print("FAILED:", " ".join(fails))
     sys.exit(1)
