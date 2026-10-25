@@ -44,6 +44,9 @@ class StudyTests(unittest.TestCase):
         self.home = Path(self.temp.name)
         self.api = load(SCRIPT, 'synthetic_study_adapter')
         self.api.NAMESPACE = 'gv2b'
+        # the study's own window ended 2026-10-25; the synthetic study runs inside a window of its own
+        self.api.POLICY_EXPIRES_AT = (datetime.datetime.now(datetime.timezone.utc)
+                                      + datetime.timedelta(days=1)).isoformat()
         self.api.ROOT = self.home
         self.api.STUDY = self.home / 'study'
         self.api.RUNS = self.home / 'clones'

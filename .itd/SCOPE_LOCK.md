@@ -33,6 +33,10 @@
 - `CHANGELOG.md` (`## [Unreleased]`), `.itd/ACCEPTANCE_CONTRACT.json` (the ITD-PLAN-S5 followup move, the
   ITD-PLAN-S6 followup and criteria), `.itd/DECISIONS.md`, `BACKLOG.md`, this scope, regenerated
   `.itd/IMPACT_GRAPH.json`.
+- Owner 2026-10-25 (the full suite turned red on every tree): `scripts/graph_v2_study.py` - the hard-coded end of the
+  Graph Lite study authorization window (`expiresAt` 2026-10-25T00:00Z) becomes the module constant
+  `POLICY_EXPIRES_AT` with the same value; `tests/verify_graph_study.py` sets a future date for its synthetic study.
+  The recorded study and its behaviour do not change.
 - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness transitions only.
 - Git-ignored verification receipts, reports, measurement outputs and hand-over files.
 - Outside git, each on the owner's confirmation with a backup: `scripts/sync-to-active.sh` on WSL and Windows.
