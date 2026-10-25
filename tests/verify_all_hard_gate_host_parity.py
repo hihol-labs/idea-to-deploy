@@ -323,8 +323,17 @@ def run_dispatcher(hooks_dir: Path, cwd: Path, payload: dict[str, Any], env: dic
     return proc.returncode, gate_decision, reason
 
 
+def normalized(reason: str, root: Path, session: str) -> str:
+    """The reason with this run's temporary root and session id replaced, so two runs of a gate compare (review a6)."""
+    spellings = {str(root), str(root.resolve()), root.as_posix(), root.resolve().as_posix(), os.path.realpath(root)}
+    for spelling in sorted(spellings, key=len, reverse=True):
+        reason = reason.replace(spelling, "<root>")
+    return reason.replace(session, "<session>")
+
+
 def invoke(script: str, host: str, patch_variant: str = "update",
-           hooks_dir: Path | None = None) -> tuple[int, str, str]:
+           hooks_dir: Path | None = None, hook: str | None = None) -> tuple[int, str, str]:
+    """Run the scenario of `script` through `host`; on host "claude" the hook run is `hook` (default `script`)."""
     # A hook cut by its deadline on a loaded Windows host may still hold the directory: cleanup must not end the run.
     with tempfile.TemporaryDirectory(prefix=f"itd-parity-{host}-", ignore_cleanup_errors=True) as tmp:
         root = Path(tmp)
@@ -336,9 +345,10 @@ def invoke(script: str, host: str, patch_variant: str = "update",
         env.pop("CLAUDE_HOME", None)
         if host == "claude-dispatch":
             env["ITD_HOST"] = "claude"
-            return run_dispatcher(hooks_dir, cwd, payload, env)
+            code, gate_decision, reason = run_dispatcher(hooks_dir, cwd, payload, env)
+            return code, gate_decision, normalized(reason, root, session)
         if host == "claude":
-            command = [sys.executable, str(HOOKS / script)]
+            command = [sys.executable, str(HOOKS / (hook or script))]
             env["ITD_HOST"] = "claude"
         else:
             command = [sys.executable, str(DISPATCHER), "--script", script]
@@ -359,7 +369,7 @@ def invoke(script: str, host: str, patch_variant: str = "update",
             timeout=60,
         )
         gate_decision, reason = parse_decision(proc.stdout)
-        return proc.returncode, gate_decision, reason
+        return proc.returncode, gate_decision, normalized(reason, root, session)
 
 
 def registration_payload(path: Path) -> dict[str, Any]:
@@ -471,10 +481,12 @@ def main() -> int:
                     f"missing={sorted(mutation - routed)}",
                 )
 
+    direct: dict[str, str] = {}
     for gate in gates:
         script = gate["script"]
         expected = gate["decision"]
         claude = invoke(script, "claude")
+        direct[script] = claude[2]
         codex = invoke(script, "codex")
         expected_rc = 0 if expected == "block" else 2
         check(
@@ -515,6 +527,11 @@ def main() -> int:
                 and "hook transport failed closed" not in alone[2],
                 f"rc={alone[0]} decision={alone[1]!r} reason={alone[2][-160:]!r}",
             )
+            check(
+                f"Claude dispatcher, the gate alone, gives the direct run's reason: {script}",
+                alone[2] == direct[script],
+                f"dispatcher={alone[2][-200:]!r} direct={direct[script][-200:]!r}",
+            )
             everything = default_selection()
             for event, groups in only(desired, script).items():
                 everything.setdefault(event, []).extend(groups)  # an optional gate joins the default table
@@ -524,6 +541,19 @@ def main() -> int:
                 f"Claude dispatcher, the default table, produces {expected}: {script}",
                 full[0] == expected_rc and full[1] == expected and "hook transport failed closed" not in full[2],
                 f"rc={full[0]} decision={full[1]!r} reason={full[2][-160:]!r}",
+            )
+            # the default table answers with its first blocking hook, which may be another hard gate of the event
+            # ahead of this one (check-dod-before-commit before completion-gate on a commit): the reason is then that
+            # gate's own direct answer on the same call
+            others = {name for name, event in hard_pairs if event == gate["event"] and name != script} & {
+                hook["command"].rsplit("/", 1)[-1] for group in everything.get(gate["event"], [])
+                for hook in group["hooks"]}
+            reasons = {direct[script]} if full[2] == direct[script] else {
+                direct[script], *(invoke(script, "claude", hook=other)[2] for other in sorted(others))}
+            check(
+                f"Claude dispatcher, the default table, gives a gate's direct reason unchanged: {script}",
+                full[2] in reasons,
+                f"dispatcher={full[2][-200:]!r} direct={direct[script][-200:]!r}",
             )
 
         # the other direction: ordinary calls of every event pass the default table without a deny or a block

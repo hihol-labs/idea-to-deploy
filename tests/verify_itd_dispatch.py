@@ -10,7 +10,9 @@ subprocess with the payload on stdin, the way the host runs it:
 - failure: a hard gate that crashes, exits 1, raises SystemExit with a message, is missing or overruns its budget
   denies a tool call and blocks a SubagentStop; an advisory hook in the same states is silent; a missing or foreign
   table, a broken payload and an unloadable itd_dispatch module fail closed on PreToolUse and SubagentStop (never
-  when the subagent already continues because of a stop hook) and stay silent elsewhere;
+  when the subagent already continues because of a stop hook) and stay silent elsewhere; a row naming a (script,
+  event) pair outside the canonical registration makes the table unusable (the case copies of the dispatcher also
+  route the fixture hooks; the shipped one does not);
 - isolation: every hook reads the whole payload on its own stdin, runs as __main__ with its own __file__, and its
   output is not mixed with another's, even when a slow hook writes while the next one runs;
 - bytecode: checked-hash bytecode of exactly the source on disk is used, stale bytecode is ignored, and a run
@@ -68,11 +70,23 @@ with open(os.path.join(os.environ["ITD_TEST_LOG"], "{name}"), "w", encoding="utf
 '''
 
 
-def make_hooks(base: Path, hooks: dict[str, str]) -> Path:
+# The fixture hooks stand in for the registered ones: a case copy of the dispatcher routes them under every event.
+# The shipped ROUTABLE is held equal to the canonical registration below, and an unmodified copy refuses a fixture
+# name and a registered hook under a foreign event (review a6).
+FIXTURE_NAMES = ("a.sh", "b.sh", "bad.sh", "c.sh", "d.sh", "deny.sh", "fast.sh", "gone.sh", "noisy.sh", "ok.sh",
+                 "slow.sh")
+FIXTURE_ROUTES = ({(name, event) for name in FIXTURE_NAMES
+                   for event in ("PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SubagentStop")})
+
+
+def make_hooks(base: Path, hooks: dict[str, str], routes: bool = True) -> Path:
     directory = base / "hooks"
     directory.mkdir(parents=True)
     shutil.copy2(ENTRY, directory / ENTRY.name)
     shutil.copy2(MODULE, directory / MODULE.name)
+    if routes:
+        with (directory / MODULE.name).open("a", encoding="utf-8") as module:
+            module.write(f"\nROUTABLE = ROUTABLE | set({sorted(FIXTURE_ROUTES)!r})\n")
     for name, body in hooks.items():
         (directory / name).write_text(HOOK.format(name=name, body=body), encoding="utf-8")
     return directory
@@ -132,9 +146,10 @@ def main() -> int:
         counter = iter(range(1000))
 
         def case(hooks: dict[str, str], entries: dict[str, list[dict]], payload: object,
-                 kind: str = dispatch.TABLE_KIND, table: bool = True) -> tuple[subprocess.CompletedProcess, Path]:
+                 kind: str = dispatch.TABLE_KIND, table: bool = True,
+                 routes: bool = True) -> tuple[subprocess.CompletedProcess, Path]:
             root = base / f"c{next(counter)}"
-            directory = make_hooks(root, hooks)
+            directory = make_hooks(root, hooks, routes)
             if table:
                 write_table(directory, entries, kind)
             log = root / "log"
@@ -235,6 +250,7 @@ def main() -> int:
         write_table(directory, {"PreToolUse": [entry("slow.sh", hard=True, timeout=1)]})
         (root / "log").mkdir()
         saved, dispatch.HARD_GATE_MIN_BUDGET_SECONDS = dispatch.HARD_GATE_MIN_BUDGET_SECONDS, 0.5
+        shipped, dispatch.ROUTABLE = dispatch.ROUTABLE, dispatch.ROUTABLE | FIXTURE_ROUTES
         os.environ["ITD_TEST_LOG"] = str(root / "log")
         real_streams = sys.stdin, sys.stdout, sys.stderr
         try:
@@ -246,6 +262,7 @@ def main() -> int:
         finally:
             sys.stdin, sys.stdout, sys.stderr = real_streams
             dispatch.HARD_GATE_MIN_BUDGET_SECONDS = saved
+            dispatch.ROUTABLE = shipped
         check("failure: a hard gate that overruns its budget denies when the budget ends",
               code == 2 and decision(out) == "deny" and b"overran" in out and abandoned and elapsed < 15,
               f"{code} {out[-200:]!r} {abandoned} {elapsed:.1f}s")
@@ -279,6 +296,29 @@ def main() -> int:
             proc, log = case({"a.sh": ""}, {"PreToolUse": [row]}, pre())
             check(f"table row with {label}: the table is unusable and a tool call is denied",
                   proc.returncode == 2 and decision(proc.stdout) == "deny" and not ran(log), repr(proc.stdout[-200:]))
+        # review a6: the shipped dispatcher runs only the (script, event) pairs the canonical registration routes
+        proc, log = case({"careful.sh": CONTEXT.format("registered")}, {"PreToolUse": [entry("careful.sh", "Bash")]},
+                         pre(), routes=False)
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext")
+        check("table row of a registered hook: the shipped dispatcher runs it",
+              proc.returncode == 0 and context == "registered" and ran(log) == {"careful.sh"}, repr(proc.stdout))
+        unrouted = {"a hook file the registration does not name": ({"a.sh": ""}, "PreToolUse", "a.sh", pre()),
+                    "a registered hook under a foreign event": ({"graph-route.sh": ""}, "PreToolUse", "graph-route.sh",
+                                                                pre()),
+                    "a registered SubagentStop gate under PreToolUse": ({"verdict-contract.sh": ""}, "PreToolUse",
+                                                                        "verdict-contract.sh", pre()),
+                    "a hook file the registration does not name, on SubagentStop": (
+                        {"a.sh": ""}, "SubagentStop", "a.sh", {"hook_event_name": "SubagentStop", "session_id": "t"})}
+        for label, (hooks, event, script, payload) in unrouted.items():
+            proc, log = case(hooks, {event: [entry(script)]}, payload, routes=False)
+            expected = "block" if event == "SubagentStop" else "deny"
+            check(f"table row naming {label}: the table is unusable, nothing runs, the event fails closed",
+                  proc.returncode == 2 and decision(proc.stdout) == expected and b"malformed" in proc.stdout
+                  and not ran(log), repr(proc.stdout[-200:]))
+        proc, log = case({"a.sh": ""}, {"PostToolUse": [entry("a.sh")]},
+                         {"hook_event_name": "PostToolUse", "tool_name": "Bash"}, routes=False)
+        check("table row naming an unrouted hook on PostToolUse: nothing runs, the advisory event stays silent",
+              proc.returncode == 0 and not proc.stdout and not ran(log), repr(proc.stdout[-200:]))
         # review a3: JSON admits Infinity and NaN; such a timeout is a malformed row, not a dispatcher crash
         for label, literal in (("Infinity", "Infinity"), ("NaN", "NaN")):
             proc, log = case({"a.sh": ""}, {}, pre(), table=False)
@@ -500,6 +540,26 @@ def main() -> int:
             context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
             check("bytecode: the guard holds when the install is reached through another spelling of its path",
                   proc.returncode == 0 and context == "from source v2\nhelper", repr(context))
+        # review a6: the installer compares the whole .pyc, so a valid header in front of another code object is
+        # reported by --check and replaced by the next install, never inventoried as the install's bytecode
+        drift = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install), "--check"],
+                               capture_output=True, text=True)
+        check("bytecode: --check reports a .pyc with a valid header and a code object that is not its source's",
+              drift.returncode == 1 and "stale or missing bytecode: hooks/a.sh" in drift.stdout
+              and "stale or missing bytecode: hooks/helper.py" in drift.stdout, drift.stdout)
+        fixed = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        dispatch.trust_bytecode(install)
+        proc = run(directory, pre(), install / "log")
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        check("bytecode: the next install replaces it with its source's bytecode, which the dispatcher then loads",
+              fixed.returncode == 0 and "2 compiled" in fixed.stdout
+              and dispatch.cached_code(directory / "a.sh", (directory / "a.sh").read_bytes()) is not None
+              and context == "from source v2\nhelper", fixed.stdout + fixed.stderr + repr(context))
+        reference = base / "reference.pyc"
+        py_compile.compile(str(directory / "a.sh"), cfile=str(reference), doraise=True,
+                           invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
+        check("bytecode: the installer writes the bytes py_compile writes for the source",
+              reference.read_bytes() == pyc.read_bytes())
         spec_b = importlib.util.spec_from_file_location("itd_hook_bytecode_under_test", BYTECODE)
         installer = importlib.util.module_from_spec(spec_b)
         spec_b.loader.exec_module(installer)
@@ -525,6 +585,9 @@ def main() -> int:
     routed = {(event, row["script"]) for event, rows in table["hooks"].items() for row in rows}
     check("routing(): every hook of the canonical registration is in the table", routed == canonical,
           str(canonical ^ routed))
+    check("routing(): the dispatcher routes exactly the (script, event) pairs of the canonical registration",
+          dispatch.ROUTABLE == {(script, event) for event, script in canonical},
+          str(dispatch.ROUTABLE ^ {(script, event) for event, script in canonical}))
     commands = [hook["command"] for groups in registration.values() for group in groups for hook in group["hooks"]]
     check("routing(): one dispatcher command per event", set(registration) == set(desired)
           and commands == [dispatch.DISPATCHER_COMMAND] * len(desired), str(commands))

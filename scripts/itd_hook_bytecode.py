@@ -6,8 +6,9 @@ python.exe) after it has copied skills/ and hooks/. Every Python hook script and
 compiled into checked-hash bytecode at its standard __pycache__ place, any other .pyc there is removed, and the
 inventory itd-bytecode.json is written into the install root. Checked-hash bytecode carries the hash of its source,
 so the interpreter and hooks/claude-dispatch.py use it only for exactly that source and compile in memory otherwise;
-nothing writes .pyc at run time (the rule of 1.109.1). A file that is already valid is not rewritten, so a repeated
-sync changes nothing.
+nothing writes .pyc at run time (the rule of 1.109.1). A .pyc is current only when it is byte for byte the bytecode
+this interpreter compiles from its source, header and code object alike (review a6: a valid header in front of another
+code object is replaced, never inventoried); a current file is not rewritten, so a repeated sync changes nothing.
 
 Usage: python -B itd_hook_bytecode.py <install root, e.g. ~/.claude> [--check]
   --check writes nothing: exit 0 when the bytecode and the inventory are current, 1 with the drift otherwise.
@@ -17,8 +18,8 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import marshal
 import os
-import py_compile
 import sys
 import tempfile
 from pathlib import Path
@@ -52,14 +53,18 @@ def sources(root: Path) -> list[Path]:
     return sorted(found)
 
 
-def valid_bytecode(pyc: Path, source: bytes) -> bool:
+def expected_bytecode(source: Path, data: bytes) -> bytes:
+    """The checked-hash .pyc of `data` as py_compile writes it for `source`: header, source hash, code object."""
+    code = compile(data, str(source), "exec", dont_inherit=True)
+    return (importlib.util.MAGIC_NUMBER + CHECKED_HASH_PYC.to_bytes(4, "little") + importlib.util.source_hash(data)
+            + marshal.dumps(code))
+
+
+def current_bytes(pyc: Path) -> bytes | None:
     try:
-        header = pyc.read_bytes()[:16]
+        return pyc.read_bytes()
     except OSError:
-        return False
-    return (len(header) == 16 and header[:4] == importlib.util.MAGIC_NUMBER
-            and int.from_bytes(header[4:8], "little") == CHECKED_HASH_PYC
-            and header[8:16] == importlib.util.source_hash(source))
+        return None
 
 
 def sha256(path: Path) -> str:
@@ -70,10 +75,18 @@ def relative(root: Path, path: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def plan(root: Path) -> tuple[list[tuple[Path, Path]], list[Path], list[Path]]:
-    """(source, bytecode) pairs, the pairs whose bytecode is missing or stale, and the .pyc files nobody owns."""
+def plan(root: Path) -> tuple[list[tuple[Path, Path]], dict[Path, bytes], list[Path]]:
+    """(source, bytecode) pairs, the bytecode due for each source whose .pyc is missing or differs, and the .pyc files
+    nobody owns. A source that does not compile raises ValueError."""
     pairs = [(source, Path(importlib.util.cache_from_source(str(source)))) for source in sources(root)]
-    stale = [source for source, pyc in pairs if not valid_bytecode(pyc, source.read_bytes())]
+    stale: dict[Path, bytes] = {}
+    for source, pyc in pairs:
+        try:
+            expected = expected_bytecode(source, source.read_bytes())
+        except (SyntaxError, ValueError) as exc:
+            raise ValueError(f"cannot compile {relative(root, source)}: {exc}") from exc
+        if current_bytes(pyc) != expected:
+            stale[source] = expected
     owned = {pyc for _, pyc in pairs}
     extra = sorted(path for relative_dir in MANAGED_DIRS
                    for path in (root / relative_dir / "__pycache__").glob("*.pyc") if path not in owned)
@@ -88,11 +101,11 @@ def inventory(root: Path, pairs: list[tuple[Path, Path]]) -> str:
     return json.dumps(document, ensure_ascii=False, indent=2) + "\n"
 
 
-def write_atomic(path: Path, text: str) -> None:
+def write_atomic(path: Path, data: bytes) -> None:
     descriptor, temporary = tempfile.mkstemp(prefix=".itd-bytecode-", dir=str(path.parent))
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(text)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
         os.replace(temporary, path)
     except BaseException:
         os.unlink(temporary)
@@ -107,7 +120,11 @@ def main(argv: list[str]) -> int:
     if not root.is_dir():
         print(f"ERROR install root not found: {root}", file=sys.stderr)
         return 2
-    pairs, stale, extra = plan(root)
+    try:
+        pairs, stale, extra = plan(root)
+    except ValueError as exc:
+        print(f"ERROR {exc}", file=sys.stderr)
+        return 1
     target = root / INVENTORY_FILE
     if check:
         drift = [f"stale or missing bytecode: {relative(root, source)}" for source in stale]
@@ -121,18 +138,15 @@ def main(argv: list[str]) -> int:
         if not drift:
             print(f"OK bytecode current: {len(pairs)} files ({sys.implementation.cache_tag})")
         return 1 if drift else 0
-    for source in stale:
-        try:
-            py_compile.compile(str(source), cfile=importlib.util.cache_from_source(str(source)), doraise=True,
-                               invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
-        except py_compile.PyCompileError as exc:
-            print(f"ERROR cannot compile {relative(root, source)}: {exc.msg}", file=sys.stderr)
-            return 1
+    for source, data in stale.items():
+        pyc = Path(importlib.util.cache_from_source(str(source)))
+        pyc.parent.mkdir(exist_ok=True)
+        write_atomic(pyc, data)
     for path in extra:
         path.unlink()
     text = inventory(root, pairs)
     if not target.is_file() or target.read_text(encoding="utf-8") != text:
-        write_atomic(target, text)
+        write_atomic(target, text.encode("utf-8"))
     print(f"OK bytecode: {len(pairs)} files, {len(stale)} compiled, {len(extra)} removed "
           f"({sys.implementation.cache_tag})")
     return 0

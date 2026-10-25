@@ -362,7 +362,8 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
         table = box.user_hooks / "claude-dispatch.json"
         table.write_text(json.dumps({"version": 1, "kind": "claude-dispatch-table-v1", "hooks": {
             "PreToolUse": [{"matcher": "Bash", "script": "careful.sh", "timeout": 5, "hardGate": False},
-                           {"matcher": "*", "script": "pii-egress-guard.sh", "timeout": 5, "hardGate": True}]}}),
+                           {"matcher": "*", "script": "pii-egress-guard.sh", "timeout": 5, "hardGate": True}],
+            "PostToolUse": [{"matcher": "*", "script": "risk-score.sh", "timeout": 5, "hardGate": False}]}}),
             encoding="utf-8")
         good_table = table.read_text(encoding="utf-8")
         for label, broken in (("routing table", None), ("unreadable routing table", "{not json"),
@@ -373,7 +374,12 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
                               # review a3: the dispatcher's own row schema, not just a string script
                               ("routing table with a row the dispatcher refuses", json.dumps({
                                   "version": 1, "kind": "claude-dispatch-table-v1",
-                                  "hooks": {"PreToolUse": [{"script": "careful.sh", "matcher": "Bash"}]}}))):
+                                  "hooks": {"PreToolUse": [{"script": "careful.sh", "matcher": "Bash"}]}})),
+                              # review a6: a hook under an event the dispatcher does not route it for
+                              ("routing table with a hook under a foreign event", json.dumps({
+                                  "version": 1, "kind": "claude-dispatch-table-v1",
+                                  "hooks": {"PostToolUse": [{"matcher": "Bash", "script": "careful.sh", "timeout": 5,
+                                                             "hardGate": False}]}}))):
             if broken is not None:
                 table.write_text(broken, encoding="utf-8")
             box.settings.unlink(missing_ok=True)
@@ -381,7 +387,7 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
             data = json.loads(box.settings.read_text(encoding="utf-8")) if box.settings.exists() else {}
             got = triples(data)
             rest = [] if broken is not None else [t for t in expected
-                                      if not t[2].endswith(("/careful.sh", "/pii-egress-guard.sh"))]
+                                      if not t[2].endswith(("/careful.sh", "/pii-egress-guard.sh", "/risk-score.sh"))]
             check(fails, r.returncode == 0 and sorted(got) == sorted(rest)
                   and (data.get("permissions") or {}).get("ask") == template_ask(),
                   f"user-level dispatcher ({label}): its hooks are not added at project level")

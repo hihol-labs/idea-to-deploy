@@ -839,6 +839,7 @@
       "tests/verify_hook_table_completeness.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_narration_final.py",
       "tests/verify_sync_manifest.py",
       "tests/verify_v147_fixes.py",
@@ -1039,7 +1040,8 @@
     ],
     "hooks/graph-route.sh": [
       "tests/verify_graph_study.py",
-      "tests/verify_hook_selection.py"
+      "tests/verify_hook_selection.py",
+      "tests/verify_itd_dispatch.py"
     ],
     "hooks/handoff-readiness.sh": [
       "tests/verify_hook_selection.py",
@@ -1161,6 +1163,7 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_table_completeness.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_retro_scan.py",
       "tests/verify_review_autoping.py",
       "tests/verify_verdict_contract.py"

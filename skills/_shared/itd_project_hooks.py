@@ -235,7 +235,7 @@ def dispatched_names(hooks_dir: Path, template_names: set[str]) -> set[str]:
     except (OSError, ValueError, ImportError, SyntaxError):
         return set(template_names)
     if not isinstance(hooks, dict) or not all(
-            isinstance(rows, list) and all(valid_entry(row) for row in rows) for rows in hooks.values()):
+            isinstance(rows, list) and all(valid_entry(row, event) for row in rows) for event, rows in hooks.items()):
         return set(template_names)  # not a table this dispatcher would run: it fails closed, so assume everything
     return {row["script"] for rows in hooks.values() for row in rows}
 

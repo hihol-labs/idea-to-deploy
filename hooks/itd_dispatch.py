@@ -55,9 +55,27 @@ HARD_GATES = frozenset({
     ("completion-gate.sh", "PreToolUse"), ("cost-tracker.sh", "PreToolUse"), ("pii-egress-guard.sh", "PreToolUse"),
     ("state-guard.sh", "PreToolUse"), ("narration-final.sh", "SubagentStop"), ("verdict-contract.sh", "SubagentStop"),
 })
+# The (script, event) pairs routing() can write: every hook of the canonical registration DESIRED_HOOKS of
+# scripts/sync-to-active.sh, the optional ones included (tests/verify_itd_dispatch.py keeps them equal). A row naming
+# another pair is malformed and makes the table unusable (review a6), so an edited table cannot run a hook file the
+# registration does not name, nor a registered hook under an event it is not registered for.
+ROUTABLE = frozenset({
+    ("careful.sh", "PreToolUse"), ("check-commit-completeness.sh", "PreToolUse"),
+    ("check-dod-before-commit.sh", "PreToolUse"), ("check-predeploy-gate.sh", "PreToolUse"),
+    ("check-skill-completeness.sh", "PreToolUse"), ("completion-gate.sh", "PreToolUse"),
+    ("context-budget.sh", "PreToolUse"), ("cost-tracker.sh", "PreToolUse"), ("cross-review-precommit.sh", "PreToolUse"),
+    ("execution-trace.sh", "PreToolUse"), ("freeze.sh", "PreToolUse"), ("model-policy.sh", "PreToolUse"),
+    ("pii-egress-guard.sh", "PreToolUse"), ("state-guard.sh", "PreToolUse"), ("wip-gate.sh", "PreToolUse"),
+    ("completion-signals.sh", "PostToolUse"), ("cost-tracker.sh", "PostToolUse"), ("crash-recovery.sh", "PostToolUse"),
+    ("execution-trace.sh", "PostToolUse"), ("record-agent-skill.sh", "PostToolUse"), ("risk-score.sh", "PostToolUse"),
+    ("state-guard.sh", "PostToolUse"), ("stuck-detection.sh", "PostToolUse"),
+    ("context-aware.sh", "UserPromptSubmit"), ("graph-route.sh", "UserPromptSubmit"),
+    ("pre-flight-check.sh", "UserPromptSubmit"), ("session-open-diagnostic.sh", "UserPromptSubmit"),
+    ("completion-stop.sh", "Stop"), ("crash-recovery.sh", "Stop"), ("handoff-readiness.sh", "Stop"),
+    ("crash-recovery.sh", "SubagentStop"), ("narration-final.sh", "SubagentStop"),
+    ("verdict-contract.sh", "SubagentStop"),
+})
 CHECKED_HASH_PYC = 0b11
-# A script name exactly as routing() writes it: the base name of a hook file in the hooks directory (review a5).
-SCRIPT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\.sh")
 INVENTORY_FILE = "itd-bytecode.json"  # scripts/itd_hook_bytecode.py writes it into the install root
 INVENTORY_KIND = "itd-hook-bytecode-v1"
 
@@ -219,13 +237,14 @@ def matches(matcher: str, tool: str) -> bool:
         return matcher == tool
 
 
-def valid_entry(entry: object) -> bool:
-    """A table row exactly as routing() writes it: string matcher and script, a positive timeout, a boolean flag."""
+def valid_entry(entry: object, event: str) -> bool:
+    """A row of `event` exactly as routing() writes it: a string matcher, a script routable under the event, a
+    positive timeout, a boolean flag."""
     if not isinstance(entry, dict) or set(entry) != {"matcher", "script", "timeout", "hardGate"}:
         return False
     timeout = entry["timeout"]
     return (isinstance(entry["matcher"], str) and isinstance(entry["script"], str)
-            and SCRIPT_NAME_RE.fullmatch(entry["script"]) is not None
+            and (entry["script"], event) in ROUTABLE
             and isinstance(timeout, (int, float)) and not isinstance(timeout, bool)
             and math.isfinite(timeout) and timeout > 0  # JSON admits Infinity and NaN; a thread join does not
             and isinstance(entry["hardGate"], bool))
@@ -240,7 +259,7 @@ def selected(table: dict, event: str, tool: str) -> list[dict]:
         raise ValueError(f"table entries of {event} are not a list")
     chosen: dict[str, dict] = {}
     for entry in entries:
-        if not valid_entry(entry):
+        if not valid_entry(entry, event):
             raise ValueError(f"table entry of {event} is malformed: {entry!r:.200}")
         if matches(entry["matcher"], tool):
             hard = entry["hardGate"] or (entry["script"], event) in HARD_GATES
