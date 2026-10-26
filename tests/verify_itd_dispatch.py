@@ -452,6 +452,40 @@ def main() -> int:
         check("a dispatcher whose main() raises: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
               repr(proc.stdout))
 
+        # review a8: the entry point's fallback holds when stdin or the output is unusable; the exit status carries
+        # the decision (before, a failed write or late flush exited 1 or 120, a non-blocking error)
+        def broken_output(stream: str, payload: object) -> tuple[int, bytes]:
+            env = dict(os.environ, ITD_TEST_LOG=str(root / "log"))
+            proc = subprocess.Popen([sys.executable, str(directory / ENTRY.name)], stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, cwd=str(root))
+            getattr(proc, stream).close()  # before the child writes: its write finds no reader
+            try:
+                proc.stdin.write(json.dumps(payload).encode("utf-8"))
+                proc.stdin.close()
+            except OSError:
+                pass
+            other = (proc.stderr if stream == "stdout" else proc.stdout).read()
+            return proc.wait(timeout=60), other
+
+        for label in ("whose main() raises", "that is not loadable"):
+            if label == "that is not loadable":
+                (directory / MODULE.name).unlink()
+            code, _ = broken_output("stdout", pre())
+            check(f"a dispatcher {label}, stdout unusable: a tool call still fails closed by its exit status",
+                  code == 2, str(code))
+            code, _ = broken_output("stdout", stop)
+            check(f"a dispatcher {label}, stdout unusable: a SubagentStop is still blocked by its exit status",
+                  code == 2, str(code))
+            code, _ = broken_output("stderr", {"hook_event_name": "Stop"})
+            check(f"a dispatcher {label}, stderr unusable: a Stop stays a pass", code == 0, str(code))
+        gone = root / "stdin_gone.py"
+        gone.write_text("import runpy, sys\nsys.stdin = None\nsys.argv = sys.argv[1:]\n"
+                        "runpy.run_path(sys.argv[0], run_name='__main__')\n", encoding="utf-8")
+        proc = subprocess.run([sys.executable, str(gone), str(directory / ENTRY.name)], capture_output=True,
+                              timeout=60, cwd=str(root))
+        check("an unloadable dispatcher without stdin: the event is taken for a tool call and denied",
+              proc.returncode == 2 and decision(proc.stdout) == "deny", f"{proc.returncode} {proc.stdout[-200:]!r}")
+
         # review a7: reading the payload and writing the answer fail closed too; the exit status carries the decision
         # when no answer can be written
         root = base / "main-faults"

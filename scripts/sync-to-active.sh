@@ -700,6 +700,17 @@ if [ "$ITD_TARGET_OS" = "windows" ]; then
     esac
   fi
   [ -z "$WIN_PY" ] && { WIN_PY="python"; warn "ITD_WIN_PYTHON unset and python not found — using bare 'python'"; }
+  # Review a8: whatever its source - ITD_WIN_PYTHON, the existing registration or PATH - this interpreter runs every
+  # hook, the hard gates included, and a command that cannot start is a non-blocking error for the host. One that does
+  # not run here stops the sync before anything is registered (a Python upgrade removes the harvested path).
+  _win_py_run="$WIN_PY"
+  case "$WIN_PY" in
+    [A-Za-z]:/*) command -v wslpath >/dev/null 2>&1 && _win_py_run="$(wslpath -u "$WIN_PY")" ;;
+  esac
+  if ! "$_win_py_run" -c "pass" >/dev/null 2>&1; then
+    err "Windows interpreter $WIN_PY does not run: registered, it would leave every hook unrun, the hard gates included. Set ITD_WIN_PYTHON to a working python.exe and re-run."
+    exit 1
+  fi
   EFFECTIVE_HOOKS="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_WIN_PY="$WIN_PY" ITD_ACTIVE="$ACTIVE" "$PYBIN" - <<'PYX'
 import json, os, re
 def to_win(p):
