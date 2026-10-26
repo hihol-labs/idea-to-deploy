@@ -38,4 +38,7 @@ if __name__ == "__main__":
         from itd_dispatch import main  # the hooks directory is sys.path[0] of this script
     except BaseException as exc:  # noqa: BLE001 - SystemExit at import too: an unloadable dispatcher must not let a
         sys.exit(fail_closed(f"itd_dispatch is not loadable: {type(exc).__name__}: {exc}"))  # hard gate fail open
-    sys.exit(main())
+    try:
+        main()  # answers and leaves through os._exit; it fails closed on its own errors (review a7)
+    except BaseException as exc:  # noqa: BLE001 - a main() that raises anyway must not exit 1, a non-blocking error
+        sys.exit(fail_closed(f"itd_dispatch.main raised: {type(exc).__name__}: {exc}"))

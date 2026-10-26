@@ -15,8 +15,9 @@ source on disk, otherwise they are compiled in memory.
 
 Failure: a hook that crashes, exits with a code other than 0 or 2, or overruns its budget denies the call (blocks a
 SubagentStop) when it is a hard gate (docs/HARNESS_TRUST_POLICY.json) and is dropped silently when it is advisory. An
-unreadable table or payload, or a crash of the dispatcher itself, denies a tool call and blocks a SubagentStop, since
-the hard gates of the event cannot be told apart then.
+unreadable table or payload, or a crash of the dispatcher itself - reading the payload and writing the answer included
+- denies a tool call and blocks a SubagentStop, since the hard gates of the event cannot be told apart then; the exit
+status carries that decision even when no answer can be written.
 """
 from __future__ import annotations
 
@@ -525,15 +526,29 @@ def respond(raw: bytes, hooks_dir: Path) -> tuple[bytes, bytes, int]:
 
 
 def main() -> int:
-    real = {name: getattr(sys, name) for name in ("stdin", "stdout", "stderr")}
-    raw = real["stdin"].buffer.read()
-    for name, stream in real.items():
-        setattr(sys, name, _ThreadStream(name, stream))
-    saved, isolated = silence_descriptors()
-    stdout, stderr, code = isolated_answer(raw, Path(__file__).resolve().parent, isolated)
-    if stderr and not stderr.endswith(b"\n"):
-        stderr += b"\n"
-    emit(saved, stdout, stderr)
+    raw, saved, code = b"", [], 2
+    try:
+        real = {name: getattr(sys, name) for name in ("stdin", "stdout", "stderr")}
+        raw = real["stdin"].buffer.read()
+        for name, stream in real.items():
+            setattr(sys, name, _ThreadStream(name, stream))
+        saved, isolated = silence_descriptors()
+        stdout, stderr, code = isolated_answer(raw, Path(__file__).resolve().parent, isolated)
+        if stderr and not stderr.endswith(b"\n"):
+            stderr += b"\n"
+        emit(saved, stdout, stderr)
+    except BaseException as exc:  # noqa: BLE001 - review a7: reading the payload or writing the answer fails closed too
+        # An uncaught exception would exit 1, a non-blocking error for the host, so the call would pass every hard
+        # gate. The exit status carries the decision even when no answer can be written; an event that cannot be
+        # told is a tool call (status 2).
+        code = 2
+        try:
+            event, stop_hook_active = payload_flags(raw)
+            stdout, stderr, code = failure_answer(
+                event, f"dispatcher crashed while answering: {type(exc).__name__}: {exc}", stop_hook_active)
+            emit(saved, stdout, stderr + b"\n")
+        except BaseException:  # noqa: BLE001 - the exit status below still carries the decision
+            pass
     # Leave without the interpreter shutdown: tearing down the hundred-odd modules the hooks loaded costs about 20 ms
     # per call, and a hook that overran its budget may still run in its thread. The answer is written above; the
     # hooks register no exit handlers (no atexit, finalizers, temporary directories or logging).

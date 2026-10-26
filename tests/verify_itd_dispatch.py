@@ -9,8 +9,10 @@ subprocess with the payload on stdin, the way the host runs it:
   their reasons, context is concatenated, plain text is context on a prompt event and transcript-only elsewhere;
 - failure: a hard gate that crashes, exits 1, raises SystemExit with a message, is missing or overruns its budget
   denies a tool call and blocks a SubagentStop; an advisory hook in the same states is silent; a missing or foreign
-  table, a broken payload and an unloadable itd_dispatch module fail closed on PreToolUse and SubagentStop (never
-  when the subagent already continues because of a stop hook) and stay silent elsewhere; a row naming a (script,
+  table, a broken payload, an unloadable itd_dispatch module, a main() that raises and a dispatcher that cannot read
+  the payload or write its answer (the exit status then carries the decision) fail closed on PreToolUse and
+  SubagentStop (never when the subagent already continues because of a stop hook) and stay silent elsewhere; a row
+  naming a (script,
   event) pair outside the canonical registration makes the table unusable (the case copies of the dispatcher also
   route the fixture hooks; the shipped one does not);
 - isolation: every hook reads the whole payload on its own stdin, runs as __main__ with its own __file__, and its
@@ -132,6 +134,35 @@ ASK = ('print(json.dumps({{"hookSpecificOutput": {{"hookEventName": "PreToolUse"
        '"permissionDecisionReason": "{0}"}}}}))')
 DENY = ('print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", '
         '"permissionDecisionReason": "real deny"}})); print("deny detail", file=sys.stderr); sys.exit(2)')
+# Runs the dispatcher of a case directory (argv[1]) with one fault injected (argv[2]) after it loaded (review a7).
+FAULT = '''import sys
+sys.dont_write_bytecode = True
+sys.path.insert(0, sys.argv[1])
+import itd_dispatch
+
+
+def broken(*args):
+    raise BrokenPipeError("the host closed the pipe")
+
+
+mode, real_emit, calls = sys.argv[2], itd_dispatch.emit, []
+if mode == "emit-always":
+    itd_dispatch.emit = broken
+elif mode == "emit-once":
+    def emit_once(*args):
+        calls.append(1)
+        if len(calls) == 1:
+            broken()
+        real_emit(*args)
+    itd_dispatch.emit = emit_once
+elif mode == "stdin-gone":
+    sys.stdin = None
+elif mode == "interrupt":
+    def interrupt():
+        raise KeyboardInterrupt
+    itd_dispatch.silence_descriptors = interrupt
+itd_dispatch.main()
+'''
 FAILURES = {
     "crash": 'raise RuntimeError("boom")',
     "exit 1": "sys.exit(1)",
@@ -411,6 +442,57 @@ def main() -> int:
         check("a dispatcher module that raises SystemExit while it loads: the entry point denies a tool call",
               proc.returncode == 2 and decision(proc.stdout) == "deny" and b"SystemExit" in proc.stdout,
               repr(proc.stdout))
+        # review a7: a main() that raises anyway must not exit 1 (a non-blocking error for the host)
+        (directory / MODULE.name).write_text('def main():\n    raise RuntimeError("main broke")\n', encoding="utf-8")
+        proc = run(directory, pre(), root / "log")
+        check("a dispatcher whose main() raises: the entry point denies a tool call",
+              proc.returncode == 2 and decision(proc.stdout) == "deny" and b"main raised" in proc.stdout,
+              repr(proc.stdout))
+        proc = run(directory, {"hook_event_name": "Stop"}, root / "log")
+        check("a dispatcher whose main() raises: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
+              repr(proc.stdout))
+
+        # review a7: reading the payload and writing the answer fail closed too; the exit status carries the decision
+        # when no answer can be written
+        root = base / "main-faults"
+        directory = make_hooks(root, {"a.sh": CONTEXT.format("allowed")})
+        write_table(directory, {event: [entry("a.sh")] for event in
+                                ("PreToolUse", "PostToolUse", "Stop", "SubagentStop")})
+        (root / "log").mkdir()
+        fault = root / "fault.py"
+        fault.write_text(FAULT, encoding="utf-8")
+
+        def faulty(mode: str, payload: object) -> subprocess.CompletedProcess:
+            env = dict(os.environ, ITD_TEST_LOG=str(root / "log"))
+            return subprocess.run([sys.executable, str(fault), str(directory), mode],
+                                  input=json.dumps(payload).encode("utf-8"), capture_output=True, env=env,
+                                  timeout=60, cwd=str(root))
+
+        post = {"hook_event_name": "PostToolUse", "tool_name": "Bash"}
+        proc = faulty("emit-always", pre())
+        check("an answer that cannot be written: a tool call still fails closed by its exit status",
+              proc.returncode == 2 and not proc.stdout, f"{proc.returncode} {proc.stdout!r} {proc.stderr[-200:]!r}")
+        proc = faulty("emit-always", stop)
+        check("an answer that cannot be written: a SubagentStop is still blocked by its exit status",
+              proc.returncode == 2, f"{proc.returncode} {proc.stderr[-200:]!r}")
+        for label, payload in (("a PostToolUse", post), ("a SubagentStop that already continues",
+                                                         dict(stop, stop_hook_active=True))):
+            proc = faulty("emit-always", payload)
+            check(f"an answer that cannot be written: {label} stays a pass", proc.returncode == 0,
+                  f"{proc.returncode} {proc.stderr[-200:]!r}")
+        proc = faulty("emit-once", pre())
+        check("an answer whose first write fails: the failure answer denies the tool call",
+              proc.returncode == 2 and decision(proc.stdout) == "deny" and b"crashed while answering" in proc.stdout,
+              f"{proc.returncode} {proc.stdout[-200:]!r}")
+        proc = faulty("stdin-gone", pre())
+        check("a payload that cannot be read: the event is taken for a tool call and denied",
+              proc.returncode == 2 and decision(proc.stdout) == "deny", f"{proc.returncode} {proc.stdout[-200:]!r}")
+        proc = faulty("interrupt", stop)
+        check("an interrupt before the hooks run: a SubagentStop is blocked",
+              proc.returncode == 2 and decision(proc.stdout) == "block", f"{proc.returncode} {proc.stdout[-200:]!r}")
+        proc = faulty("interrupt", {"hook_event_name": "Stop"})
+        check("an interrupt before the hooks run: a Stop stays silent", proc.returncode == 0 and not proc.stdout,
+              f"{proc.returncode} {proc.stdout[-200:]!r}")
 
         # --- a child process of a hook that does not capture its output -------------------------------------
         noisy = ('import subprocess\n'
