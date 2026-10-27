@@ -53,7 +53,15 @@ def load_shared_sanitizer():
     return None
 
 
-SHARED_SANITIZER = load_shared_sanitizer()
+_SANITIZER: list = []
+
+
+def shared_sanitizer():
+    """The sanitizer, loaded on first use (plan session 6): a Bash call that is not a commit never needs it."""
+    if not _SANITIZER:
+        _SANITIZER.append(load_shared_sanitizer())
+    return _SANITIZER[0]
+
 
 REVIEW_PROMPT_HEAD = (
     "You are an INDEPENDENT second-opinion reviewer. The following diff was "
@@ -74,9 +82,10 @@ def git(args: list) -> str:
 
 
 def scrub(text: str) -> str:
-    if SHARED_SANITIZER is None:
+    sanitizer = shared_sanitizer()
+    if sanitizer is None:
         return ""
-    return SHARED_SANITIZER.scrub(text)[0]
+    return sanitizer.scrub(text)[0]
 
 
 def write_notes_header(notes: str, root: str) -> None:

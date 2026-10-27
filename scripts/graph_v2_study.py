@@ -11,6 +11,8 @@ STUDY=CONTEXT["study"]
 PROTO=CONTEXT["protocol"]
 RUNS=CONTEXT["runs"]
 NAMESPACE=CONTEXT["namespace"]
+# End of the owner's authorization window of the study; a module constant so the tests do not depend on the calendar.
+POLICY_EXPIRES_AT="2026-10-25T00:00:00+00:00"
 def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def read(p): return json.loads(Path(p).read_text(encoding="utf-8"))
 def write(p,v):
@@ -177,7 +179,7 @@ def prepare(label):
  tid,order,arm=label.split("-")[:3];t=next(x for x in read(STUDY/"public/catalog.json")["tasks"] if x["id"]==tid)
  subprocess.run(["git","clone","--quiet","--no-hardlinks",t["basePath"],str(clone)],check=True)
  if subprocess.check_output(["git","-C",str(clone),"rev-parse","HEAD"],text=True).strip()!=t["baseHead"]: raise ValueError("base mismatch")
- policy={"version":1,"enabled":True,"project":str(clone),"template":"contract-boundary-check","templateSha256":pol.fingerprint(),"allowedModules":[t["module"]],"sensitivePaths":t["changedFiles"] if t["sensitive"] else [],"boundaries":t["boundaries"],"maxRuns":4,"maxAgentNodes":3,"maxSeconds":1800,"expiresAt":"2026-10-25T00:00:00+00:00"}
+ policy={"version":1,"enabled":True,"project":str(clone),"template":"contract-boundary-check","templateSha256":pol.fingerprint(),"allowedModules":[t["module"]],"sensitivePaths":t["changedFiles"] if t["sensitive"] else [],"boundaries":t["boundaries"],"maxRuns":4,"maxAgentNodes":3,"maxSeconds":1800,"expiresAt":POLICY_EXPIRES_AT}
  authorization={"version":1,"policySha256":pol.policy_digest(policy),"by":"owner:continued-Codex-only-study","at":datetime.now(timezone.utc).isoformat()}
  request={"version":1,"unitId":label,"module":t["module"],"task":t["task"],"functions":t["functions"],"contracts":t["contracts"],"changedFiles":t["changedFiles"]}
  write(clone/".itd/GRAPH_POLICY.json",policy);write(clone/".itd/GRAPH_AUTHORIZATION.json",authorization);write(clone/".itd-memory/graph-request.json",request)

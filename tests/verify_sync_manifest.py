@@ -33,7 +33,7 @@ def run_sync(active: Path, *, apply: bool = False) -> str:
     environment = dict(os.environ)
     environment["CLAUDE_HOME"] = str(active)
     completed = subprocess.run(
-        ["bash", str(SYNC)] + ([] if apply else ["--check"]),
+        [os.environ.get("ITD_BASH", "bash"), SYNC.as_posix()] + ([] if apply else ["--check"]),
         cwd=str(ROOT), env=environment, capture_output=True, timeout=600,
     )
     if completed.returncode != 0:
@@ -116,9 +116,14 @@ def main() -> int:
         optout_install.mkdir()
 
         def registered(install: Path) -> list[str]:
+            """settings.json commands; the dispatcher (plan session 6) stands for the hooks of its routing table."""
             data = json.loads((install / "settings.json").read_text(encoding="utf-8"))
-            return [h.get("command", "") for groups in data.get("hooks", {}).values()
-                    for g in groups for h in g.get("hooks", [])]
+            commands = [h.get("command", "") for groups in data.get("hooks", {}).values()
+                        for g in groups for h in g.get("hooks", [])]
+            if any("/claude-dispatch.py" in c.replace("\\", "/") for c in commands):  # bare path or Windows wrapper
+                table = json.loads((install / "hooks" / "claude-dispatch.json").read_text(encoding="utf-8"))
+                commands += ["~/.claude/hooks/" + row["script"] for rows in table["hooks"].values() for row in rows]
+            return commands
 
         # an install synced BEFORE the opt-out file existed has the hooks registered...
         run_sync(optout_install, apply=True)
@@ -149,13 +154,59 @@ def main() -> int:
         check("hooks disabled by itd-disabled-hooks.txt: 2" in rerun,
               "the sync output does not count the distinct hooks the opt-out list disables")
 
+        # 4c. Review a8: on a Windows target the interpreter registered for every hook - the hard gates included -
+        #     must run, whatever its source (ITD_WIN_PYTHON or the existing registration); one that does not stops
+        #     the sync before anything is registered.
+        dead = "C:/itd-missing-python/python.exe"
+        registration = json.dumps({"hooks": {"PreToolUse": [{"hooks": [
+            {"type": "command", "command": f'"{dead}" "C:/x/.claude/hooks/claude-dispatch.py"'}]}]}})
+        for source, extra, settings in (("ITD_WIN_PYTHON", {"ITD_WIN_PYTHON": dead}, None),
+                                        ("the existing registration", {}, registration)):
+            install = fixture / ("dead-python-" + str(len(extra)))
+            install.mkdir()
+            if settings is not None:
+                (install / "settings.json").write_text(settings, encoding="utf-8")
+            environment = dict(os.environ, CLAUDE_HOME=str(install), ITD_TARGET_OS="windows", **extra)
+            if not extra:
+                environment.pop("ITD_WIN_PYTHON", None)
+            completed = subprocess.run([os.environ.get("ITD_BASH", "bash"), SYNC.as_posix()], cwd=str(ROOT),
+                                       env=environment, capture_output=True, timeout=600)
+            output = (completed.stdout + completed.stderr).decode("utf-8", "replace")
+            check(completed.returncode != 0 and f"Windows interpreter {dead} does not run" in output,
+                  f"a Windows interpreter from {source} that does not run did not stop the sync: "
+                  f"{completed.returncode} {output[-300:]}")
+            # the registration: an existing one is left as it was, a fresh install registers no hook at all (step 5
+            # starts it as {"hooks": {}}); copied files and the routing table register nothing on their own
+            current = json.loads((install / "settings.json").read_text(encoding="utf-8"))
+            check(current == json.loads(settings) if settings is not None else not current.get("hooks"),
+                  f"a sync stopped by a dead interpreter from {source} still changed the registration: {current}")
+        # ...while an interpreter that runs passes (dry run): the test's own, and on WSL a Windows python.exe named
+        # C:/... and run through wslpath, when this machine has one
+        working = [Path(sys.executable).as_posix()]
+        if shutil.which("wslpath"):
+            found = sorted(Path("/mnt/c/Users").glob("*/AppData/Local/Programs/Python/Python3*/python.exe"))
+            if found:
+                working.append(subprocess.run(["wslpath", "-m", str(found[-1])], capture_output=True,
+                                              text=True).stdout.strip())
+        for interpreter in working:
+            install = fixture / ("live-python-" + str(len(interpreter)))
+            install.mkdir()
+            environment = dict(os.environ, CLAUDE_HOME=str(install), ITD_TARGET_OS="windows",
+                               ITD_WIN_PYTHON=interpreter)
+            completed = subprocess.run([os.environ.get("ITD_BASH", "bash"), SYNC.as_posix(), "--check"],
+                                       cwd=str(ROOT), env=environment, capture_output=True, timeout=600)
+            output = (completed.stdout + completed.stderr).decode("utf-8", "replace")
+            check(completed.returncode == 0 and "does not run" not in output,
+                  f"a Windows interpreter that runs ({interpreter}) was refused: "
+                  f"{completed.returncode} {output[-300:]}")
+
     # 5. The manifest stays on the verify-sync surface, so a future edit that
     #    drops it from the sync script fails loudly instead of silently.
     verify_source = VERIFY_SYNC.read_text(encoding="utf-8")
     check(".claude-plugin/plugin.json" in verify_source,
           "verify-sync-to-active.sh does not police the plugin manifest")
     completed = subprocess.run(
-        ["bash", str(VERIFY_SYNC)], cwd=str(ROOT),
+        [os.environ.get("ITD_BASH", "bash"), VERIFY_SYNC.as_posix()], cwd=str(ROOT),
         capture_output=True, timeout=120,
     )
     check(completed.returncode == 0,

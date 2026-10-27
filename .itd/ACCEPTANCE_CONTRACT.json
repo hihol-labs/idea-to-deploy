@@ -5282,8 +5282,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
       "reviewEvidence": {
         "claim": "Completion and efficacy behavior is covered by the full regression oracle, without rewriting historical signals or frozen efficacy observations.",
-        "impactClasses": ["correctness", "security", "repository-hygiene"],
-        "oracleIds": ["quick"]
+        "impactClasses": [
+          "correctness",
+          "security",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "quick"
+        ]
       }
     },
     {
@@ -5296,8 +5302,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "Current live evidence is genuine, fresh and reproducible from its retained archive.",
-        "impactClasses": ["correctness", "generated-artifact-freshness"],
-        "oracleIds": ["live"]
+        "impactClasses": [
+          "correctness",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "live"
+        ]
       }
     },
     {
@@ -5310,8 +5321,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_quick_regression.py",
       "reviewEvidence": {
         "claim": "The supported representation preserves every source byte and complete review coverage without weakening security or resource bounds.",
-        "impactClasses": ["correctness", "security", "bounded-output", "compatibility"],
-        "oracleIds": ["quick"]
+        "impactClasses": [
+          "correctness",
+          "security",
+          "bounded-output",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "quick"
+        ]
       }
     },
     {
@@ -5324,8 +5342,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
       "reviewEvidence": {
         "claim": "Release metadata, existing behavioral regressions, host adapter compatibility and runtime packaging pass the current exact-tree regression profile.",
-        "impactClasses": ["correctness", "host-parity", "repository-hygiene", "compatibility"],
-        "oracleIds": ["full"]
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full"
+        ]
       }
     },
     {
@@ -5338,11 +5363,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The release carries genuine, fresh, source-bound workflow evidence, with structural PASS distinguished from semantic approval of the generated specimen.",
-        "impactClasses": ["correctness", "generated-artifact-freshness"],
-        "oracleIds": ["live"]
+        "impactClasses": [
+          "correctness",
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "live"
+        ]
       }
-    }
-    ,
+    },
     {
       "id": "REL-1.109.1-AC1",
       "unitId": "REL-1.109.1",
@@ -5353,8 +5382,15 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_runtime_install.py",
       "reviewEvidence": {
         "claim": "Runtime startup suppression works at the real direct-launch boundary on both hosts without changing security decisions or accepting extra files.",
-        "impactClasses": ["correctness", "host-parity", "compatibility"],
-        "oracleIds": ["runtime-install", "native-focused"]
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "runtime-install",
+          "native-focused"
+        ]
       }
     },
     {
@@ -5367,8 +5403,16 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
       "reviewEvidence": {
         "claim": "The patch release is internally consistent, regression-tested and carries genuine source-bound workflow evidence without erasing historical findings.",
-        "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
-        "oracleIds": ["full", "live"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full",
+          "live"
+        ]
       }
     },
     {
@@ -5381,8 +5425,16 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_external_write_gate.py",
       "reviewEvidence": {
         "claim": "False denies of the external-write gate are removed; every approval the previous classifier required is kept except the narrowings and known limits listed in CHANGELOG 1.109.2.",
-        "impactClasses": ["correctness", "security", "host-parity", "compatibility"],
-        "oracleIds": ["gate", "pii-egress"]
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "gate",
+          "pii-egress"
+        ]
       }
     },
     {
@@ -5395,8 +5447,16 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py",
       "reviewEvidence": {
         "claim": "The patch metadata is internally consistent and keeps Gate 1 docs freshness green after 2026-10-30.",
-        "impactClasses": ["repository-hygiene", "generated-artifact-freshness", "compatibility"],
-        "oracleIds": ["docs-freshness", "release-mirrors", "impact-graph"]
+        "impactClasses": [
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "docs-freshness",
+          "release-mirrors",
+          "impact-graph"
+        ]
       }
     },
     {
@@ -5409,8 +5469,16 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The 1.109.2 candidate carries fresh live-model evidence bound to its methodology pin and passes the full regression on its exact tree.",
-        "impactClasses": ["correctness", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
-        "oracleIds": ["full", "live"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full",
+          "live"
+        ]
       }
     },
     {
@@ -5423,8 +5491,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/meta_review.py --verbose",
       "reviewEvidence": {
         "claim": "ADR-016 lifts ADR-012 item 5 only for the listed program, keeps GATE-OPTIN-1 and every other ADR, and defines a stop rule.",
-        "impactClasses": ["correctness", "repository-hygiene", "compatibility"],
-        "oracleIds": ["meta-review"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "meta-review"
+        ]
       }
     },
     {
@@ -5437,8 +5511,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_closure_delta.py",
       "reviewEvidence": {
         "claim": "The closure convention removes only the second model round on an unchanged tree and weakens no gate: any change outside the closure records is a new candidate with an ordinary review.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["closure-delta", "meta-review"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "closure-delta",
+          "meta-review"
+        ]
       }
     },
     {
@@ -5451,8 +5531,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py",
       "reviewEvidence": {
         "claim": "Every number of the baseline is backed by a named command or file and none is an estimate presented as a measurement.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["baseline-scripts"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "baseline-scripts"
+        ]
       }
     },
     {
@@ -5465,8 +5550,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
       "reviewEvidence": {
         "claim": "The REL-1.109.2 ledger record is consistent with its release, rollout and acceptance evidence and changes no shipped code.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["state", "docs-freshness"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state",
+          "docs-freshness"
+        ]
       }
     },
     {
@@ -5479,8 +5570,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_fable_snippets.py",
       "reviewEvidence": {
         "claim": "The managed block and the Codex router state one rule layer: the minimal route by default, the strict route where it is needed, and every always-mandatory rule of the owner's decision, without the removed ritual.",
-        "impactClasses": ["correctness", "compatibility"],
-        "oracleIds": ["templates"]
+        "impactClasses": [
+          "correctness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "templates"
+        ]
       }
     },
     {
@@ -5493,8 +5589,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py",
       "reviewEvidence": {
         "claim": "Both low findings of review a6 are fixed with tests and every number of the after-table is backed by its command and raw output.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["baseline-scripts"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "baseline-scripts"
+        ]
       }
     },
     {
@@ -5507,8 +5608,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
       "reviewEvidence": {
         "claim": "The ITD-PLAN-S2 record is consistent with its merge, tree and receipts, and the BACKLOG and DECISIONS entries match their sources.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["state"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state"
+        ]
       }
     },
     {
@@ -5521,8 +5627,12 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_global_routers.py --self-test && PATH=\"$PATH:/mnt/c/Windows/System32/WindowsPowerShell/v1.0:/mnt/c/Windows/System32\" sh skills/_shared/itd_py.sh tests/verify_global_routers.py --windows-home /mnt/c/Users/Дмитрий --personal-sha256 14d181cb4345838e0f5240029ba7c2bbf3f34f034e6f4ce7b4ea5ab09f0dfd3c",
       "reviewEvidence": {
         "claim": "Both hosts run one consistent rule layer for Claude and for Codex after the sync.",
-        "impactClasses": ["compatibility"],
-        "oracleIds": ["routers"]
+        "impactClasses": [
+          "compatibility"
+        ],
+        "oracleIds": [
+          "routers"
+        ]
       }
     },
     {
@@ -5535,8 +5645,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_sync_manifest.py && sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && sh skills/_shared/itd_py.sh tests/verify_registration_and_counts.py && sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py && sh skills/_shared/itd_py.sh tests/verify_graduated_trust.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
       "reviewEvidence": {
         "claim": "A new user and the owner get the same hooks; diagnostics are off unless enabled; the sync never deletes a user's hook and is idempotent.",
-        "impactClasses": ["correctness", "security", "compatibility"],
-        "oracleIds": ["selection"]
+        "impactClasses": [
+          "correctness",
+          "security",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "selection"
+        ]
       }
     },
     {
@@ -5549,8 +5665,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
       "reviewEvidence": {
         "claim": "Codex and Claude Code run the same hooks from one pair of lists, so a disabled entry never runs on Codex regardless of its position in hooks.state.",
-        "impactClasses": ["correctness", "host-parity", "compatibility"],
-        "oracleIds": ["selection"]
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "selection"
+        ]
       }
     },
     {
@@ -5563,8 +5685,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_hook_trust.py",
       "reviewEvidence": {
         "claim": "After an install the owner sees which Codex entries do not run, instead of a silently skipped core group.",
-        "impactClasses": ["correctness", "host-parity"],
-        "oracleIds": ["codex-trust"]
+        "impactClasses": [
+          "correctness",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "codex-trust"
+        ]
       }
     },
     {
@@ -5577,8 +5704,14 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py && sh skills/_shared/itd_py.sh tests/verify_global_routers.py --self-test",
       "reviewEvidence": {
         "claim": "Every accepted a4 trade-off is now fixed and a regression fails a test.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["baseline-scripts", "routers"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "baseline-scripts",
+          "routers"
+        ]
       }
     },
     {
@@ -5591,8 +5724,13 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
       "reviewEvidence": {
         "claim": "The ITD-PLAN-S4 record is consistent with its merge, tree and receipts.",
-        "impactClasses": ["correctness", "repository-hygiene"],
-        "oracleIds": ["state"]
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state"
+        ]
       }
     },
     {
@@ -5605,8 +5743,127 @@
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
       "reviewEvidence": {
         "claim": "The benchmark evidence is bound to the candidate tree.",
-        "impactClasses": ["generated-artifact-freshness"],
-        "oracleIds": ["benchmark"]
+        "impactClasses": [
+          "generated-artifact-freshness"
+        ],
+        "oracleIds": [
+          "benchmark"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC1",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "hooks/claude-dispatch.py with hooks/itd_dispatch.py runs, per hook event, only the hooks of the routing table whose matcher matches the whole tool name (one run per script), each as __main__ in its own thread with its own stdin, stdout and stderr; the first blocking answer (exit 2, deny or block) passes through byte for byte, asks are joined with their reasons and context is concatenated; a hard gate that crashes, exits with another code, raises SystemExit with a message, is missing, lies outside the hooks directory or overruns its budget denies a tool call and blocks a SubagentStop, an advisory hook in the same state is silent; an unusable table, payload or dispatcher module (any BaseException while it loads or runs), and a table row that routing() would not write (its script the base name of a hook file), fail closed on PreToolUse and SubagentStop (never when stop_hook_active, a crash of the dispatcher itself included) and stay silent elsewhere; a hard gate of the trust policy stays hard whatever the hardGate flag of its row says; a child process of a hook cannot reach the answer; checked-hash bytecode of exactly the source on disk is used, stale or timestamp bytecode never, and a run writes no .pyc. Under the install a .pyc is used only when its SHA-256 equals the bytecodeSha256 of itd-bytecode.json (the hook scripts and every module they import or load by path); output descriptors that cannot be isolated make the event fail closed.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_itd_dispatch.py exits 0 after the review sol a9 answer: 116 passed on WSL, 115 on Windows in the Windows acceptance of the a9 answer content on the fresh tree copy C:/itd-src/s6-a9 (native Python 3.12, Git Bash through ITD_BASH and WSLENV; every changed file byte-identical to the committed answer except this contract text); the a9 answer checks the whole table on every call (top-level keys, kind, version 1, every row of every event) and loads the dispatcher module itself from its .pyc only when the inventory records it; 106 on WSL and 105 on Windows after the a8 answer, which makes the entry point's fallback hold when stdin or the output is unusable (status 2 by default, the answer flushed, the exit through os._exit); 99 on WSL and 98 on Windows after the a7 answer (a dispatcher that cannot read the payload or write its answer, or whose main() raises, fails closed by its exit status); 89 on WSL and 88 on Windows after the a6 answer (a row naming a (script, event) pair outside the canonical registration makes the table unusable; a .pyc is current only when it is byte for byte its source's bytecode); 79 on WSL after the a5 answer (a script name that is not the base name of a hook file makes the table unusable; the entry point blocks a SubagentStop and spares one that already continues), 74 after a4 (SystemExit and KeyboardInterrupt at load and in the dispatcher fail closed, the answer goes through the saved original descriptors), 70 after a3, 68 after a2; on Windows 67 after a2, 69 after a3 (native Python 3.12, the fresh tree copy C:/itd-src/s6-final; the case of an install reached through a link is POSIX-only), after the answers to reviews sol a1 and a2 (malformed rows, built-in hard gates, a dispatcher crash with stop_hook_active, a tampered hook or imported-module .pyc, descriptors that cannot be isolated, proven overlap of a slow hook). The Windows run found that the first bytecode guard compared an 8.3 short temp path with the long install path and let a tampered module through; paths are compared after realpath. Mutants: eleven of the dispatcher and two of the installer before review, of the review answers a1 5, a2 5, a3 2, a4 3, a5 3, a6 6, a7 5, a8 8 and a9 7 - every one failed its suite. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_itd_dispatch.py",
+      "reviewEvidence": {
+        "claim": "The dispatcher keeps every hook decision and fails closed for hard gates.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "dispatch"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC2",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "A sync registers hooks/claude-dispatch.py once per event (UserPromptSubmit, PreToolUse, PostToolUse, Stop, SubagentStop) under the union of the matchers with a timeout above the longest budget, writes the selected hooks with the hard-gate flags of docs/HARNESS_TRUST_POLICY.json into hooks/claude-dispatch.json, compiles the checked-hash bytecode of the hooks and the modules they load with the interpreter of the hooks and lists it in itd-bytecode.json (a .pyc without a source removed); a Bash call starts two ITD hook processes; a repeated sync changes nothing; a user's own hooks stay; the two hook lists still select the hooks; /adopt counts a user-level dispatcher as the registration of its table's hooks (all of them when the table is unreadable, of another kind or has a row the dispatcher's own schema refuses); the hook inventory (31 hook files, 12 hard gates) is unchanged.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "WSL after the review sol a9 answer: tests/verify_hook_selection.py 47 passed, verify_sync_manifest PASSED (23 checks; a8: a Windows interpreter from ITD_WIN_PYTHON or from the existing registration that does not run stops the sync before anything is registered, one that runs passes - also a Windows python.exe named C:/... through wslpath), verify_hooks_autoinstall 162 passed (a9: a table of another version or with a malformed row of another event; a3: a row the dispatcher refuses; a6: a hook under an event it is not routed for), verify_registration_and_counts 9 passed. Windows in the Windows acceptance of the a9 answer content on the fresh tree copy C:/itd-src/s6-a9 (native Python 3.12, Git Bash through ITD_BASH and WSLENV; every changed file byte-identical to the committed answer except this contract text): verify_hook_selection 46 passed, verify_sync_manifest PASSED (22 checks; the wslpath case is WSL-only), verify_hooks_autoinstall 141 passed, verify_registration_and_counts 9 passed. Windows (Git Bash sync, native Python): verify_hook_selection 46 passed (with the check that the registered interpreter runs), verify_sync_manifest PASSED, verify_hooks_autoinstall 137 passed, verify_registration_and_counts 9 passed - after the a2 answer fixed the test environment (USERPROFILE with HOME, ITD_BASH for the sync). Mutants: sync keeping the per-hook registration, dropping the hard-gate flags or skipping the bytecode, /adopt ignoring a user-level dispatcher, trusting an unreadable table or a table of another kind - each failed its test. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_hook_selection.py && sh skills/_shared/itd_py.sh tests/verify_sync_manifest.py && sh skills/_shared/itd_py.sh tests/verify_hooks_autoinstall.py && sh skills/_shared/itd_py.sh tests/verify_registration_and_counts.py",
+      "reviewEvidence": {
+        "claim": "The install registers the dispatcher with the same selection and an exact bytecode inventory.",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "selection"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC3",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "Every behavioural hard-gate test is green in both directions through the dispatcher: each registered hard gate with a table of that gate alone and with the default table produces its deny or block, and ordinary calls of every event (UserPromptSubmit, Bash, Read, Edit, Write, Agent, an MCP tool, Stop, SubagentStop) pass the default table without a deny, block or ask; the Claude-direct and Codex legs keep their parity.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_all_hard_gate_host_parity.py: on WSL exits 0, 153 passed, 0 failed after the review sol a9 answer; on Windows 153 passed after the a7 and a8 answers, and in the Windows acceptance of the a9 answer content on the fresh tree copy C:/itd-src/s6-a9 (native Python 3.12, Git Bash through ITD_BASH and WSLENV; every changed file byte-identical to the committed answer except this contract text) every Claude dispatcher leg passed in two runs (55 of 55) while only Codex legs failed, cut by the unchanged 3 s deadline of codex-dispatch.py under host load (4, then 2 of them; BACKLOG P3, below); the a9 answer makes the test normalize the age of the other session's lock in a state-guard deny (0s or 1s by host speed) - since the a6 answer the reason of every deny or block through the dispatcher equals the direct run of the gate (with the default table, of the event's hard gate that answers first); 133 after the a2 and a5 answers (ordinary Stop and SubagentStop pass without deny, block or ask). Under 100% Windows CPU earlier runs lost only Codex legs to the unchanged 3 s deadline of codex-dispatch.py (BACKLOG P3); the test now tolerates the temp directory such a cut hook still holds. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_all_hard_gate_host_parity.py",
+      "reviewEvidence": {
+        "claim": "No hard gate weakens and no ordinary call is blocked by the dispatcher.",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "selection"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC4",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The pre-deploy gate judges a command or process substitution by the invocations of its body: a local body no longer makes the command opaque (both BACKLOG P2 commands pass), a transport inside still gates, a substitution in command position, inside a command word or as a cd target stays unresolvable, and a body with a here-document, case, comment (also at its start) or backtick or deeper than 8 levels keeps the fail-closed sentinel.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "tests/verify_predeploy_independent_review.py PASSED and tests/verify_predeploy_gate.py PASSED on WSL and on Windows, again after the review sol a9 answer in the Windows acceptance of the a9 answer content on the fresh tree copy C:/itd-src/s6-a9 (native Python 3.12, Git Bash through ITD_BASH and WSLENV; every changed file byte-identical to the committed answer except this contract text), - the 'zero-exit delegated checker' case needed a portable stub (an interpreter call, not a #!/bin/sh file); the suite covers a body that starts with a comment, a backtick inside a $() body and a substitution as the cd target. Mutants: substitution bodies ignored, a placeholder without $, no depth bound, the old sentinel kept - each failed the suite. Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_predeploy_independent_review.py && sh skills/_shared/itd_py.sh tests/verify_predeploy_gate.py",
+      "reviewEvidence": {
+        "claim": "The false denies are gone without opening a transport path.",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "predeploy"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC5",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The session 2 measurement is repeated on WSL and Windows for the main and the candidate install (docs/measurements/ITD-SIMPLIFY-BASELINE.md, section 10): at most 4 hook processes per Bash, the medians and their change against main and against the session 2 baseline (the plan's target of -50% or more against the session 2 baseline is met on three of the four combinations; WSL x ITD at -46%, where the context-mode chain alone is 361 ms, was accepted by the owner on 2026-10-24, .itd/DECISIONS.md), and the share of the third-party context-mode plugin in the chain, each number with its command and raw outputs.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "docs/measurements/itd-simplify/test_measure_tools.py: 16 tests OK. Baseline section 10 from the interleaved A/B rounds of 2026-10-23 (summarize_rounds.py .itd-memory/host-inputs/ITD-PLAN-S6/rounds3 s6-main s6-candidate exits 0; rounds2 the same): hook processes per Bash 12 -> 4 on all four combinations; Bash chain against main -7/-29/-26/-40%, against the session 2 before -46/-59/-68/-65%; the owner accepted WSL x ITD at -46% on 2026-10-24 (the context-mode chain alone is 361 ms there). Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh docs/measurements/itd-simplify/test_measure_tools.py",
+      "reviewEvidence": {
+        "claim": "The latency claim is grounded in the recorded rounds.",
+        "impactClasses": [
+          "performance"
+        ],
+        "oracleIds": [
+          "baseline-scripts"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S6-AC6",
+      "unitId": "ITD-PLAN-S6",
+      "status": "passed",
+      "criterion": "The ITD-PLAN-S5 verified record and its followup move ride in this PR (plan rule 5) with the a4 adjudication of session 5 in DECISIONS; the state ledgers validate; the full suite is green. The full suite is the full leg of the committed-head machine: tests/run-all.sh in the isolated candidate checkout.",
+      "source": "Owner 2026-10-20 plan, session 6 and ADR-016; owner 2026-10-23 session 6 task.",
+      "evidence": "scripts/validate_state.py: OK, validated 2 state file(s). The ITD-PLAN-S5 verified event (2026-10-23T14:18:37Z) and the ITD-PLAN-S6 activated event were written by itd_unit_log.py; the S5 followup is in closedFollowups with its closure evidence; DECISIONS holds the session 5 a4 adjudication. Full leg of the committed-head machine: a1 on 226590d and a2 on d562b56 - DONE fails:none, 175 of 189 suites; in the owner's working tree verify_ledger_reconciliation is red only from git-ignored local files (BACKLOG P3). Exact-candidate evidence is the committed-head machine receipt of the reviewed head (legs meta-review, dispatch, selection, predeploy, baseline-scripts, state, benchmark, docs-freshness, impact-graph and full), supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The ledger records are exact and the suite is green.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "state",
+          "full"
+        ]
       }
     },
     {
@@ -5666,33 +5923,22 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-REVIEW-CLAIM-COMPAT-1024",
-    "status": "in_progress",
-    "sourceRequest": "Owner continuation of the concrete ITD compatibility proposal, then Modivo PR/merge/diagnostic deployment; no order retries.",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "high",
-      "requiredImpactClasses": [
-        "correctness",
-        "security",
-        "compatibility",
-        "host-parity"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
-  },
-  "priorFollowupAtBase": {
-    "unitId": "ITD-PLAN-S5",
+    "unitId": "ITD-PLAN-S6",
     "status": "in_progress",
     "openedAt": "2026-10-23",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-23: session 5 of the approved ITD change plan - one default hook registration for a new user and for the owner (the core hooks plus the state hooks that stay silent without .itd-memory), the diagnostics off by default and enabled through itd-enabled-hooks.txt, check-skills, check-tool-skill and check-review-before-commit unregistered (record-agent-skill and check-dod-before-commit stay by the session 3 decision), codex-dispatch.py reading the same disabled and enabled lists as sync-to-active.sh, the /adopt project template not registering hooks already registered globally, one live benchmark run (the pin changes); inputs BACKLOG P2 'Codex on WSL skips the pre_tool_use:4:* group as untrusted' and P2 'check-dod-before-commit on Windows is cut by the 5 s host timeout'. The same PR carries the ITD-PLAN-S4 verified record, the owner's convergence rule and the a4 adjudication in DECISIONS and the three a4 findings with tests. Acceptance: a fresh install into an empty HOME gives the core and no diagnostics, a repeated sync is idempotent, a user's hook in the same event group is kept, a disabled entry does not run on Codex, the full suite is green, checked on WSL and Windows. One independent review of the final candidate; push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+    "sourceRequest": "Owner 2026-10-23: session 6 of the approved ITD change plan - one dispatcher per hook event for Claude Code by the pattern of codex-dispatch.py (one Python process runs the selected checks in memory instead of one process per hook); the heavy modules (the egress classifier, predeploy) imported, their bytecode prepared at install into the installed runtime and listed in its inventory (the 1.109.1 rule 'no .pyc written at run time' kept); a failing dispatcher denies for a hard gate and stays silent for an advisory hook. Inputs: BACKLOG P2 'check-dod-before-commit on Windows: slow hook start' and P2 'false denies of the pre-deploy gate on $(...) next to cd'. Acceptance: the session 2 measurement repeated on WSL and Windows (median hook latency per call -50% or more, at most 4 hook processes per Bash), every behavioural hard-gate test green in both directions, the full suite green, Windows acceptance on a fresh copy of the tree in C:\\itd-src (native Python and Git Bash through ITD_BASH and WSLENV). The same PR carries the ITD-PLAN-S5 verified record and the a4 adjudication of session 5 in DECISIONS. One independent review of the final candidate (convergence rule: a4 is the last round; findings about the benchmark sample are out of scope); push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
-      "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+      "requiredImpactClasses": [
+        "correctness",
+        "security",
+        "host-parity",
+        "performance",
+        "repository-hygiene",
+        "compatibility"
+      ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
       "adjudicator": "sealed-host-union"
@@ -6373,7 +6619,14 @@
       "reviewPolicy": {
         "mode": "evidence-first",
         "riskTier": "high",
-        "requiredImpactClasses": ["correctness", "security", "repository-hygiene", "generated-artifact-freshness", "bounded-output", "compatibility"],
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "bounded-output",
+          "compatibility"
+        ],
         "minimumIndependentReviewers": 1,
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
@@ -6391,7 +6644,13 @@
       "reviewPolicy": {
         "mode": "evidence-first",
         "riskTier": "medium",
-        "requiredImpactClasses": ["correctness", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
         "minimumIndependentReviewers": 1,
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
@@ -6408,7 +6667,14 @@
       "reviewPolicy": {
         "mode": "evidence-first",
         "riskTier": "medium",
-        "requiredImpactClasses": ["correctness", "security", "host-parity", "repository-hygiene", "generated-artifact-freshness", "compatibility"],
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
         "minimumIndependentReviewers": 1,
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
@@ -6425,7 +6691,11 @@
       "reviewPolicy": {
         "mode": "evidence-first",
         "riskTier": "medium",
-        "requiredImpactClasses": ["correctness", "repository-hygiene", "compatibility"],
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
         "minimumIndependentReviewers": 1,
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
@@ -6442,12 +6712,61 @@
       "reviewPolicy": {
         "mode": "evidence-first",
         "riskTier": "medium",
-        "requiredImpactClasses": ["correctness", "repository-hygiene", "compatibility"],
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
         "minimumIndependentReviewers": 1,
         "explorer": "isolated-machine-oracle",
         "adjudicator": "sealed-host-union"
       },
       "closureEvidence": "PR #372 squash-merged to main a32a12e on 2026-10-23; tree 23f94d40 equals the reviewed tree: committed-head machine receipt ITD-PLAN-S4-machine-a5 PASSED 8/8 legs (full fails:none), review gpt-5.6-sol a1-a3 BLOCKED with every finding fixed with tests and mutants, a4 (the last round by the owner's convergence rule of 2026-10-23) BLOCKED with two medium and one low findings and ADJUDICATED by the owner under ADR-007 (accepted-trade-off, binding f2d5f75d, receipt 42b34c21); PR and main CI success; tests/verify_global_routers.py PASSED from main on WSL and Windows. The three a4 findings are fixed with tests in the ITD-PLAN-S5 PR. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S5 PR (plan rule 5), no separate ledger-close PR."
+    },
+    {
+      "unitId": "ITD-PLAN-S5",
+      "status": "closed",
+      "closedAt": "2026-10-23T14:18:37Z",
+      "openedAt": "2026-10-23",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-23: session 5 of the approved ITD change plan - one default hook registration for a new user and for the owner (the core hooks plus the state hooks that stay silent without .itd-memory), the diagnostics off by default and enabled through itd-enabled-hooks.txt, check-skills, check-tool-skill and check-review-before-commit unregistered (record-agent-skill and check-dod-before-commit stay by the session 3 decision), codex-dispatch.py reading the same disabled and enabled lists as sync-to-active.sh, the /adopt project template not registering hooks already registered globally, one live benchmark run (the pin changes); inputs BACKLOG P2 'Codex on WSL skips the pre_tool_use:4:* group as untrusted' and P2 'check-dod-before-commit on Windows is cut by the 5 s host timeout'. The same PR carries the ITD-PLAN-S4 verified record, the owner's convergence rule and the a4 adjudication in DECISIONS and the three a4 findings with tests. Acceptance: a fresh install into an empty HOME gives the core and no diagnostics, a repeated sync is idempotent, a user's hook in the same event group is kept, a disabled entry does not run on Codex, the full suite is green, checked on WSL and Windows. One independent review of the final candidate; push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "PR #373 squash-merged to main c94c50a on 2026-10-23; tree 811df8b8 equals the reviewed tree of a919aea: committed-head machine receipt ITD-PLAN-S5-machine-a7 PASSED 10/10 legs (full fails:none), review gpt-5.6-sol a1-a3 BLOCKED with every finding fixed with tests, a4 (the last round by the owner's convergence rule) BLOCKED with two medium findings about the generated benchmark sample and ADJUDICATED by the owner under ADR-007 (4 accepted-trade-off records, binding ba543183, receipt 423cb6bf); PR CI meta-review and windows-verify pass (the first windows-verify run was cancelled by its 10-minute limit, the rerun took 5 min 37 s); sync with backups on WSL and Windows (the only settings.json change: the check-dod timeout 5 -> 150 s), a repeated --check up to date, tests/verify_global_routers.py PASSED on both hosts. Unit verified through itd_unit_log.py; the record rides in the ITD-PLAN-S6 PR (plan rule 5), no separate ledger-close PR."
+    },
+    {
+      "unitId": "ITD-REVIEW-CLAIM-COMPAT-1024",
+      "status": "closed",
+      "sourceRequest": "Owner continuation of the concrete ITD compatibility proposal, then Modivo PR/merge/diagnostic deployment; no order retries.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "compatibility",
+          "host-parity"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "openedAt": "2026-10-24",
+      "closedAt": "2026-10-27T17:45:36Z",
+      "closureEvidence": "PR #374 squash-merged to main 5118b3f on 2026-10-25 (owner, another checkout); its criteria ITD-REVIEW-CLAIM-COMPAT-1024-CC1 and CC2 passed in .itd/ACCEPTANCE_CONTRACT.json; tests/verify_review_evidence.py: verify_review_evidence: all ok on 5118b3f and on the ITD-PLAN-S6 candidate that merges it; recorded in the ITD-PLAN-S6 merge by the owner's decision of 2026-10-27 so that ITD-PLAN-S6 stays the one open unit"
     }
   ]
 }

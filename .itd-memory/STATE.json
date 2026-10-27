@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ITD-REVIEW-CLAIM-COMPAT-1024",
-    "goal": "Repair documented general/security review claim compatibility, retaining exact evidence checks; reconcile this isolated unit with a canonical harness activation after the independent review finding.",
+    "id": "ITD-PLAN-S6",
+    "goal": "Plan session 6 (ADR-016): one dispatcher per hook event for Claude Code by the pattern of codex-dispatch.py - one Python process runs the selected checks in memory; the heavy modules (egress classifier, predeploy) imported, their bytecode prepared at install and listed in an inventory (no .pyc written at run time, rule 1.109.1); a failing dispatcher denies for a hard gate and stays silent for an advisory hook; inputs BACKLOG P2 check-dod slow start on Windows and P2 pre-deploy false denies on $(...) next to cd; acceptance: the session 2 measurement on WSL and Windows (median -50% or more, at most 4 processes per Bash), hard-gate behavioural tests green both ways, full suite green; carries the ITD-PLAN-S5 ledger record and the session 5 a4 adjudication (plan rule 5).",
     "status": "in_progress",
-    "startedAt": "2026-10-24T21:10:45Z",
+    "startedAt": "2026-10-23T14:20:29Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",
