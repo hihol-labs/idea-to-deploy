@@ -44,7 +44,6 @@ PLACEHOLDER = "{{PLUGIN_HOOKS_DIR}}"
 TEMPLATE_REL = Path("adopt") / "references" / "project-settings-template.json"
 DISPATCHER = "claude-dispatch.py"
 DISPATCH_TABLE = "claude-dispatch.json"
-DISPATCH_TABLE_KIND = "claude-dispatch-table-v1"  # hooks/itd_dispatch.py TABLE_KIND
 WRITTEN: list[Path] = []  # set once the settings file is written, so a later failure says so
 
 
@@ -227,32 +226,22 @@ def dispatched_names(hooks_dir: Path, template_names: set[str]) -> set[str]:
     none may be added twice)."""
     try:
         table = strict_json((hooks_dir / DISPATCH_TABLE).read_text(encoding="utf-8"))
-    except (OSError, ValueError, RecursionError):
-        return set(template_names)
-    hooks = table.get("hooks") if isinstance(table, dict) and table.get("kind") == DISPATCH_TABLE_KIND else None
-    try:
-        valid_entry = dispatch_row_check()
-    except (OSError, ValueError, ImportError, SyntaxError):
-        return set(template_names)
-    if not isinstance(hooks, dict) or not all(
-            isinstance(rows, list) and all(valid_entry(row, event) for row in rows) for event, rows in hooks.items()):
+        hooks = dispatch_table_check()(table)
+    except (OSError, ValueError, RecursionError, ImportError, SyntaxError):
         return set(template_names)  # not a table this dispatcher would run: it fails closed, so assume everything
     return {row["script"] for rows in hooks.values() for row in rows}
 
 
-def dispatch_row_check():
-    """The row schema of hooks/itd_dispatch.py next to this helper (the same install), loaded without bytecode."""
+def dispatch_table_check():
+    """check_table() of hooks/itd_dispatch.py next to this helper (the same install), loaded without bytecode: the
+    dispatcher's own rule for a usable table (top-level keys, kind, version, every row of every event)."""
     path = Path(__file__).resolve().parent.parent.parent / "hooks" / "itd_dispatch.py"
-    spec = importlib.util.spec_from_file_location("itd_dispatch_rows", path)
-    if spec is None or spec.loader is None or not path.is_file():
+    if not path.is_file():
         raise ValueError(f"{path} is missing")
-    module = importlib.util.module_from_spec(spec)
-    saved, sys.dont_write_bytecode = sys.dont_write_bytecode, True
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.dont_write_bytecode = saved
-    return module.valid_entry
+    namespace: dict = {"__name__": "itd_dispatch_rows", "__file__": str(path)}
+    # compiled from the source in memory: no .pyc is read or written, whatever lies in __pycache__
+    exec(compile(path.read_bytes(), str(path), "exec", dont_inherit=True), namespace)
+    return namespace["check_table"]
 
 
 def merge(current: dict, template: dict, user_names: set[str]) -> tuple[dict, list[str]]:

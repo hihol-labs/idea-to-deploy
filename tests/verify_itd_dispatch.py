@@ -26,6 +26,7 @@ Usage: python3 tests/verify_itd_dispatch.py
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import marshal
@@ -367,6 +368,26 @@ def main() -> int:
         proc = run(root / "hooks", pre(), log)
         check("table whose hooks are not an object: a tool call is denied", decision(proc.stdout) == "deny",
               repr(proc.stdout))
+        # review a9: the whole table is checked on every call - its top level, and every row of every event, not only
+        # the rows of the event at hand
+        good = [entry("a.sh")]
+        whole = {"another version": {"version": 2, "kind": dispatch.TABLE_KIND, "hooks": {"PreToolUse": good}},
+                 "no version": {"kind": dispatch.TABLE_KIND, "hooks": {"PreToolUse": good}},
+                 "a version true": {"version": True, "kind": dispatch.TABLE_KIND, "hooks": {"PreToolUse": good}},
+                 "an extra top-level key": {"version": 1, "kind": dispatch.TABLE_KIND, "hooks": {"PreToolUse": good},
+                                            "extra": 1},
+                 "an event sync never writes": {"version": 1, "kind": dispatch.TABLE_KIND,
+                                                "hooks": {"PreToolUse": good, "Notification": []}},
+                 "a malformed row of another event": {"version": 1, "kind": dispatch.TABLE_KIND,
+                                                      "hooks": {"PreToolUse": good, "Stop": [entry("../a.sh")]}},
+                 "an unrouted row of another event": {"version": 1, "kind": dispatch.TABLE_KIND,
+                                                      "hooks": {"PreToolUse": good, "SubagentStop": [entry("x.sh")]}}}
+        for label, document in whole.items():
+            proc, log = case({"a.sh": ""}, {}, pre(), table=False)
+            (log.parent / "hooks" / dispatch.TABLE_FILE).write_text(json.dumps(document), encoding="utf-8")
+            proc = run(log.parent / "hooks", pre(), log)
+            check(f"table with {label}: unusable for every event, a tool call is denied and nothing runs",
+                  proc.returncode == 2 and decision(proc.stdout) == "deny" and not ran(log), repr(proc.stdout[-200:]))
         proc, log = case({"pii-egress-guard.sh": FAILURES["crash"]},
                          {"PreToolUse": [entry("pii-egress-guard.sh", hard=False)]}, pre())
         check("a policy hard gate flagged advisory in the table still fails closed",
@@ -676,6 +697,27 @@ def main() -> int:
                            invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
         check("bytecode: the installer writes the bytes py_compile writes for the source",
               reference.read_bytes() == pyc.read_bytes())
+        # review a9: the entry point loads itd_dispatch itself from its .pyc only when the inventory records it
+        replaced = ("def main():\n    import json, os\n    os.write(1, json.dumps({'hookSpecificOutput': {"
+                    "'hookEventName': 'PreToolUse', 'additionalContext': 'replaced dispatcher'}}).encode())\n"
+                    "    os._exit(0)\n")
+        module_pyc = Path(importlib.util.cache_from_source(str(directory / MODULE.name)))
+        tamper(directory / MODULE.name, replaced)
+        proc = run(directory, pre(), install / "log")
+        context = json.loads(proc.stdout or b"{}").get("hookSpecificOutput", {}).get("additionalContext", "")
+        check("bytecode: a .pyc of the dispatcher module the inventory does not record never runs, its source does",
+              proc.returncode == 0 and context == "from source v2\nhelper", repr(proc.stdout[-200:]))
+        vouched = json.loads((install / "itd-bytecode.json").read_text(encoding="utf-8"))
+        for row in vouched["files"]:
+            if row["bytecode"] == module_pyc.relative_to(install).as_posix():
+                row["bytecodeSha256"] = hashlib.sha256(module_pyc.read_bytes()).hexdigest()
+        (install / "itd-bytecode.json").write_text(json.dumps(vouched), encoding="utf-8")
+        proc = run(directory, pre(), install / "log")
+        check("bytecode: the dispatcher module's .pyc is loaded when the inventory records exactly it",
+              b"replaced dispatcher" in proc.stdout, repr(proc.stdout[-200:]))
+        restored = subprocess.run([sys.executable, "-B", str(BYTECODE), str(install)], capture_output=True, text=True)
+        check("bytecode: the next install replaces the dispatcher module's foreign .pyc",
+              restored.returncode == 0 and "1 compiled" in restored.stdout, restored.stdout + restored.stderr)
         spec_b = importlib.util.spec_from_file_location("itd_hook_bytecode_under_test", BYTECODE)
         installer = importlib.util.module_from_spec(spec_b)
         spec_b.loader.exec_module(installer)

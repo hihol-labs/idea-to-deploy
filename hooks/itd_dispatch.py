@@ -251,17 +251,31 @@ def valid_entry(entry: object, event: str) -> bool:
             and isinstance(entry["hardGate"], bool))
 
 
-def selected(table: dict, event: str, tool: str) -> list[dict]:
-    hooks = table.get("hooks")
+def check_table(table: object) -> dict:
+    """The hooks of a table exactly as routing() writes it, or ValueError (review a9): the top-level keys, kind and
+    version 1, then every row of every event - one row anywhere that routing() would not write makes the whole table
+    unusable, not only a row of the event at hand. /adopt (skills/_shared/itd_project_hooks.py) applies this check.
+    """
+    if (not isinstance(table, dict) or set(table) != {"version", "kind", "hooks"} or table["kind"] != TABLE_KIND
+            or type(table["version"]) is not int or table["version"] != 1):
+        raise ValueError(f"not a version 1 {TABLE_KIND} table")
+    hooks = table["hooks"]
     if not isinstance(hooks, dict):
         raise ValueError("table hooks are not an object")
-    entries = hooks.get(event, [])
-    if not isinstance(entries, list):
-        raise ValueError(f"table entries of {event} are not a list")
+    events = {event for _, event in ROUTABLE}
+    for event, entries in hooks.items():
+        if event not in events or not isinstance(entries, list):
+            raise ValueError(f"table event {event!r:.80} is not a list of rows sync writes")
+        for entry in entries:
+            if not valid_entry(entry, event):
+                raise ValueError(f"table entry of {event} is malformed: {entry!r:.200}")
+    return hooks
+
+
+def selected(hooks: dict, event: str, tool: str) -> list[dict]:
+    """The rows of `event` whose matcher matches `tool`, from hooks that check_table() accepted."""
     chosen: dict[str, dict] = {}
-    for entry in entries:
-        if not valid_entry(entry, event):
-            raise ValueError(f"table entry of {event} is malformed: {entry!r:.200}")
+    for entry in hooks.get(event, []):
         if matches(entry["matcher"], tool):
             hard = entry["hardGate"] or (entry["script"], event) in HARD_GATES
             chosen.setdefault(entry["script"], dict(entry, hardGate=hard))  # the host runs an identical command once
@@ -430,9 +444,7 @@ def dispatch(raw: bytes, hooks_dir: Path) -> tuple[tuple[bytes, bytes, int], boo
     stop_hook_active = payload.get("stop_hook_active") is True
     try:
         table = json.loads((hooks_dir / TABLE_FILE).read_text(encoding="utf-8"))
-        if not isinstance(table, dict) or table.get("kind") != TABLE_KIND:
-            raise ValueError(f"not a {TABLE_KIND} table")
-        entries = selected(table, event, str(payload.get("tool_name") or ""))
+        entries = selected(check_table(table), event, str(payload.get("tool_name") or ""))
     except (OSError, ValueError) as exc:
         return failure_answer(event, f"{TABLE_FILE} is unusable ({exc}); FIX: re-run scripts/sync-to-active.sh",
                               stop_hook_active), False

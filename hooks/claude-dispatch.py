@@ -42,9 +42,50 @@ def fail_closed(reason: str) -> int:
     return code
 
 
+def load_main():
+    """itd_dispatch.main, its code from the install-time bytecode only when the inventory records it (review a9).
+
+    trust_bytecode() in itd_dispatch guards every load after it, but not the load of its own module: here the .pyc of
+    itd_dispatch is used only when its SHA-256 is the bytecodeSha256 of itd-bytecode.json and its checked-hash header
+    names this source; anything else compiles the source in memory, as itd_dispatch.cached_code() does for a hook.
+    """
+    import hashlib
+    import importlib.util
+    import json
+    import marshal
+    import types
+
+    hooks = os.path.dirname(os.path.realpath(__file__))
+    root = os.path.dirname(hooks)
+    source_path = os.path.join(hooks, "itd_dispatch.py")
+    with open(source_path, "rb") as handle:
+        source = handle.read()
+    code = None
+    try:
+        pyc = importlib.util.cache_from_source(source_path)
+        with open(pyc, "rb") as handle:
+            data = handle.read()
+        with open(os.path.join(root, "itd-bytecode.json"), encoding="utf-8") as handle:
+            inventory = json.load(handle)
+        key = lambda path: os.path.normcase(os.path.realpath(path))  # noqa: E731
+        recorded = {key(os.path.join(root, row["bytecode"])): row["bytecodeSha256"] for row in inventory["files"]} \
+            if inventory.get("kind") == "itd-hook-bytecode-v1" else {}
+        if (recorded.get(key(pyc)) == hashlib.sha256(data).hexdigest() and data[:4] == importlib.util.MAGIC_NUMBER
+                and int.from_bytes(data[4:8], "little") == 0b11 and data[8:16] == importlib.util.source_hash(source)):
+            code = marshal.loads(data[16:])
+    except Exception:  # noqa: BLE001 - no bytecode the install vouches for: the source below
+        code = None
+    module = types.ModuleType("itd_dispatch")
+    module.__file__ = source_path
+    sys.modules["itd_dispatch"] = module
+    exec(code if isinstance(code, types.CodeType) else compile(source, source_path, "exec", dont_inherit=True),
+         module.__dict__)
+    return module.main
+
+
 if __name__ == "__main__":
     try:
-        from itd_dispatch import main  # the hooks directory is sys.path[0] of this script
+        main = load_main()
     except BaseException as exc:  # noqa: BLE001 - SystemExit at import too: an unloadable dispatcher must not let a
         os._exit(fail_closed(f"itd_dispatch is not loadable: {type(exc).__name__}: {exc}"))  # hard gate fail open
     try:

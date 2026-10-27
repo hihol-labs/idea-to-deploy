@@ -58,5 +58,10 @@
 One independent review of the final candidate (plan rule 4). Convergence (owner 2026-10-23): the fourth round is the
 last; BLOCKED with only medium or low findings goes to the owner (ADJUDICATED under ADR-007); a high finding is fixed
 and brought to the owner. A reviewer finding outside this scope is brought to the owner before another round.
+The pre-push gate takes a PASSED or ADJUDICATED review of exactly the pushed head, so every fix needs a round of its
+own; the owner authorized the rounds after a4 one by one (DECISIONS 2026-10-25 and 2026-10-26), and the rule that
+binds now (owner 2026-10-26, from round a10): behaviour main already has (not brought in by this unit) goes to BACKLOG
+and is ADJUDICATED whatever its severity; a high finding brought in by the session 6 diff is fixed and brought to the
+owner; only medium or low findings are ADJUDICATED and the candidate is published on the owner's confirmation.
 The generated benchmark sample (`tests/fixtures/live-model-evidence/runs/*`) is recorded evidence, not shipped content
 (owner 2026-10-23); findings about it are out of scope.

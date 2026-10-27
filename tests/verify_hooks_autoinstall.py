@@ -379,7 +379,16 @@ def suite_helper(helper: Path, fails: list[str]) -> None:
                               ("routing table with a hook under a foreign event", json.dumps({
                                   "version": 1, "kind": "claude-dispatch-table-v1",
                                   "hooks": {"PostToolUse": [{"matcher": "Bash", "script": "careful.sh", "timeout": 5,
-                                                             "hardGate": False}]}}))):
+                                                             "hardGate": False}]}})),
+                              # review a9: the dispatcher's whole-table rule - its version, every row of every event
+                              ("routing table of another version",
+                               good_table.replace('"version": 1', '"version": 999')),
+                              ("routing table with a malformed row of another event", json.dumps({
+                                  "version": 1, "kind": "claude-dispatch-table-v1",
+                                  "hooks": {"PreToolUse": [{"matcher": "Bash", "script": "careful.sh", "timeout": 5,
+                                                            "hardGate": False}],
+                                            "Stop": [{"matcher": "", "script": "../careful.sh", "timeout": 5,
+                                                      "hardGate": False}]}}))):
             if broken is not None:
                 table.write_text(broken, encoding="utf-8")
             box.settings.unlink(missing_ok=True)

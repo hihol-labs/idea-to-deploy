@@ -328,6 +328,8 @@ def normalized(reason: str, root: Path, session: str) -> str:
     spellings = {str(root), str(root.resolve()), root.as_posix(), root.resolve().as_posix(), os.path.realpath(root)}
     for spelling in sorted(spellings, key=len, reverse=True):
         reason = reason.replace(spelling, "<root>")
+    # the age of the other session's lock in a state-guard deny depends on the host's speed (1s on a slow Windows run)
+    reason = re.sub(r"(возраст )\d+[smhd]\b", r"\1<age>", reason)
     return reason.replace(session, "<session>")
 
 
