@@ -493,7 +493,9 @@
       "tests/verify_bypass_friction.py",
       "tests/verify_external_write_gate.py",
       "tests/verify_graduated_trust.py",
+      "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_registration_and_counts.py"
     ],
     "docs/HOST_ADAPTER_CONTRACT.md": [
@@ -837,6 +839,7 @@
       "tests/verify_hook_table_completeness.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_narration_final.py",
       "tests/verify_sync_manifest.py",
       "tests/verify_v147_fixes.py",
@@ -918,6 +921,13 @@
       "tests/verify_retro_scan.py",
       "tests/verify_skill_enforcement.py",
       "tests/verify_v147_fixes.py"
+    ],
+    "hooks/claude-dispatch.py": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_hook_selection.py",
+      "tests/verify_hooks_autoinstall.py",
+      "tests/verify_itd_dispatch.py",
+      "tests/verify_sync_manifest.py"
     ],
     "hooks/codex-dispatch.py": [
       "tests/verify_all_hard_gate_host_parity.py",
@@ -1030,7 +1040,8 @@
     ],
     "hooks/graph-route.sh": [
       "tests/verify_graph_study.py",
-      "tests/verify_hook_selection.py"
+      "tests/verify_hook_selection.py",
+      "tests/verify_itd_dispatch.py"
     ],
     "hooks/handoff-readiness.sh": [
       "tests/verify_hook_selection.py",
@@ -1048,6 +1059,11 @@
       "tests/verify_host_adapters.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_predeploy_independent_review.py"
+    ],
+    "hooks/itd_dispatch.py": [
+      "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_hook_selection.py",
+      "tests/verify_itd_dispatch.py"
     ],
     "hooks/model-policy.sh": [
       "tests/verify_hook_selection.py",
@@ -1072,7 +1088,9 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_pii_egress.py"
     ],
@@ -1122,6 +1140,7 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_host_neutral_memory.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_memory_collision_deny.py",
       "tests/verify_state_hardening.py"
     ],
@@ -1144,6 +1163,7 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_table_completeness.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_retro_scan.py",
       "tests/verify_review_autoping.py",
       "tests/verify_verdict_contract.py"
@@ -1216,6 +1236,10 @@
     "scripts/itd_github_app_manifest.py": [
       "tests/verify_github_app_manifest.py"
     ],
+    "scripts/itd_hook_bytecode.py": [
+      "tests/verify_hook_selection.py",
+      "tests/verify_itd_dispatch.py"
+    ],
     "scripts/itd_install_cli.py": [
       "tests/verify_git_gate_hooks.py",
       "tests/verify_itd_runtime_install.py",
@@ -1261,6 +1285,7 @@
       "tests/verify_stop_rule_closed_contract.py"
     ],
     "scripts/sync-to-active.sh": [
+      "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_cost_gate.py",
       "tests/verify_execution_trace_outcome.py",
@@ -1270,6 +1295,7 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_init_contracts.py",
+      "tests/verify_itd_dispatch.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_registration_and_counts.py",
       "tests/verify_review_cache.py",
@@ -1436,6 +1462,7 @@
     ],
     "skills/_shared/itd_external_write_gate.py": [
       "tests/verify_external_write_gate.py",
+      "tests/verify_hook_selection.py",
       "tests/verify_host_adapters.py"
     ],
     "skills/_shared/itd_free_reviewer_producer.py": [

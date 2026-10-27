@@ -16,6 +16,9 @@
 - the merge refuses what it cannot own safely: a non-object settings.json, a Windows python-wrapper registration
   under a non-Windows target (exit 1, file untouched); a registration of a RETIRED hook file goes away, and every hook
   ITD has shipped is a hook file or RETIRED.
+Since plan session 6 settings.json registers hooks/claude-dispatch.py once per event and the selected hooks live in its
+routing table hooks/claude-dispatch.json; "registered" below means a row of that table reached through the dispatcher
+(rows()), and the install also lists the bytecode of the hooks in itd-bytecode.json.
 
 Every run is confined to temporary homes (CLAUDE_HOME / HOME); the user's real lists never decide a check.
 On Windows the sync runs in Git Bash (ITD_BASH, default bash) and registers python.exe wrappers; the checks compare
@@ -94,15 +97,29 @@ def sync(home: Path) -> str:
     return proc.stdout + proc.stderr
 
 
-def rows(home: Path) -> list[tuple[str, str, str]]:
+def raw_rows(home: Path) -> list[tuple[str, str, str]]:
+    """(event, matcher, command) of every hook command in settings.json."""
     data = json.loads((home / "settings.json").read_text(encoding="utf-8"))
     return [(event, group.get("matcher", ""), hook["command"])
             for event, groups in data.get("hooks", {}).items() for group in groups for hook in group["hooks"]]
 
 
+def rows(home: Path) -> list[tuple[str, str, str]]:
+    """The effective registration: a dispatcher command (plan session 6) stands for the rows of its routing table."""
+    table = json.loads((home / "hooks" / "claude-dispatch.json").read_text(encoding="utf-8"))
+    found = []
+    for event, matcher, command in raw_rows(home):
+        if hook_file(command) == "claude-dispatch.py":
+            found += [(event, row["matcher"], "~/.claude/hooks/" + row["script"])
+                      for row in table["hooks"].get(event, [])]
+        else:
+            found.append((event, matcher, command))
+    return found
+
+
 def hook_file(command: str) -> str:
-    """The hook file a command runs: its last .sh token (a bare path or a python.exe wrapper on Windows)."""
-    found = re.findall(r"([A-Za-z0-9._-]+\.sh)(?=$|[\"'\s])", command.replace("\\", "/"))
+    """The hook file a command runs: its last .sh token or the dispatcher (a bare path or a python.exe wrapper)."""
+    found = re.findall(r"([A-Za-z0-9._-]+\.sh|claude-dispatch\.py)(?=$|[\"'\s])", command.replace("\\", "/"))
     return found[-1] if found else ""
 
 
@@ -152,6 +169,35 @@ def main() -> int:
         check("the sync names the optional hooks it left off",
               f"optional hooks off by default: {len(dispatch.OPTIONAL_HOOKS)}" in out, out[-300:])
         default_set = got
+        # plan session 6: settings.json holds one dispatcher command per event, a Bash call starts two ITD processes
+        itd = [(event, matcher) for event, matcher, command in raw_rows(home) if hook_file(command)]
+        check("settings.json registers only the dispatcher, once per event",
+              {hook_file(command) for _, _, command in raw_rows(home)} == {"claude-dispatch.py"}
+              and sorted(event for event, _ in itd) == sorted(set(event for event, _ in itd)), str(itd))
+        bash_processes = [(event, matcher) for event, matcher in itd if event in ("PreToolUse", "PostToolUse")
+                          and (matcher in ("", "*") or "Bash" in matcher.split("|"))]
+        check("a Bash call starts at most two ITD hook processes (Pre and Post)", len(bash_processes) == 2,
+              str(bash_processes))
+        policy = json.loads((ROOT / "docs" / "HARNESS_TRUST_POLICY.json").read_text(encoding="utf-8"))
+        table = json.loads((home / "hooks" / "claude-dispatch.json").read_text(encoding="utf-8"))
+        flagged = {(row["script"], event) for event, entries in table["hooks"].items() for row in entries
+                   if row["hardGate"]}
+        expected_hard = {(gate["script"], gate["event"]) for gate in policy["hardGates"]
+                         if gate["script"] in DEFAULT_SET}
+        check("the routing table flags exactly the registered hard gates of the trust policy",
+              flagged == expected_hard and len(flagged) == 9, f"diff={sorted(flagged ^ expected_hard)}")
+        if os.name == "nt":  # the Store alias WindowsApps\python.exe is on PATH but does not start
+            interpreters = {match.group(1) for _, _, command in raw_rows(home)
+                            for match in [re.match(r'^"([^"]+)" ', command)] if match}
+            check("Windows: the interpreter of the registration runs",
+                  bool(interpreters) and all(subprocess.run([path, "-c", "pass"], capture_output=True,
+                                                            timeout=60).returncode == 0 for path in interpreters),
+                  str(interpreters))
+        inventory = json.loads((home / "itd-bytecode.json").read_text(encoding="utf-8"))
+        check("the install lists the bytecode of the hooks in its inventory",
+              {"hooks/itd_dispatch.py", "hooks/pii-egress-guard.sh", "hooks/check-predeploy-gate.sh",
+               "skills/_shared/itd_external_write_gate.py"} <= {row["source"] for row in inventory["files"]},
+              str(len(inventory["files"])))
 
         # 2. idempotent re-run
         before = (home / "settings.json").read_bytes()
@@ -161,22 +207,22 @@ def main() -> int:
 
         # 3. a user's own hooks survive, in the same group and in foreign keys
         data = json.loads(before)
-        bash_group = next(g for g in data["hooks"]["PreToolUse"] if g.get("matcher") == "Bash")
-        bash_group["hooks"].append({"type": "command", "command": "/opt/me/audit.sh", "timeout": 3})
+        itd_group = data["hooks"]["PreToolUse"][0]  # the dispatcher's group, matcher '*'
+        itd_group["hooks"].append({"type": "command", "command": "/opt/me/audit.sh", "timeout": 3})
         mention = "~/.claude/hooks/careful.sh --version; /opt/me/wrap.sh"  # mentions an ITD hook path; the user's
-        bash_group["hooks"].append({"type": "command", "command": mention})
+        itd_group["hooks"].append({"type": "command", "command": mention})
         data["hooks"]["PreToolUse"].append(
             {"matcher": "Read", "hooks": [{"type": "command", "command": "~/.claude/hooks/my-own.sh"}]})
         data["hooks"]["SessionStart"] = [{"hooks": [{"type": "command", "command": "other-plugin start"}]}]
-        data["hooks"]["PreToolUse"][0]["hooks"].append({"type": "command", "command": "~/.claude/hooks/careful.sh"})
+        data["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [
+            {"type": "command", "command": "~/.claude/hooks/careful.sh"}]})  # an old per-hook registration
         (home / "settings.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         if os.name != "nt":
             (home / "settings.json").chmod(0o640)
         sync(home)
         found = rows(home)
-        check("a user hook in the ITD Bash group is kept",
-              ("PreToolUse", "Bash", "/opt/me/audit.sh") in found)
-        check("a user command that only mentions an ITD hook path is kept", ("PreToolUse", "Bash", mention) in found)
+        check("a user hook in the ITD group is kept", ("PreToolUse", "*", "/opt/me/audit.sh") in found)
+        check("a user command that only mentions an ITD hook path is kept", ("PreToolUse", "*", mention) in found)
         check("the rewrite is atomic: no temporary file is left next to settings.json",
               not list(home.glob(".settings-*")))
         if os.name != "nt":
@@ -186,7 +232,8 @@ def main() -> int:
               ("PreToolUse", "Read", "~/.claude/hooks/my-own.sh") in found)
         check("a foreign event key is kept", ("SessionStart", "", "other-plugin start") in found)
         careful = [row[:2] for row in found if hook_file(row[2]) == "careful.sh"]
-        check("a stray ITD hook copy is replaced, not duplicated", careful == [("PreToolUse", "Bash")], str(careful))
+        check("a stray ITD hook copy is replaced, not duplicated", careful == [("PreToolUse", "Bash")]
+              and not any(hook_file(command) == "careful.sh" for _, _, command in raw_rows(home)), str(careful))
         user_state = (home / "settings.json").read_bytes()
         sync(home)
         check("the merge with user hooks is idempotent", (home / "settings.json").read_bytes() == user_state)
@@ -207,7 +254,7 @@ def main() -> int:
         sync(home)
         found = rows(home)
         check("removing the lists returns to the default set",
-              names(found) == default_set and ("PreToolUse", "Bash", "/opt/me/audit.sh") in found,
+              names(found) == default_set and ("PreToolUse", "*", "/opt/me/audit.sh") in found,
               f"diff={sorted(names(found) ^ default_set)}")
 
         # 5. Codex: codex-dispatch.py runs exactly what the sync registers
@@ -313,6 +360,9 @@ def main() -> int:
         (fake / "skills" / "x" / "SKILL.md").write_text("x\n", encoding="utf-8")
         (fake / ".claude-plugin").mkdir()
         (fake / ".claude-plugin" / "plugin.json").write_text("{}\n", encoding="utf-8")
+        (fake / "docs").mkdir()
+        shutil.copy2(ROOT / "docs" / "HARNESS_TRUST_POLICY.json", fake / "docs")
+        shutil.copy2(ROOT / "scripts" / "itd_hook_bytecode.py", fake / "scripts")
         shutil.copytree(ROOT / "hooks", fake / "hooks", ignore=shutil.ignore_patterns("__pycache__"))
         (fake / "hooks" / "freeze.sh").unlink()
         text = SYNC.read_text(encoding="utf-8")

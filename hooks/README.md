@@ -98,10 +98,40 @@ hook commands in `settings.json`; a user's own hooks stay, also in the same even
 entry position in `config.toml`; after a plugin update `python3 scripts/itd_codex_hook_trust.py` names the entries
 Codex will not run (untrusted, switched off by position, stale) - trust them in `/hooks`.
 
+## One dispatcher per event (plan session 6, ADR-016)
+
+On Claude Code the sync registers `hooks/claude-dispatch.py` once per event (UserPromptSubmit, PreToolUse,
+PostToolUse, Stop, SubagentStop) under the union of the matchers, and writes the selected hooks into the routing table
+`~/.claude/hooks/claude-dispatch.json` (event, matcher, script, timeout, hard-gate flag of
+`docs/HARNESS_TRUST_POLICY.json`). A Bash call starts one ITD process for PreToolUse and one for PostToolUse instead
+of one per hook. The dispatcher (`hooks/itd_dispatch.py`) runs the same hook files as `__main__`, each in its own
+thread with its own stdin, stdout and stderr, one after another; a hook still running after 0.25 s keeps running while
+the next ones start. The first blocking answer passes through as its hook gave it; asks and context are joined.
+While the hooks run, the process descriptors 1 and 2 point at the null device, so a child process a hook starts
+without capturing its output cannot reach the answer; when they cannot be redirected, the event fails closed.
+
+- **Failure**: a hard gate that crashes, exits with a code other than 0 or 2, is missing or overruns its budget (at
+  least 30 s) denies the tool call or blocks the SubagentStop; an advisory hook in the same state is silent. An
+  unreadable table or payload, a table the sync would not write (checked whole on every call: kind, version 1 and
+  every row of every event, a script and event pair outside the canonical registration included), an unloadable
+  dispatcher and a dispatcher failure (reading the payload and writing the answer included) deny a tool call and block
+  a SubagentStop (never when the subagent already continues because of a stop hook); other events stay silent. When
+  the answer cannot be written, the exit status carries the decision. A hard gate of the trust policy stays hard
+  whatever the flag of its row says.
+- **Bytecode**: the sync compiles checked-hash bytecode of the hooks and of the modules they load (`hooks/`,
+  `skills/_shared`, `skills/review/scripts`, `skills/deploy/scripts`) with the interpreter that runs the hooks,
+  removes any other `.pyc` there and lists the result in `~/.claude/itd-bytecode.json`
+  (`scripts/itd_hook_bytecode.py`); a `.pyc` is current only when it is byte for byte its source's bytecode. At run
+  time nothing writes `.pyc`; bytecode is used only for exactly the source on disk and only when its SHA-256 is the
+  one the inventory records (the hooks, every module they import and the dispatcher module itself, which its entry
+  point checks before loading it); otherwise the source is compiled in memory.
+  `bash scripts/sync-to-active.sh --check` reports stale bytecode.
+- Codex keeps `hooks/hooks.json` with one `codex-dispatch.py` call per hook.
+
 ## Recommended setup
 
-The supported install is `bash scripts/sync-to-active.sh` (the default registration above); the manual steps below
-are the historical layout.
+The supported install is `bash scripts/sync-to-active.sh` (the default registration and the dispatcher above); the
+manual steps below are the historical layout.
 
 ```bash
 # 1. Copy hooks to your user-level Claude config
@@ -289,7 +319,8 @@ These hooks are the answer. After installation, the same prompt — "у меня
 
 - The hooks are user-level (`~/.claude/`), not project-level. If you want them only for specific projects, move them to `.claude/settings.json` in the project root and gitignore them.
 - The PreToolUse hook fires on every Bash/Edit/Write — that's a lot of noise on long sessions. If it bothers you, change the matcher to match only specific tools or specific commands (e.g., `Bash(git:*)`).
-- Hooks slow each prompt by ~50ms (Python startup). Acceptable for interactive use; might matter for scripted/CI use.
+- Each event costs one Python start of the dispatcher plus the hooks' own work (plan session 6; measured numbers in
+  `docs/measurements/ITD-SIMPLIFY-BASELINE.md`, section 10).
 - Only Russian + English triggers are included by default. Add your language by editing `check-skills.sh`.
 
 ## Completion Gate (v1.51.0)

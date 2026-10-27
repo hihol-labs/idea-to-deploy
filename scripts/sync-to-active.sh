@@ -109,9 +109,9 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Step 1/6: Sync skills
+# Step 1/7: Sync skills
 # -----------------------------------------------------------------------------
-say "Step 1/6: skills/"
+say "Step 1/7: skills/"
 mkdir -p "$ACTIVE/skills"
 
 added=0
@@ -200,9 +200,9 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# Step 2/6: Sync hooks
+# Step 2/7: Sync hooks
 # -----------------------------------------------------------------------------
-say "Step 2/6: hooks/"
+say "Step 2/7: hooks/"
 # --- utility scripts (v1.88.0: OTel-экспортёр — транспорт, не контракт) ------
 mkdir -p "$ACTIVE/scripts"
 for u in itd_otel_export.py; do
@@ -271,7 +271,7 @@ done
 ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 3/6: Sync agents/*.md (subagents)
+# Step 3/7: Sync agents/*.md (subagents)
 # -----------------------------------------------------------------------------
 # Gap #9 (v1.13.1): sync-to-active.sh originally copied skills/ and hooks/
 # but NOT agents/, so updates to subagent instructions (e.g. the v1.13.0
@@ -282,7 +282,7 @@ ok "hooks: +$h_added added, ~$h_updated updated, =$h_unchanged unchanged"
 # Numbering note (v1.13.2): originally this was "Step 2.5/3" because agents/
 # was added after the 3-step layout was fixed. v1.13.2 renumbered to the
 # honest 1/4..4/4 scheme so that `--check` dry-run output matches reality.
-say "Step 3/6: agents/"
+say "Step 3/7: agents/"
 mkdir -p "$ACTIVE/agents"
 
 a_added=0
@@ -324,7 +324,7 @@ fi
 ok "agents: +$a_added added, ~$a_updated updated, =$a_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 4/6: Sync docs/templates (itd contracts + itd-memory examples)
+# Step 4/7: Sync docs/templates (itd contracts + itd-memory examples)
 # -----------------------------------------------------------------------------
 # v1.68.0 (init-audit round 2, C4): /adopt Step 3.5 and /kickstart Phase 3
 # resolve the .itd/ scaffold templates from a plugin install or the repo
@@ -332,7 +332,7 @@ ok "agents: +$a_added added, ~$a_updated updated, =$a_unchanged unchanged"
 # Windows side of a WSL repo) had no template source at all — scaffolding
 # degraded to "warn and skip". Mirror the templates to
 # $ACTIVE/templates/{itd,itd-memory} so the scaffold works install-locally.
-say "Step 4/6: docs/templates/ (itd + itd-memory)"
+say "Step 4/7: docs/templates/ (itd + itd-memory)"
 t_added=0
 t_updated=0
 t_unchanged=0
@@ -370,9 +370,9 @@ done
 ok "templates: +$t_added added, ~$t_updated updated, =$t_unchanged unchanged"
 
 # -----------------------------------------------------------------------------
-# Step 5/6: Patch settings.json "hooks" section
+# Step 5/7: Patch settings.json "hooks" section
 # -----------------------------------------------------------------------------
-say "Step 5/6: settings.json hooks registration"
+say "Step 5/7: settings.json hooks registration"
 
 SETTINGS="$ACTIVE/settings.json"
 
@@ -618,6 +618,51 @@ while IFS= read -r _line; do
 done < "$_meta"
 rm -f "$_meta"
 
+# One dispatcher per event (plan session 6, ADR-016). The selected hooks go into the routing table
+# hooks/claude-dispatch.json - per event the matcher, script, timeout and the hard-gate flag of
+# docs/HARNESS_TRUST_POLICY.json, in registration order - and settings.json registers hooks/claude-dispatch.py once per
+# event, under the union of the matchers, with a timeout above the longest budget of the event (routing() in
+# hooks/itd_dispatch.py; a hard gate gets at least 30 s). A Bash call then starts one ITD process per phase instead
+# of one per hook; the dispatcher runs the same hook files in memory.
+_meta="$(mktemp)"
+DESIRED_HOOKS="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_ACTIVE="$ACTIVE" ITD_REPO="$REPO_ROOT" ITD_META="$_meta" \
+  ITD_DRY="$DRY_RUN" "$PYBIN" -B - <<'PYX'
+import importlib.util, json, os, tempfile
+from pathlib import Path
+repo, active = Path(os.environ["ITD_REPO"]), Path(os.environ["ITD_ACTIVE"])
+spec = importlib.util.spec_from_file_location("itd_dispatch", repo / "hooks" / "itd_dispatch.py")
+dispatch = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dispatch)
+policy = json.loads((repo / "docs" / "HARNESS_TRUST_POLICY.json").read_text(encoding="utf-8"))
+hard = {(gate["script"], gate["event"]) for gate in policy["hardGates"] if "script" in gate}
+table, registration = dispatch.routing(json.loads(os.environ["ITD_DESIRED"]), hard)
+text = json.dumps(table, ensure_ascii=False, indent=2) + "\n"
+target = active / "hooks" / dispatch.TABLE_FILE
+current = target.read_text(encoding="utf-8") if target.is_file() else None
+with open(os.environ["ITD_META"], "w", encoding="utf-8") as meta:
+    if current == text:
+        meta.write("OK routing table %s unchanged (%d hooks)\n" % (target.name, sum(map(len, table["hooks"].values()))))
+    elif os.environ["ITD_DRY"] == "1":
+        meta.write("WARN routing table %s would be %s\n" % (target.name, "written" if current is None else "updated"))
+    else:
+        fd, tmp = tempfile.mkstemp(prefix=".claude-dispatch-", dir=str(target.parent))
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, target)
+        meta.write("OK routing table %s %s (%d hooks)\n" % (target.name, "written" if current is None else "updated",
+                                                            sum(map(len, table["hooks"].values()))))
+print(json.dumps(registration))
+PYX
+)" || { rm -f "$_meta"; err "dispatcher routing table (hooks/claude-dispatch.json) failed"; exit 1; }
+while IFS= read -r _line; do
+  case "$_line" in
+    "OK "*) ok "${_line#OK }" ;;
+    "WARN "*) warn "${_line#WARN }" ;;
+  esac
+done < "$_meta"
+rm -f "$_meta"
+
 # v1.38.0: platform-aware command form. On a Windows target, rewrite each
 # "~/.claude/hooks/X.sh" into a python.exe invocation with an absolute Windows
 # path — .sh files there have no executable shebang. Unix/WSL keeps bare paths
@@ -639,13 +684,33 @@ if [ "$ITD_TARGET_OS" = "windows" ]; then
     [ -n "$WIN_PY" ] && warn "ITD_WIN_PYTHON unset — interpreter harvested from existing settings.json: $WIN_PY"
   fi
   if [ -z "$WIN_PY" ]; then
-    _p="$(command -v python 2>/dev/null || command -v py 2>/dev/null || true)"
-    [ -n "$_p" ] && WIN_PY="$(cygpath -m "$_p" 2>/dev/null || echo "$_p")"
+    # Plan session 6: only an interpreter that runs, named by its own sys.executable. In Git Bash `python` is often the
+    # Microsoft Store alias (WindowsApps\python.exe), which does not start - registered, it would leave every hook
+    # unrun (the host treats that as a non-blocking error); `py` is the launcher of the real interpreter.
+    for _cand in python py python3; do
+      _p="$(command -v "$_cand" 2>/dev/null || true)"
+      [ -n "$_p" ] || continue
+      _exe="$("$_p" -c "import sys; print(sys.executable)" 2>/dev/null | tr -d '\r' || true)"
+      [ -n "$_exe" ] || continue
+      WIN_PY="$(cygpath -m "$_exe" 2>/dev/null || echo "$_exe")"
+      break
+    done
     case "$WIN_PY" in
       /usr/*|/bin/*|/opt/*) warn "PATH python ($WIN_PY) is a Linux interpreter — useless in a Windows wrapper; set ITD_WIN_PYTHON"; WIN_PY="" ;;
     esac
   fi
   [ -z "$WIN_PY" ] && { WIN_PY="python"; warn "ITD_WIN_PYTHON unset and python not found — using bare 'python'"; }
+  # Review a8: whatever its source - ITD_WIN_PYTHON, the existing registration or PATH - this interpreter runs every
+  # hook, the hard gates included, and a command that cannot start is a non-blocking error for the host. One that does
+  # not run here stops the sync before anything is registered (a Python upgrade removes the harvested path).
+  _win_py_run="$WIN_PY"
+  case "$WIN_PY" in
+    [A-Za-z]:/*) command -v wslpath >/dev/null 2>&1 && _win_py_run="$(wslpath -u "$WIN_PY")" ;;
+  esac
+  if ! "$_win_py_run" -c "pass" >/dev/null 2>&1; then
+    err "Windows interpreter $WIN_PY does not run: registered, it would leave every hook unrun, the hard gates included. Set ITD_WIN_PYTHON to a working python.exe and re-run."
+    exit 1
+  fi
   EFFECTIVE_HOOKS="$(ITD_DESIRED="$DESIRED_HOOKS" ITD_WIN_PY="$WIN_PY" ITD_ACTIVE="$ACTIVE" "$PYBIN" - <<'PYX'
 import json, os, re
 def to_win(p):
@@ -685,13 +750,15 @@ KEYS = ("UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop", "SubagentStop")
 # file deleted from hooks/ moves here (tests/verify_hook_selection.py keeps the shipped inventory).
 RETIRED = set()
 path = os.environ["ITD_SETTINGS"]
-names = {p.name for p in Path(os.environ["ITD_REPO"], "hooks").glob("*.sh")} | RETIRED
+# the hook files and, since plan session 6, the dispatcher entry point claude-dispatch.py
+names = {p.name for p in Path(os.environ["ITD_REPO"], "hooks").glob("*.sh")} | {"claude-dispatch.py"} | RETIRED
 def to_win(p):
     m = re.match(r'^/mnt/([a-zA-Z])/(.*)$', p) or re.match(r'^/([a-zA-Z])/(.*)$', p)
     return '%s:/%s' % (m.group(1).upper(), m.group(2)) if m else p.replace('\\', '/')
 active = os.environ["ITD_ACTIVE"].rstrip("/")
 dirs = "|".join(sorted(re.escape(d.lower()) for d in {"~/.claude/hooks", active + "/hooks", to_win(active) + "/hooks"}))
-owned = re.compile(r'(?:(?:%s)/([a-z0-9._-]+\.sh)|"[^"]+" -x utf8 "(?:%s)/([a-z0-9._-]+\.sh)")' % (dirs, dirs))
+owned = re.compile(r'(?:(?:%s)/([a-z0-9._-]+\.(?:sh|py))|"[^"]+" -x utf8 "(?:%s)/([a-z0-9._-]+\.(?:sh|py))")'
+                   % (dirs, dirs))
 def itd_owned(hook):
     command = str(hook.get("command", "")).replace("\\", "/").strip().lower() if isinstance(hook, dict) else ""
     match = owned.fullmatch(command)
@@ -769,14 +836,56 @@ case "$_mres" in
 esac
 
 # -----------------------------------------------------------------------------
-# Step 6/6: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)
+# Step 6/7: Hook bytecode (plan session 6, ADR-016)
+# -----------------------------------------------------------------------------
+# The hooks and the modules they load get checked-hash bytecode at install, listed in $ACTIVE/itd-bytecode.json
+# (scripts/itd_hook_bytecode.py); at run time nothing writes .pyc (1.109.1). It is compiled by the interpreter that
+# runs the hooks - on a Windows target the python.exe of the registration - so its tag and magic match. An interpreter
+# that cannot run here leaves the hooks without bytecode: they still work, compiled in memory on every call.
+say "Step 6/7: hook bytecode (itd-bytecode.json)"
+BC_PY="$PYBIN"
+BC_ROOT="$ACTIVE"
+if [ "$ITD_TARGET_OS" = "windows" ]; then
+  BC_PY="$WIN_PY"
+  case "$WIN_PY" in
+    [A-Za-z]:/*) command -v wslpath >/dev/null 2>&1 && BC_PY="$(wslpath -u "$WIN_PY")" ;;
+  esac
+  if command -v wslpath >/dev/null 2>&1; then
+    BC_ROOT="$(wslpath -m "$ACTIVE")"
+  elif command -v cygpath >/dev/null 2>&1; then
+    BC_ROOT="$(cygpath -m "$ACTIVE")"
+  fi
+fi
+_bc_args=("$BC_ROOT")
+[ "$DRY_RUN" = "1" ] && _bc_args+=("--check")
+if ! "$BC_PY" -c "pass" >/dev/null 2>&1; then
+  warn "hook bytecode skipped: interpreter $BC_PY does not run here (the hooks compile in memory on every call)"
+else
+  _bc_rc=0
+  _bc_out="$("$BC_PY" -X utf8 -I -B - "${_bc_args[@]}" < "$REPO_ROOT/scripts/itd_hook_bytecode.py" 2>&1)" || _bc_rc=$?
+  while IFS= read -r _line; do
+    case "$_line" in
+      "OK "*) ok "${_line#OK }" ;;
+      "DRIFT "*) warn "bytecode would update: ${_line#DRIFT }" ;;
+      "") ;;
+      *) err "$_line" ;;
+    esac
+  done <<< "$_bc_out"
+  if [ "$_bc_rc" -ne 0 ] && [ "$DRY_RUN" = "0" ]; then
+    err "hook bytecode failed (exit $_bc_rc)"
+    exit 1
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# Step 7/7: Sync the ITD methodology block into ~/.claude/CLAUDE.md (v1.39.0)
 # -----------------------------------------------------------------------------
 # The global CLAUDE.md carries the MANDATORY methodology instruction plus
 # personal sections (e.g. token-efficiency prefs). To keep the methodology block
 # in lockstep across machines WITHOUT clobbering personal content, the repo owns
 # the block (docs/templates/global-claude-md.md, between ITD:BEGIN/ITD:END
 # markers) and this step replaces ONLY that marked region in the active file.
-say "Step 6/6: CLAUDE.md methodology block"
+say "Step 7/7: CLAUDE.md methodology block"
 TPL="$REPO_ROOT/docs/templates/global-claude-md.md"
 CLAUDE_MD="$ACTIVE/CLAUDE.md"
 if [ ! -f "$TPL" ]; then

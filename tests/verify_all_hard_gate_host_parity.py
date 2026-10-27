@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""Behavioural Claude-direct/Codex-dispatch parity for all hard gates."""
+"""Behavioural Claude-direct/Codex-dispatch/Claude-dispatcher parity for all hard gates.
+
+Plan session 6 (ADR-016): Claude Code runs the hooks through one dispatcher per event (hooks/claude-dispatch.py), so
+every registered hard gate is also run through it from a copy of the install layout (hooks next to the skill modules
+they load): with a table of that gate alone the decision and the reason equal the direct run, with the default table
+of every registered hook the decision is the same, and ordinary calls of every event pass the default table without
+a deny or a block.
+"""
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,6 +25,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 HOOKS = ROOT / "hooks"
+_spec = importlib.util.spec_from_file_location("itd_dispatch_parity", HOOKS / "itd_dispatch.py")
+claude_dispatch = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(claude_dispatch)
 # Assembled from parts and pointed at an RFC 2606 .invalid host so the
 # repository's secret scrubber never sees a real-looking deploy target.
 PARITY_DEPLOY_CMD = "rsync -az ./ " + "deployer@" + "example.invalid" + ":/srv/app"
@@ -255,8 +267,77 @@ def parse_decision(output: str) -> tuple[str, str]:
     )
 
 
-def invoke(script: str, host: str, patch_variant: str = "update") -> tuple[int, str, str]:
-    with tempfile.TemporaryDirectory(prefix=f"itd-parity-{host}-") as tmp:
+def dispatcher_install(base: Path) -> Path:
+    """The hooks directory of a copy of the Claude install layout: hooks/ next to the skill modules they load."""
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
+    install = base / "install" / ".claude"
+    shutil.copytree(HOOKS, install / "hooks", ignore=ignore)
+    for skill in ("_shared", "review", "deploy"):
+        shutil.copytree(ROOT / "skills" / skill, install / "skills" / skill, ignore=ignore)
+    return install / "hooks"
+
+
+def default_selection() -> dict[str, Any]:
+    """The hooks a fresh sync registers: the canonical registration without the optional ones."""
+    desired = registration_payload(ROOT / "scripts" / "sync-to-active.sh")["hooks"]
+    optional = claude_dispatch_optional()
+    selected: dict[str, Any] = {}
+    for event, groups in desired.items():
+        kept = [dict(group, hooks=[hook for hook in group["hooks"]
+                                   if hook["command"].rsplit("/", 1)[-1] not in optional]) for group in groups]
+        selected[event] = [group for group in kept if group["hooks"]]
+    return selected
+
+
+def claude_dispatch_optional() -> frozenset[str]:
+    spec = importlib.util.spec_from_file_location("itd_codex_dispatch_parity", HOOKS / "codex-dispatch.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.OPTIONAL_HOOKS
+
+
+def write_dispatch_table(hooks_dir: Path, desired: dict[str, Any], hard: set[tuple[str, str]]) -> None:
+    table, _ = claude_dispatch.routing(desired, hard)
+    (hooks_dir / claude_dispatch.TABLE_FILE).write_text(json.dumps(table), encoding="utf-8")
+
+
+def only(desired: dict[str, Any], script: str) -> dict[str, Any]:
+    picked = {event: [dict(group, hooks=[hook for hook in group["hooks"] if hook["command"].endswith("/" + script)])
+                      for group in groups] for event, groups in desired.items()}
+    return {event: [group for group in groups if group["hooks"]] for event, groups in picked.items()}
+
+
+def run_dispatcher(hooks_dir: Path, cwd: Path, payload: dict[str, Any], env: dict[str, str]) -> tuple[int, str, str]:
+    proc = subprocess.run(
+        [sys.executable, str(hooks_dir / "claude-dispatch.py")],
+        input=json.dumps(payload, ensure_ascii=False),
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        cwd=cwd,
+        env=env,
+        timeout=120,
+    )
+    gate_decision, reason = parse_decision(proc.stdout)
+    return proc.returncode, gate_decision, reason
+
+
+def normalized(reason: str, root: Path, session: str) -> str:
+    """The reason with this run's temporary root and session id replaced, so two runs of a gate compare (review a6)."""
+    spellings = {str(root), str(root.resolve()), root.as_posix(), root.resolve().as_posix(), os.path.realpath(root)}
+    for spelling in sorted(spellings, key=len, reverse=True):
+        reason = reason.replace(spelling, "<root>")
+    # the age of the other session's lock in a state-guard deny depends on the host's speed (1s on a slow Windows run)
+    reason = re.sub(r"(возраст )\d+[smhd]\b", r"\1<age>", reason)
+    return reason.replace(session, "<session>")
+
+
+def invoke(script: str, host: str, patch_variant: str = "update",
+           hooks_dir: Path | None = None, hook: str | None = None) -> tuple[int, str, str]:
+    """Run the scenario of `script` through `host`; on host "claude" the hook run is `hook` (default `script`)."""
+    # A hook cut by its deadline on a loaded Windows host may still hold the directory: cleanup must not end the run.
+    with tempfile.TemporaryDirectory(prefix=f"itd-parity-{host}-", ignore_cleanup_errors=True) as tmp:
         root = Path(tmp)
         session = f"parity-{host}-{uuid.uuid4().hex[:10]}"
         cwd, payload, extra_env = scenario(script, root, session)
@@ -264,8 +345,12 @@ def invoke(script: str, host: str, patch_variant: str = "update") -> tuple[int, 
         env.update(extra_env)
         env.update({"PYTHONUTF8": "1", "CLAUDE_SESSION_ID": session, "PLUGIN_ROOT": str(ROOT)})
         env.pop("CLAUDE_HOME", None)
+        if host == "claude-dispatch":
+            env["ITD_HOST"] = "claude"
+            code, gate_decision, reason = run_dispatcher(hooks_dir, cwd, payload, env)
+            return code, gate_decision, normalized(reason, root, session)
         if host == "claude":
-            command = [sys.executable, str(HOOKS / script)]
+            command = [sys.executable, str(HOOKS / (hook or script))]
             env["ITD_HOST"] = "claude"
         else:
             command = [sys.executable, str(DISPATCHER), "--script", script]
@@ -286,7 +371,7 @@ def invoke(script: str, host: str, patch_variant: str = "update") -> tuple[int, 
             timeout=60,
         )
         gate_decision, reason = parse_decision(proc.stdout)
-        return proc.returncode, gate_decision, reason
+        return proc.returncode, gate_decision, normalized(reason, root, session)
 
 
 def registration_payload(path: Path) -> dict[str, Any]:
@@ -398,10 +483,12 @@ def main() -> int:
                     f"missing={sorted(mutation - routed)}",
                 )
 
+    direct: dict[str, str] = {}
     for gate in gates:
         script = gate["script"]
         expected = gate["decision"]
         claude = invoke(script, "claude")
+        direct[script] = claude[2]
         codex = invoke(script, "codex")
         expected_rc = 0 if expected == "block" else 2
         check(
@@ -422,6 +509,94 @@ def main() -> int:
             claude[:2] == codex[:2],
             f"claude={claude[:2]} codex={codex[:2]}",
         )
+
+    # Claude Code dispatcher (plan session 6): each registered hard gate through the installed dispatcher
+    hard_pairs = {(gate["script"], gate["event"]) for gate in gates}
+    desired = registration_payload(ROOT / "scripts" / "sync-to-active.sh")["hooks"]
+    with tempfile.TemporaryDirectory(prefix="itd-parity-install-", ignore_cleanup_errors=True) as tmp:
+        hooks_dir = dispatcher_install(Path(tmp))
+        for gate in gates:
+            script = gate["script"]
+            if script in unregistered:
+                continue
+            expected = gate["decision"]
+            expected_rc = 0 if expected == "block" else 2
+            write_dispatch_table(hooks_dir, only(desired, script), hard_pairs)
+            alone = invoke(script, "claude-dispatch", hooks_dir=hooks_dir)
+            check(
+                f"Claude dispatcher, the gate alone, produces {expected}: {script}",
+                alone[0] == expected_rc and alone[1] == expected and bool(alone[2])
+                and "hook transport failed closed" not in alone[2],
+                f"rc={alone[0]} decision={alone[1]!r} reason={alone[2][-160:]!r}",
+            )
+            check(
+                f"Claude dispatcher, the gate alone, gives the direct run's reason: {script}",
+                alone[2] == direct[script],
+                f"dispatcher={alone[2][-200:]!r} direct={direct[script][-200:]!r}",
+            )
+            everything = default_selection()
+            for event, groups in only(desired, script).items():
+                everything.setdefault(event, []).extend(groups)  # an optional gate joins the default table
+            write_dispatch_table(hooks_dir, everything, hard_pairs)
+            full = invoke(script, "claude-dispatch", hooks_dir=hooks_dir)
+            check(
+                f"Claude dispatcher, the default table, produces {expected}: {script}",
+                full[0] == expected_rc and full[1] == expected and "hook transport failed closed" not in full[2],
+                f"rc={full[0]} decision={full[1]!r} reason={full[2][-160:]!r}",
+            )
+            # the default table answers with its first blocking hook, which may be another hard gate of the event
+            # ahead of this one (check-dod-before-commit before completion-gate on a commit): the reason is then that
+            # gate's own direct answer on the same call
+            others = {name for name, event in hard_pairs if event == gate["event"] and name != script} & {
+                hook["command"].rsplit("/", 1)[-1] for group in everything.get(gate["event"], [])
+                for hook in group["hooks"]}
+            reasons = {direct[script]} if full[2] == direct[script] else {
+                direct[script], *(invoke(script, "claude", hook=other)[2] for other in sorted(others))}
+            check(
+                f"Claude dispatcher, the default table, gives a gate's direct reason unchanged: {script}",
+                full[2] in reasons,
+                f"dispatcher={full[2][-200:]!r} direct={direct[script][-200:]!r}",
+            )
+
+        # the other direction: ordinary calls of every event pass the default table without a deny or a block
+        write_dispatch_table(hooks_dir, default_selection(), hard_pairs)
+        work = Path(tmp) / "work"
+        init_repo(work, commit_base=True)
+        home = Path(tmp) / "home"
+        home.mkdir()
+        env = os.environ.copy()
+        env.pop("CLAUDE_HOME", None)
+        env.pop("PLUGIN_ROOT", None)
+        env.update({"PYTHONUTF8": "1", "HOME": str(home), "USERPROFILE": str(home), "ITD_HOST": "claude"})
+        final = transcript_payload(Path(tmp), "Done: the parser now accepts empty input and the test covers it.",
+                                   "parity-allow")
+        ordinary = [
+            ("UserPromptSubmit", {"hook_event_name": "UserPromptSubmit", "prompt": "list the files"}),
+            ("Bash", {"tool_name": "Bash", "tool_input": {"command": "git status --short"}}),
+            ("Read", {"tool_name": "Read", "tool_input": {"file_path": str(work / "base.txt")}}),
+            ("Edit", {"tool_name": "Edit", "tool_input": {"file_path": str(work / "base.txt"),
+                                                          "old_string": "base", "new_string": "base"}}),
+            ("Write", {"tool_name": "Write", "tool_input": {"file_path": str(work / "notes.txt"), "content": "x\n"}}),
+            ("Agent", {"tool_name": "Agent", "tool_input": {"subagent_type": "Explore", "prompt": "find x"}}),
+            ("mcp", {"tool_name": "mcp__ccd_turn__update_plan", "tool_input": {"advance": True}}),
+        ]
+        for label, body in ordinary:
+            payload = {"session_id": "parity-allow", "cwd": str(work), "hook_event_name": "PreToolUse", **body}
+            events = [payload["hook_event_name"]] if label == "UserPromptSubmit" else ["PreToolUse", "PostToolUse"]
+            for event in events:
+                payload = dict(payload, hook_event_name=event)
+                if event == "PostToolUse":
+                    payload["tool_response"] = {"stdout": "", "stderr": "", "success": True}
+                result = run_dispatcher(hooks_dir, work, payload, env)
+                check(f"Claude dispatcher, the default table, lets an ordinary call pass: {event} {label}",
+                      result[0] == 0 and result[1] not in ("deny", "block", "ask"),
+                      f"rc={result[0]} decision={result[1]!r} reason={result[2][-200:]!r}")
+        for event, extra in (("Stop", {}), ("SubagentStop", final)):
+            payload = {"session_id": "parity-allow", "cwd": str(work), "hook_event_name": event, **extra}
+            result = run_dispatcher(hooks_dir, work, payload, env)
+            check(f"Claude dispatcher, the default table, lets an ordinary {event} pass",
+                  result[0] == 0 and result[1] not in ("deny", "block", "ask"),
+                  f"rc={result[0]} decision={result[1]!r} {result[2][-200:]!r}")
 
     for script in ("check-tool-skill.sh", "check-skill-completeness.sh", "state-guard.sh"):
         for patch_variant in ("add", "delete", "move"):
