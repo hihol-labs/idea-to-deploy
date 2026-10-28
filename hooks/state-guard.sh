@@ -19,6 +19,10 @@ state-guard (v1.80.0) — страж state-леджеров `.itd-memory/`.
    `session_*.md` памяти сессий тоже ОТКЛОНЯЕТСЯ, причина называет следующий
    свободный суффикс дня; тот же deny-бюджет. Edit, дозапись и новый файл
    проходят; Bash-канал (mv/cp/редирект) остаётся soft-предупреждением.
+   CONTINUITY-WRITER-1 (plan session 7): Write поверх документа продолжения
+   `.itd-memory/continuity/<тема>.md`, который ДРУГАЯ сессия меняла < 10 мин
+   назад, ОТКЛОНЯЕТСЯ в том же бюджете (своя запись узнается по mtime из
+   PostToolUse этой сессии).
 
 2. **PostToolUse Write|Edit|MultiEdit|NotebookEdit (v1.75.0, soft).**
    (а) правка леджера валидируется НЕМЕДЛЕННО через validate_state_core (тот же
@@ -321,6 +325,72 @@ def bash_memory_collision_context(sid: str, command: str) -> str | None:
     return memory_collision_context(sid, tok.group(1))
 
 
+# --- CONTINUITY-WRITER-1 (plan session 7): документ продолжения темы ----------
+# /session-save перезаписывает `.itd-memory/continuity/<тема>.md` целиком. Параллельные
+# сессии ведут разные темы; Write поверх документа, который ДРУГАЯ сессия меняла меньше
+# LOCK_FRESH_SECONDS назад, затер бы ее текущее состояние - deny в общем бюджете отказов.
+# Своя запись узнается по mtime, записанному PostToolUse этой же сессии (поле session
+# документа модель знать не обязана); Edit, новый файл и неизвестная сессия проходят.
+CONTINUITY_DOC_RE = re.compile(r"(?:^|[\\/])\.itd-memory[\\/]continuity[\\/][^\\/]+\.md$", re.I)
+
+
+def _continuity_doc(cwd: Path, file_path: str) -> Path | None:
+    if not CONTINUITY_DOC_RE.search(file_path or ""):
+        return None
+    p = Path(file_path)
+    return p if p.is_absolute() else cwd / p
+
+
+def _continuity_sentinel(sid: str, doc: Path) -> Path:
+    key = re.sub(r"[^A-Za-z0-9]+", "-", str(doc.resolve()))[-80:]
+    return Path(tempfile.gettempdir()) / f"claude-continuity-{sid[:40]}-{key}"
+
+
+def record_continuity_write(cwd: Path, sid: str, file_path: str) -> None:
+    """PostToolUse: запомнить mtime документа после своей записи."""
+    doc = _continuity_doc(cwd, file_path)
+    if doc is None or sid == "unknown":
+        return
+    try:
+        _continuity_sentinel(sid, doc).write_text(str(doc.stat().st_mtime_ns), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def continuity_gate_decision(cwd: Path, sid: str, file_path: str) -> tuple[str, str]:
+    """('allow'|'warn'|'deny', reason) для Write поверх документа продолжения."""
+    doc = _continuity_doc(cwd, file_path)
+    if doc is None or sid == "unknown":
+        return "allow", ""
+    try:
+        if not doc.is_file():
+            return "allow", ""
+        stat = doc.stat()
+    except OSError:
+        return "allow", ""
+    age = time.time() - stat.st_mtime
+    if age > LOCK_FRESH_SECONDS:
+        return "allow", ""
+    try:
+        own = _continuity_sentinel(sid, doc).read_text(encoding="utf-8").strip() == str(stat.st_mtime_ns)
+    except OSError:
+        own = False
+    if own:
+        return "allow", ""
+    if _deny_count(sid, cwd) >= MAX_DENIES:
+        return "warn", (
+            f"⚠️ CONTINUITY-GUARD (auto-allow после {MAX_DENIES} отказов): Write перезаписывает "
+            f"'{doc.name}', который другая сессия меняла {int(age)}s назад - ее состояние потеряно, "
+            "если ты его не слил.")
+    _bump_deny(sid, cwd)
+    return "deny", (
+        f"FAILED: перезапись документа продолжения заблокирована | WHY: '{doc.name}' менялся {int(age)}s "
+        "назад не этой сессией - та же тема в параллельной сессии, Write затрет ее текущее состояние | FIX: "
+        "прочитай документ и слей свое Edit'ом или сохрани под другой темой; осознанная перезапись пройдет "
+        f"после {MAX_DENIES} отказов. Отключение: ITD_STATE_GUARD=0."
+    )
+
+
 def is_state_ledger(file_path: str) -> bool:
     if not file_path:
         return False
@@ -546,6 +616,11 @@ def main() -> int:
                 return deny(mem_reason)
             if mem_reason:
                 ctx = (ctx + "\n" + mem_reason) if ctx else mem_reason
+            doc_action, doc_reason = continuity_gate_decision(cwd, sid, file_path)
+            if doc_action == "deny":
+                return deny(doc_reason)
+            if doc_reason:
+                ctx = (ctx + "\n" + doc_reason) if ctx else doc_reason
         return emit("PreToolUse", ctx)
 
     # --- PostToolUse ---
@@ -564,6 +639,7 @@ def main() -> int:
         return emit("PostToolUse")
 
     heartbeat_lock(cwd, sid)
+    record_continuity_write(cwd, sid, file_path)
     context = None
     if is_state_ledger(file_path):
         context = validate_ledger(file_path)

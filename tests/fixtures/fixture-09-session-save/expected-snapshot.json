@@ -3,7 +3,7 @@
   "fixture_type": "session-save",
   "skill_under_test": "/session-save",
   "status": "contract",
-  "description": "Stub — /session-save writes `session_YYYY-MM-DD.md` to the host-neutral project continuity directory (`<project>/.itd-memory/`) and updates MEMORY.md. Snapshot needs to validate the 9 required fields, MEMORY.md index update, and .active-session.lock structure. Deferred to v1.16.0. [v1.48.0: Phase-2 CONTRACT validation is active for this fixture (manually curated anchors) — documented guarantees are machine-pinned against SKILL.md by verify_snapshot.py (drift guard); live behaviour stays with battle runs.]",
+  "description": "Contract — /session-save keeps one continuity document per topic in the host-neutral project continuity directory (`<project>/.itd-memory/continuity/<topic>.md`: next action, state, decisions, checks, blockers), rewritten whole, and appends the history to `.itd-memory/HISTORY.md` (plan session 7). Phase-2 CONTRACT validation pins the documented guarantees against SKILL.md (drift guard); the behaviour of the hooks that read the documents is tested by tests/verify_continuity.py; live behaviour stays with battle runs.",
   "skill_contract": {
     "skill": "session-save",
     "required_sections": [
@@ -15,10 +15,12 @@
       "Rules"
     ],
     "must_contain": [
-      "MEMORY.md",
-      "session_YYYY-MM-DD.md",
-      ".active-session.lock",
-      "sync-to-active.sh"
+      ".itd-memory/continuity/<тема>.md",
+      "HISTORY.md",
+      "## Следующее действие",
+      "itd_hygiene.py close",
+      "sync-to-active.sh",
+      "--push-memory"
     ]
   }
 }

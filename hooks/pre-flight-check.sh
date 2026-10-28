@@ -14,10 +14,12 @@ What it does:
   1. `git log --oneline -10` + `git status --short` in $PWD (if it's a
      git repo) → so the model sees recent commits and dirty files on
      entry.
-  2. Looks at the host-neutral project memory dir (`.itd-memory/`), reads
-     MEMORY.md if present, and reads `.active-session.lock` if fresher than
-     10 minutes — warns that a parallel session is (likely) active. The
-     legacy Claude-private path is an optional read fallback only.
+  2. Looks at the host-neutral project memory dir (`.itd-memory/`): lists the
+     open continuity documents (`continuity/<topic>.md`, plan session 7) with
+     their next action - or, in a project without them, the MEMORY.md index -
+     and reads `.active-session.lock` if fresher than 10 minutes — warns that a
+     parallel session is (likely) active. The legacy Claude-private path is an
+     optional read fallback only.
   3. Emits everything as `hookSpecificOutput.additionalContext`.
   4. G-002 (v1.106): the full dump above fires ONCE per session per repository
      (state file in the temp dir keyed by session id + repository). Every later
@@ -60,6 +62,9 @@ _TOOL_HELPER = Path(__file__).resolve().parent.parent / "skills" / "_shared" / "
 GIT_TIMEOUT_SEC = 2
 LOCK_FRESH_SECONDS = 600  # 10 minutes
 MEMORY_INDEX_MAX_LINES = 30
+CONTINUITY_SHOWN = 5  # open continuity documents listed, newest first; closed ones are read past, never counted
+CONTINUITY_ACTION_MAX = 200
+NEXT_ACTION_HEADINGS = ("## следующее действие", "## next action")
 CWD_HISTORY_MAX = 10
 CWD_SWITCH_WARN_THRESHOLD = 5  # warn about /session-save after this many switches in 30 min
 PREFLIGHT_DELTA_MAX_BYTES = 1024  # G-002: later prompts of a session get at most this much
@@ -182,6 +187,72 @@ def memory_index_context(mem_dir: Path) -> str:
     return "**Project memory index** (`MEMORY.md`):\n\n" + "\n".join(lines)
 
 
+def continuity_fields(text: str) -> tuple[str, str]:
+    """(frontmatter status, first line under the next-action heading) of a continuity document."""
+    lines = text.splitlines()
+    status = ""
+    if lines and lines[0].strip() == "---":
+        for line in lines[1:]:
+            if line.strip() == "---":
+                break
+            key, _, value = line.partition(":")
+            if key.strip().lower() == "status":
+                status = value.split("#", 1)[0].strip().lower()
+    in_section = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            if in_section:
+                break
+            in_section = stripped.lower() in NEXT_ACTION_HEADINGS
+        elif in_section and stripped:
+            return status, re.sub(r"^>\s*(\[!todo\]\s*)?", "", stripped, flags=re.I).strip()
+    return status, ""
+
+
+def _age_label(seconds: float) -> str:
+    minutes = int(max(seconds, 0) // 60)
+    if minutes < 60:
+        return f"{minutes} мин"
+    if minutes < 48 * 60:
+        return f"{minutes // 60} ч"
+    return f"{minutes // 1440} дн"
+
+
+def continuity_context(mem_dir: Path) -> str:
+    """Open continuity documents (/session-save, plan session 7), newest first, one line each with the next
+    action. In a project that has them they replace the MEMORY.md index: the history does not compete with the
+    current state."""
+    folder = mem_dir / "continuity"
+    try:
+        docs = sorted(folder.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+    except Exception:
+        return ""
+    if not docs:
+        return ""
+    now = time.time()
+    rows: list[str] = []
+    for doc in docs:
+        try:
+            text = doc.read_text(encoding="utf-8", errors="replace")
+            age = now - doc.stat().st_mtime
+        except Exception:
+            continue
+        status, action = continuity_fields(text)
+        if status == "done":
+            continue
+        rows.append(f"- `{doc.stem}` ({_age_label(age)}): "
+                    f"{(action or '(следующее действие не записано)')[:CONTINUITY_ACTION_MAX]}")
+        if len(rows) == CONTINUITY_SHOWN:
+            break
+    head = ("**Continuity** (`.itd-memory/continuity/<тема>.md`; продолжая тему, прочитай ее документ - "
+            "состояние, решения, проверки и блокеры там; история - в `HISTORY.md`):\n\n")
+    if not rows:
+        return head + f"- открытых тем нет ({len(docs)} закрыто)"
+    rest = len(docs) - len(rows)
+    return head + "\n".join(rows) + (f"\n(…еще {rest} в continuity/, закрытые и старые не показаны)" if rest else "")
+
+
 def session_lock_context(mem_dir: Path) -> str:
     """If .active-session.lock is fresh, emit a warning about a parallel session."""
     lock = mem_dir / ".active-session.lock"
@@ -211,9 +282,9 @@ def session_lock_context(mem_dir: Path) -> str:
         "⚠️ **Parallel session warning**: another Claude session touched "
         f"this project {minutes_ago} min ago (pid {pid}, branch `{branch}`)."
         + (f" Note: {note}" if note else "")
-        + "\n\nRun `git log --oneline -10` and check the latest `session_*.md` "
-        "in memory BEFORE starting work — the task you're about to do may "
-        "already be committed."
+        + "\n\nRun `git log --oneline -10` and check `.itd-memory/continuity/` (or the "
+        "latest `session_*.md`) in memory BEFORE starting work — the task you're about "
+        "to do may already be committed."
     )
 
 
@@ -955,9 +1026,12 @@ def main() -> int:
         lock = session_lock_context(local_mem)
         if lock:
             sections.append(lock)
+    continuity = continuity_context(local_mem) if local_mem else ""
+    if continuity:
+        sections.append(continuity)
     index_mem = local_mem if local_mem and (local_mem / "MEMORY.md").is_file() \
         else legacy_mem
-    if index_mem:
+    if index_mem and not continuity:
         idx = memory_index_context(index_mem)
         if idx:
             if legacy_mem is not None and index_mem == legacy_mem:

@@ -76,7 +76,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ planned · vector = how it lands in 
 | 9 | Root-cause gate for `/bugfix` (require `ROOT_CAUSE.md`) | `/bugfix` Step 3 | ✅ |
 | 10 | Two-stage `/review` (spec compliance → code quality) | `/review` Stage A pre-gate | ✅ |
 | 11 | TDD evidence gate (red/green) | `/test` Step 5 | ✅ |
-| 12 | Branch-finish workflow | `/session-save` Step 4.8 | ✅ |
+| 12 | Branch-finish workflow | `/session-save --close` (режим ветки в документе темы) | ✅ |
 | 13 | Skill-contract frontmatter (`effort`/`side_effect`/`explicit_invocation`) + validator | frontmatter on all 25 `skills/*/SKILL.md` + `scripts/verify_skill_profiles.py` | ✅ |
 
 ### Wave 2 — state, routing, research skills

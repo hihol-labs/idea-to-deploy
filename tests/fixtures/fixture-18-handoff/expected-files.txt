@@ -2,23 +2,16 @@
 #
 # /handoff is a memory-write skill — it produces a compact context packet.
 #
-# Produces:
-#   HANDOFF.md          — context packet in project root (Markdown,
-#                         Obsidian-compatible: frontmatter + wikilinks +
-#                         [!todo]/[!warning] callouts)
+# Produces (plan session 7: the /session-save continuity format):
+#   .itd-memory/continuity/<topic>.md — the topic document, rewritten whole: frontmatter
+#                         (topic, status, updated, branch, unit) + Следующее действие,
+#                         Состояние, Решения, Проверки, Блокеры
+#   HANDOFF.md          — the same document + `## Передача` in project root
+#                         (From → To, reason, inputs [[STATE]]/[[BUILD_PLAN]],
+#                         write areas + forbidden changes, verification commands,
+#                         [!warning] risks); the next action is one [!todo] line
 #   STATE.json (update) — refreshed state slice in the project's memory dir
 #                         (schema: docs/templates/itd-memory/STATE.json)
-#
-# HANDOFF.md MUST contain the 9 required fields:
-#   1. From → To roles
-#   2. Reason for transfer
-#   3. Current state (node, unit, done, in-progress)
-#   4. Final decisions only
-#   5. Required inputs
-#   6. Write areas + forbidden changes
-#   7. Verification commands
-#   8. Blockers and risks
-#   9. Exact first action (one line, [!todo] callout)
 #
 # /handoff MUST NOT:
 #   - Store secrets / keys / tokens in HANDOFF.md

@@ -6487,3 +6487,97 @@ The third fresh Terra review found that a primary already containing :general-re
   не тронут), запись юнита перенесена из mergedFollowupFromMain в closedFollowups.
 - Кандидат - один коммит поверх main 5118b3f (машина проверяет коммит с одним родителем; merge-коммит 0bf325f она
   отклоняет), ветка feat/plan-s6-hook-dispatcher-v2; публикация - новый PR, #375 закрывается со ссылкой.
+
+## 2026-10-27 - сессия 6: ревью a10 без вердикта (сеть), a10r6 BLOCKED -> ADJUDICATED
+- Ответ на a9r2 - 48a7c9a, машина ITD-PLAN-S6-machine-a12 PASSED 10/10 (receipt 55c9cfc5, tree 023c6a74).
+- Ревью a10, a10r2-a10r5 - без вердикта: транспорт Codex "request timed out", затем "workspace routing discovery
+  timed out" (reports/ITD-PLAN-S6-canonical-a10*.json.transport.jsonl). Диагностика: DNS из WSL отдает для chatgpt.com
+  fake-IP VPN-клиента (198.18.x.x, режим TUN); TLS до chatgpt.com нестабилен из WSL и из Windows, api.openai.com
+  стабилен - нестабилен узел VPN владельца, а не настройка WSL. Повторы останавливались по указанию владельца.
+- a10r6 (связь 7/8) - BLOCKED, 2 high, обе о поведении, которое есть на main: (1) AC3 passed при таймаутах ног Codex
+  на Windows - 3-секундный дедлайн `codex-dispatch.py` без изменений (BACKLOG P3); (2) при запуске `.pyc` доверяют
+  по паре "SHA-256 из инвентаря + заголовок с хешем исходника", подмена `.pyc` вместе с инвентарем исполнит чужой код
+  (на main Python грузит подмененный `.pyc` импортируемых модулей вообще без инвентаря; нужна запись в каталог
+  установки, где правятся и исходники; `sync --check` ловит такой `.pyc` сравнением целиком).
+- Решение владельца 2026-10-27 по правилу "не хуже main": ADJUDICATED по ADR-007 (binding 793cd639, receipt
+  2d81abcb); якорь доверия инвентаря - в BACKLOG; формулировки AC1 (проверка при установке, доверие инвентарю при
+  запуске) и исключение AC3 - в PR сессии 7.
+
+## 2026-10-27 - сессия 6: машина a15, ревью a11 ADJUDICATED, публикация #376
+- Кандидат 60b1f30 - один коммит поверх main 5118b3f (дерево слияния 0bf325f, юнит #374 закрыт verified): машина
+  ITD-PLAN-S6-machine-a15 PASSED 10/10 (receipt f632a0ec, tree 543676be).
+- Ревью a11 (база 5118b3f) - BLOCKED, 1 medium (два прохода): AC3 passed при таймаутах ног Codex на Windows - та же
+  тема, что a10r6. Решение владельца 2026-10-27: ADJUDICATED (binding d5d44f1d, receipt 97a011ba).
+- Публикация, каждый шаг с подтверждения владельца: бэкапы `~/.config/itd/gates.json.bak-s6-20261027` и
+  `.bak-s6-a11-20261027`, `localReviewReceiptFile` -> квитанция a11, `itd gate doctor` - LOCAL_REVIEWED. PR #375
+  (head 48a7c9a) конфликтовал с main (#374) и закрыт со ссылкой на #376; PR #376 (head 60b1f30, base 5118b3f) -
+  CI meta-review и windows-verify SUCCESS; `gh pr ready` и squash merge прошли с повторами (TLS-таймауты
+  api.github.com) -> main 0436ab5 (2026-10-27T19:50:46Z), дерево 543676be равно проверенному.
+
+## 2026-10-27 - сессия 6: sync WSL и Windows
+- WSL (подтверждение владельца): бэкап settings.json и itd-disabled-hooks.txt в
+  `.itd-memory/host-inputs/ITD-PLAN-S6/backups/wsl`; `--check` rc 0, применение rc 0 - таблица claude-dispatch.json
+  (26 хуков), байткод 67 файлов (cpython-312), диспетчер на 5 событиях; повторный `--check` без изменений; разрешения
+  не тронуты. Пробный PreToolUse Bash `git status --short` через установленный диспетчер - rc 0, 300-365 мс.
+- Windows (подтверждение владельца): бэкап в `.../backups/win`; `--check` rc 0 (интерпретатор из прежней регистрации
+  прошел проверку запуска); применение rc 0 - 26 хуков, байткод 68 файлов, диспетчер на 5 событиях оберткой
+  "python.exe" -X utf8; повторный `--check` - только косметическое "would chmod TIER_EXEMPT.json" (права на /mnt/c не
+  сохраняются). Пробный вызов - rc 0, 640-1015 мс (первый холодный).
+- Вне ITD: SessionStart context-mode на Windows зарегистрирован с битым путем (кракозябры вместо имени профиля) - было
+  и до sync, в BACKLOG.
+
+## 2026-10-28 - сессия 7: ITD-PLAN-S6 verified, тексты S6 AC1/AC3, BACKLOG
+- По правилу плана 5 юнит ITD-PLAN-S6 записан verified писателем `itd_unit_log.py` (событие 2026-10-28T08:15:16Z:
+  #376 -> 0436ab5, дерево = проверенное a15/a11, CI, sync WSL+Windows); его activeFollowup перенесен в
+  closedFollowups с тем же доказательством; активирован ITD-PLAN-S7 (харнес поднял тир medium -> high по слову
+  "authoriz*" в SCOPE_LOCK сессии 6 - оставлено как есть).
+- Тексты закрытого контракта S6 уточнены по ADJUDICATED a10r6/a11: AC1 - байткод проверяется байт в байт при установке
+  (и `sync --check`), при запуске доверие SHA-256 из инвентаря установки; AC3 - исключение владельца для ног Codex на
+  Windows, оборванных дедлайном 3 с (поведение main, BACKLOG P3); ноги диспетчера Claude обязаны проходить.
+- BACKLOG: новые пункты из `.itd-memory/host-inputs/ITD-PLAN-S6/decisions-after-a7.md` (сходимость ревью, якорь
+  доверия инвентаря, флейк брокера, сожженный refresh token Codex, merge-коммит и дрейф снимка индекса памяти у
+  машины, битый путь context-mode на Windows); P2 check-dod на Windows оставлен открытым - после sync в invoices нет
+  коммитов, данных для закрытия нет.
+
+## 2026-10-28 - сессия 7: один документ продолжения на поток работы
+- Решения владельца 2026-10-28 (из вариантов с рекомендацией): документ продолжения - `.itd-memory/continuity/<тема>.md`
+  (текущее: следующее действие, состояние, решения, проверки, блокеры; перезапись целиком), история - дозапись в
+  `.itd-memory/HISTORY.md`; новые `session_*.md` и `MEMORY.md` не пишутся, старые остаются историей.
+- Почему по теме, а не один CONTINUITY.md на проект (первый утвержденный вариант, пересмотрен владельцем): в buying
+  параллельные сессии разных тем работают в одной копии (`buying` на main, worktree в `C:/tmp/...`) и делят один
+  `.itd-memory`; один документ затирался бы параллельными темами, а гейт по общему lockfile отказывал бы почти на
+  каждом сохранении.
+- Pre-flight показывает до пяти открытых тем, по строке со следующим действием, вместо 30 строк индекса MEMORY.md;
+  индекс - только в проекте без документов. Lockfile ведет state-guard (heartbeat), скилл его не пишет.
+- Гейт CONTINUITY-WRITER-1 в state-guard (выбор владельца вместо правила в скилле): Write поверх документа, который
+  другая сессия меняла меньше 10 минут назад, - deny в общем бюджете; своя запись узнается по mtime из PostToolUse
+  этой сессии (модель свой session id не знает). Так защита не слабее MEMORY-COLLISION-DENY-1 для `session_*.md`.
+- Замер времени session-save в buying - после merge и sync по транскриптам buying (`transcript_stats.py`, baseline
+  сессии 2 - медиана 154 с); запись verified ITD-PLAN-S7 с этим замером - в PR сессии 8 (правило плана 5). В этом PR
+  - доказательство короткого пути (455 -> 200 строк, чтений references 3 -> 0, обязательных шагов после записи
+  документа - ни одного).
+- Отвергнуто: скрипт-писатель документа через heredoc в Bash - текст проверок в команде классифицируется гейтом
+  завершения как прогон тестов (класс LPD-002 A2); один документ на проект - см. выше.
+- Ссылки: skills/session-save/SKILL.md, skills/handoff/SKILL.md, hooks/{pre-flight-check,state-guard,
+  handoff-readiness,session-open-diagnostic}.sh, tests/verify_continuity.py.
+
+## 2026-10-28 - сессия 7: ревью sol a1 BLOCKED, все находки исправлены
+- Кандидат c7728e4 (дерево 6ffb7f4c): машина ITD-PLAN-S7-machine-a1 PASSED 9/9 (receipt cbf1c2b6, полная нога
+  fails:none, 176 из 190 наборов). Ревью gpt-5.6-sol a1 (база 0436ab5) - BLOCKED: 1 high, 2 medium, 1 low, все из
+  диффа сессии 7 (отчет reports/ITD-PLAN-S7-canonical-a1.json.negative-9mln67rz/report.json).
+- high: защита `--sync`/`--push-memory` сверяла сырой текст манифеста grep'ом - вложенное `"name": "idea-to-deploy"`
+  в чужом проекте проходило (и push закоммитил бы память методологии), а перенос строки в манифесте или запуск из
+  подкаталога ITD отклонялись. Теперь корень репо (`git rev-parse --show-toplevel`) и разбор манифеста
+  `itd_contract_dir.py --root` из установки (верхнеуровневое `name`, тот же помощник, что выбирает контракт
+  `--close`); sync запускается из корня.
+- medium: pre-flight читал только 40 новейших документов до фильтра `status: done` - старая открытая тема за 40
+  закрытыми пропадала. Теперь закрытые пролистываются, лимит - 5 открытых.
+- medium: без git `MEM_DIR` становился `/.itd-memory`; теперь `$PWD/.itd-memory`, как обещает Troubleshooting.
+- low: CHANGELOG называл 199 строк, контракт - 200; везде 200.
+- Тесты: verify_continuity 39 -> 47 (вложенное имя, табы и перенос строки в манифесте, запуск из подкаталога,
+  45 закрытых перед открытой, MEM_DIR без git и из подкаталога репо); мутанты ответа 6/6 убиты, первый набор 9/9.
+  По правилу сходимости high из диффа сессии - исправить и к владельцу перед следующим раундом.
+- Машина ITD-PLAN-S7-machine-a2 на b8769f3 - FAILED (receipt 1dda3940): ноги impact-graph и full - после ответа на
+  a1 тест читает помощники `skills/_shared/` (itd_py.sh, itd_contract_dir.py), а `.itd/IMPACT_GRAPH.json` не был
+  перегенерирован (рёбер 1489 -> 1491; полная нога остановилась на том же дрейфе в verify_verification_profiles).
+  Карта перегенерирована (`tests/build_impact_graph.py`, --check FRESH), кода это не меняет; машина - a3.

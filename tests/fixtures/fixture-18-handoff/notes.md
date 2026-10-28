@@ -2,7 +2,7 @@
 
 `/handoff` writes a **compact context packet** (`HANDOFF.md`) to transfer work
 from one session/agent to the next when there is no return path. This fixture
-regressionally fixes the 9-field contract and the `/handoff` vs `/session-save`
+regressionally fixes the shared continuity format and the `/handoff` vs `/session-save`
 distinction.
 
 ## Fixture status
@@ -17,17 +17,14 @@ checklist below. The stub satisfies `check-skill-completeness.sh`.
 User pastes the prompt from `idea.md`: session is compacting, transfer auth
 context to the next session.
 
-### Critical contract: HANDOFF.md produced with 9 fields
-- [ ] `HANDOFF.md` exists in project root after the run
-- [ ] Field 1 — **From → To** roles present (e.g. `planner → implementer`)
-- [ ] Field 2 — **Reason** present (compaction)
-- [ ] Field 3 — **Current state** (node/unit, done, in-progress) present
-- [ ] Field 4 — **Final decisions only** (no chat-history retelling)
-- [ ] Field 5 — **Required inputs** present (links to [[STATE]], [[BUILD_PLAN]], etc.)
-- [ ] Field 6 — **Write areas + forbidden changes** present
-- [ ] Field 7 — **Verification commands** present (runnable)
-- [ ] Field 8 — **Blockers and risks** present
-- [ ] Field 9 — **First action** is ONE concrete command/step in a `> [!todo]` callout
+### Critical contract: the topic document and HANDOFF.md in the same format (plan session 7)
+- [ ] `.itd-memory/continuity/<topic>.md` rewritten: frontmatter (topic, status, updated, branch, unit) and the
+      sections Следующее действие, Состояние, Решения, Проверки, Блокеры
+- [ ] `HANDOFF.md` exists in project root = the topic document + `## Передача`
+- [ ] Передача: **From → To** roles (e.g. `planner → implementer`), reason (compaction), inputs (links to
+      [[STATE]], [[BUILD_PLAN]]), write areas and forbidden changes, runnable verification commands
+- [ ] Decisions are final only (no chat-history retelling)
+- [ ] The next action is ONE concrete command/step in a `> [!todo]` callout, the same in both files
 
 ### Obsidian compatibility
 - [ ] Frontmatter with project/stage/roles
@@ -59,7 +56,7 @@ User says: «передай контекст агенту, он продолжи
 
 `/handoff` satisfies the three Quality Gate 2 requirements:
 
-1. ✅ `skills/handoff/references/` exists (handoff-checklist.md)
+1. ✅ SKILL.md does not reference `references/` (the format lives in SKILL.md since plan session 7)
 2. ✅ `hooks/check-skills.sh` contains trigger phrases for `/handoff`
 3. ✅ `tests/fixtures/fixture-18-handoff/` exists with `idea.md`, `notes.md`,
    `expected-files.txt`, `expected-snapshot.json`
@@ -69,7 +66,7 @@ User says: «передай контекст агенту, он продолжи
 1. `cd tests/fixtures/fixture-18-handoff/`
 2. `mkdir -p output && cd output`
 3. Start Claude Code, paste `idea.md` content, invoke `/handoff`
-4. Verify `HANDOFF.md` appears with all 9 fields (checklist above)
+4. Verify the topic document and `HANDOFF.md` (checklist above)
 5. `cd .. && python3 ../../verify_snapshot.py .` — expected: `⏸️ fixture-18-handoff: PENDING`
 
 ## Failures (fill in if any)

@@ -16,8 +16,9 @@ Design (HARNESS_ENGINEERING_MAP.md §8.3): the detect is purely computational
 so this MUST stay a soft hint, never a deny. It emits a systemMessage only.
 
 Fires on the Stop event (end of each assistant turn). Noise control:
-  - hints only when BOTH signals hold: dirty git tree AND no fresh session_*.md
-    in `.itd-memory/` (fresher than ITD_HANDOFF_FRESH_MIN, default 120 min);
+  - hints only when BOTH signals hold: dirty git tree AND no fresh checkpoint in
+    `.itd-memory/` - a continuity document or a legacy session_*.md (fresher than
+    ITD_HANDOFF_FRESH_MIN, default 120 min);
   - rate-limited via a sentinel file: at most one hint per ITD_HANDOFF_RATE_MIN
     (default 45 min) per session;
   - disabled entirely with ITD_HANDOFF_READINESS=0;
@@ -36,7 +37,7 @@ import tempfile
 import time
 from pathlib import Path
 
-FRESH_MIN_DEFAULT = 120   # session_*.md younger than this => handoff-ready enough
+FRESH_MIN_DEFAULT = 120   # a checkpoint younger than this => handoff-ready enough
 RATE_MIN_DEFAULT = 45     # min minutes between two hints in one session
 
 
@@ -147,12 +148,13 @@ def find_local_project_memory_dir(cwd: Path) -> Path | None:
 
 
 def latest_session_age_min(mem_dir: Path | None) -> float | None:
-    """Minutes since the freshest session_*.md; None if no memory / no file."""
+    """Minutes since the freshest checkpoint - a continuity document (plan session 7) or a
+    legacy session_*.md; None if no memory / no file."""
     if mem_dir is None:
         return None
     try:
         candidates = sorted(
-            mem_dir.glob("session_*.md"),
+            [*mem_dir.glob("session_*.md"), *mem_dir.glob("continuity/*.md")],
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
