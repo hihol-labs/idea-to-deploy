@@ -1,68 +1,64 @@
-# ITD-PLAN-S6: hook performance - one dispatcher per event, install-time bytecode, the ITD-PLAN-S5 ledger record
+# ITD-PLAN-S7: session-save and handoff - one continuity document per workstream, the ITD-PLAN-S6 ledger record
 
 ## Current Task
 
-- Session 6 of the ITD change plan approved by the owner on 2026-10-20 (ADR-016): one dispatcher per hook event for
-  Claude Code by the pattern of `hooks/codex-dispatch.py` - one Python process runs the selected hooks in memory; the
-  heavy modules (the egress classifier, predeploy) are imported, their bytecode prepared at install and listed in an
-  inventory (the 1.109.1 rule "no .pyc written at run time" kept); a failing dispatcher denies for a hard gate and
-  stays silent for an advisory hook. Inputs from BACKLOG: P2 "check-dod-before-commit on Windows: slow hook start" and
-  P2 "false denies of the pre-deploy gate on `$(...)` next to `cd`".
-- Acceptance: the session 2 measurement repeated on WSL and Windows (median hook latency per call -50% or more, at
-  most 4 hook processes per Bash), every behavioural hard-gate test green in both directions, the full suite green,
-  the Windows acceptance on a fresh copy of the tree in `C:\itd-src` (native Python, Git Bash through ITD_BASH and
-  WSLENV).
-- The same PR carries (plan rule 5, owner 2026-10-23): the ITD-PLAN-S5 verified record and its followup move, the a4
-  adjudication of session 5 in DECISIONS.
-- Start from merged main `c94c50ab61b3fb6c34cb6f018b2d2e01d610f202`. WIP=1: ITD-PLAN-S5 is verified; this unit is
-  the only open one. Criteria live in `.itd/ACCEPTANCE_CONTRACT.json`.
+- Session 7 of the ITD change plan approved by the owner on 2026-10-20 (ADR-016): one continuity document (the next
+  action, state, decisions, check results, blockers; the history kept apart and never competing with the current
+  state); session-save SKILL.md at most 200 lines, run at milestones and before irreversible steps, not after every
+  sub-step; sync-to-active and the methodology-memory push only in the ITD repository and only by a flag; handoff in
+  the same format, kept for a transfer without a way back.
+- Owner decisions 2026-10-28: one document per workstream `.itd-memory/continuity/<topic>.md` (buying runs parallel
+  topics in one checkout) plus the append-only `.itd-memory/HISTORY.md`; pre-flight lists the open topics with the
+  next action instead of the MEMORY.md index; state-guard refuses a Write over a document another session changed
+  less than 10 minutes ago (CONTINUITY-WRITER-1); the session-save time in buying is measured after the merge and the
+  sync from the buying transcripts (`transcript_stats.py`, the session 2 baseline median 154 s) and carried by the
+  ITD-PLAN-S7 verified record in the session 8 PR (plan rule 5).
+- Acceptance: a new session recovers the next action from one document; the skill tests green; the full suite green;
+  the hook changes green on WSL and Windows.
+- The same PR carries (plan rule 5): the ITD-PLAN-S6 verified record and its followup move, the session 6 DECISIONS
+  records after a7 missing on main, the S6 AC1 bytecode wording and the AC3 owner exception for the Codex legs on
+  Windows, the new BACKLOG items of `.itd-memory/host-inputs/ITD-PLAN-S6/decisions-after-a7.md`.
+- Start from merged main `0436ab5`. WIP=1: ITD-PLAN-S6 is verified; this unit is the only open one. Criteria live in
+  `.itd/ACCEPTANCE_CONTRACT.json`.
 
 ## Allowed Change Areas
 
-- New `hooks/claude-dispatch.py` (entry point) and `hooks/itd_dispatch.py` (dispatcher), new
-  `scripts/itd_hook_bytecode.py` (install-time bytecode and inventory).
-- `scripts/sync-to-active.sh`: the routing table and the one registration per event (step 5), the ownership of the
-  dispatcher command, the bytecode step (new step 6).
-- Hook bodies: `hooks/cross-review-precommit.sh` (the sanitizer loaded on first use) and
-  `hooks/check-predeploy-gate.sh` (substitution bodies judged by their own invocations, BACKLOG P2); no other hook.
-- `skills/_shared/itd_project_hooks.py` (a user-level dispatcher counts as the registration of its table's hooks),
-  `hooks/README.md`.
-- Tests: new `tests/verify_itd_dispatch.py`; `verify_all_hard_gate_host_parity`, `verify_hook_selection`,
-  `verify_hooks_autoinstall`, `verify_sync_manifest`, `verify_predeploy_independent_review`; `tests/run-all.sh`.
-- The measurement: `docs/measurements/ITD-SIMPLIFY-BASELINE.md` (section 10, after session 6).
-- `CHANGELOG.md` (`## [Unreleased]`), `.itd/ACCEPTANCE_CONTRACT.json` (the ITD-PLAN-S5 followup move, the
-  ITD-PLAN-S6 followup and criteria), `.itd/DECISIONS.md`, `BACKLOG.md`, this scope, regenerated
-  `.itd/IMPACT_GRAPH.json`.
-- Owner 2026-10-25 (the full suite turned red on every tree): `scripts/graph_v2_study.py` - the hard-coded end of the
-  Graph Lite study authorization window (`expiresAt` 2026-10-25T00:00Z) becomes the module constant
-  `POLICY_EXPIRES_AT` with the same value; `tests/verify_graph_study.py` sets a future date for its synthetic study.
-  The recorded study and its behaviour do not change.
-- `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: harness transitions only.
-- Owner 2026-10-27: the merge of main 5118b3f (PR #374, unit ITD-REVIEW-CLAIM-COMPAT-1024 - `skills/_shared/itd_review_evidence.py`, `tests/verify_review_evidence.py` and its ledger records), taken as merged; the five ledger and contract files are reconciled as DECISIONS 2026-10-27 records.
+- `skills/session-save/SKILL.md`, `skills/handoff/SKILL.md`; their `references/` files are removed (the format lives
+  in SKILL.md).
+- Hook bodies: `hooks/pre-flight-check.sh` (the continuity section), `hooks/session-open-diagnostic.sh`,
+  `hooks/handoff-readiness.sh` (a continuity document is a checkpoint), `hooks/state-guard.sh`
+  (CONTINUITY-WRITER-1); `hooks/README.md`.
+- Tests: new `tests/verify_continuity.py`; `tests/run-all.sh`; the fixtures `tests/fixtures/fixture-09-session-save`
+  and `fixture-18-handoff`; the CI steps that run `verify_continuity.py` in `.github/workflows/meta-review.yml` and
+  `windows-verify.yml`.
+- The live benchmark evidence (`tests/fixtures/live-model-evidence/`): `skills/session-save` is in the dynamic half
+  of the pin (DECISIONS 2026-10-23), so the final tree needs one live run.
+- Docs: `README.md`, `README.ru.md` (the session-save contract row), `docs/HARNESS_ENGINEERING_MAP.md` (H2),
+  `docs/CONTRACTS.md` (branch finish), `CHANGELOG.md` (`## [Unreleased]`).
+- Ledger: `.itd/ACCEPTANCE_CONTRACT.json` (the ITD-PLAN-S6 followup move and the AC1/AC3 wording, the ITD-PLAN-S7
+  followup and criteria), `.itd/DECISIONS.md`, `BACKLOG.md`, this scope, regenerated `.itd/IMPACT_GRAPH.json`;
+  `.itd-memory/STATE.json`, `.itd-memory/events.jsonl` - harness transitions only.
 - Git-ignored verification receipts, reports, measurement outputs and hand-over files.
 - Outside git, each on the owner's confirmation with a backup: `scripts/sync-to-active.sh` on WSL and Windows.
-  Temporary bench installs and tree copies under the session scratchpad and `C:\itd-src\s6-*`.
+  Tree copies under `C:\itd-src\s7-*`.
 
 ## Forbidden Change Areas
 
-- `hooks/codex-dispatch.py` and the other files of the benchmark pin (`tests/itd_benchmark_pin.py`): a change there
-  needs a live benchmark run, not budgeted for this session; `hooks/hooks.json` (Codex stays as it is).
-- Other hook bodies, skills other than the `/adopt` helper, agents, CI, the `itd` CLI runtime
-  (`scripts/itd_install_runtime.py`), the trust policy.
-- The meaning of the ITD-PLAN-S5 criteria and of the released 1.109.2 code.
+- The dispatcher and the install (`hooks/claude-dispatch.py`, `hooks/itd_dispatch.py`, `hooks/codex-dispatch.py`,
+  `hooks/hooks.json`, `scripts/sync-to-active.sh`, `scripts/itd_hook_bytecode.py`), the trust policy, the `itd` CLI
+  runtime; other hook bodies, other skills, agents.
+- The meaning of the closed ITD-PLAN-S6 criteria beyond the two wordings named above.
+- The global rules block (`docs/templates/global-claude-md.md`): `/session-save` and `/session-save --close` keep
+  their names.
 - `HANDOFF.md` in the reviewed diff; hand-written unit statuses.
 - Push, PR, merge, sync and global configuration changes without the owner's explicit confirmation of that step (the
-  one independent review of the final candidate is requested by the owner's session 6 task).
+  one independent review of the final candidate is requested by the owner's session 7 task).
 
 ## Review Rule
 
-One independent review of the final candidate (plan rule 4). Convergence (owner 2026-10-23): the fourth round is the
-last; BLOCKED with only medium or low findings goes to the owner (ADJUDICATED under ADR-007); a high finding is fixed
-and brought to the owner. A reviewer finding outside this scope is brought to the owner before another round.
-The pre-push gate takes a PASSED or ADJUDICATED review of exactly the pushed head, so every fix needs a round of its
-own; the owner authorized the rounds after a4 one by one (DECISIONS 2026-10-25 and 2026-10-26), and the rule that
-binds now (owner 2026-10-26, from round a10): behaviour main already has (not brought in by this unit) goes to BACKLOG
-and is ADJUDICATED whatever its severity; a high finding brought in by the session 6 diff is fixed and brought to the
-owner; only medium or low findings are ADJUDICATED and the candidate is published on the owner's confirmation.
-The generated benchmark sample (`tests/fixtures/live-model-evidence/runs/*`) is recorded evidence, not shipped content
-(owner 2026-10-23); findings about it are out of scope.
+One independent review of the final candidate (plan rule 4). Convergence as in session 6 (owner 2026-10-27):
+behaviour main already has (not brought in by this unit) goes to BACKLOG and is ADJUDICATED whatever its severity; a
+high finding brought in by the session 7 diff is fixed and brought to the owner; only medium or low findings are
+ADJUDICATED and the candidate is published on the owner's confirmation. The generated benchmark sample
+(`tests/fixtures/live-model-evidence/runs/*`) is recorded evidence, not shipped content; findings about it are out of
+scope.

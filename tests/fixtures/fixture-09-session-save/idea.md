@@ -16,11 +16,12 @@
 
 Скилл `/session-save` должен:
 
-1. Собрать контекст из git log, git branch, git diff --stat, git status
-2. Сформировать файл памяти сессии со всеми 9 обязательными полями (см. references/session-save-checklist.md)
-3. Записать файл в `<project>/.itd-memory/session_YYYY-MM-DD.md`
-4. Обновить (или создать) `MEMORY.md` индекс
-5. Подтвердить пользователю, что контекст сохранён
+1. Собрать контекст одним вызовом: git status, git log, ветка, список `.itd-memory/continuity/`
+2. Записать документ темы `<project>/.itd-memory/continuity/<тема>.md` целиком: frontmatter (topic, status,
+   updated, branch, unit) и пять разделов - следующее действие, состояние, решения, проверки, блокеры
+3. Дописать запись в `<project>/.itd-memory/HISTORY.md` (без следующих шагов)
+4. Durable-решение (Redis для сессий) - в `.itd/DECISIONS.md`, если в проекте есть `.itd/`
+5. Подтвердить пользователю путь документа, следующее действие и блокер (SMTP)
 
 ## Триггерные фразы
 

@@ -23,6 +23,7 @@
     ".claude-plugin/plugin.json": [
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_commit_completeness_gate.py",
+      "tests/verify_continuity.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_harness_docs_freshness.py",
       "tests/verify_hook_depth.py",
@@ -816,6 +817,7 @@
     ],
     "docs/templates/itd/itd_hygiene.py": [
       "tests/verify_completion_gate.py",
+      "tests/verify_continuity.py",
       "tests/verify_gate_registry_binding.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_risk_tier_default.py",
@@ -1044,6 +1046,7 @@
       "tests/verify_itd_dispatch.py"
     ],
     "hooks/handoff-readiness.sh": [
+      "tests/verify_continuity.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_host_neutral_memory.py",
@@ -1096,6 +1099,7 @@
     ],
     "hooks/pre-flight-check.sh": [
       "tests/verify_codex_hook_trust.py",
+      "tests/verify_continuity.py",
       "tests/verify_fresh_session_resume.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
@@ -1125,6 +1129,7 @@
       "tests/verify_route_debts.py"
     ],
     "hooks/session-open-diagnostic.sh": [
+      "tests/verify_continuity.py",
       "tests/verify_fresh_session_resume.py",
       "tests/verify_hook_depth.py",
       "tests/verify_hook_selection.py",
@@ -1133,6 +1138,7 @@
     ],
     "hooks/state-guard.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_continuity.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_selection.py",
@@ -1287,6 +1293,7 @@
     "scripts/sync-to-active.sh": [
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_completion_signals_powershell.py",
+      "tests/verify_continuity.py",
       "tests/verify_cost_gate.py",
       "tests/verify_execution_trace_outcome.py",
       "tests/verify_external_write_gate.py",
@@ -1447,6 +1454,7 @@
       "tests/verify_operating_loops_release.py"
     ],
     "skills/_shared/itd_contract_dir.py": [
+      "tests/verify_continuity.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_session_hygiene_quality.py"
     ],
@@ -1521,6 +1529,7 @@
       "tests/verify_closure_delta.py",
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_supersede.py",
+      "tests/verify_continuity.py",
       "tests/verify_fail_closed_hygiene.py",
       "tests/verify_graph_skill.py",
       "tests/verify_handoff_untracked.py",
@@ -1586,6 +1595,7 @@
       "tests/verify_semantic_navigation_demand.py"
     ],
     "skills/_shared/itd_tool.sh": [
+      "tests/verify_continuity.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_session_hygiene_quality.py"
@@ -1766,6 +1776,7 @@
       "tests/verify_graph_v2.py"
     ],
     "skills/handoff/SKILL.md": [
+      "tests/verify_continuity.py",
       "tests/verify_handoff_untracked.py"
     ],
     "skills/infra/agents/openai.yaml": [
@@ -1845,6 +1856,7 @@
       "tests/verify_tool_trust_inventory.py"
     ],
     "skills/session-save/SKILL.md": [
+      "tests/verify_continuity.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_session_hygiene_quality.py"

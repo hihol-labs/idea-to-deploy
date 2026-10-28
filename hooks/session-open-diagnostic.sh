@@ -154,8 +154,23 @@ def build_diagnostic(cwd: Path) -> str | None:
         local_mem.parent if local_mem is not None else cwd)
     mem_dir = local_mem or legacy_mem
 
-    # --- 1. Last session summary ---
-    if mem_dir:
+    # --- 1. Continuity (plan session 7): the newest topic document replaces the session files ---
+    try:
+        continuity = sorted((local_mem / "continuity").glob("*.md"), key=lambda p: p.stat().st_mtime,
+                            reverse=True) if local_mem is not None else []
+    except OSError:
+        continuity = []
+    if continuity:
+        content = read_truncated(continuity[0], MAX_SESSION_LINES)
+        if content:
+            others = ", ".join(p.stem for p in continuity[1:6])
+            sections.append(
+                f"**Continuity** (`continuity/{continuity[0].name}`, новейшая тема"
+                + (f"; другие: {others}" if others else "") + f"):\n\n{content}"
+            )
+
+    # --- 1. Last session summary (projects without continuity documents) ---
+    if mem_dir and not continuity:
         latest = find_latest_session_file(mem_dir)
         used_legacy_session = legacy_mem is not None and mem_dir == legacy_mem
         if latest is None and local_mem is not None and legacy_mem is not None:

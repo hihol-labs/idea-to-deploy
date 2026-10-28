@@ -1,21 +1,20 @@
 ---
 name: session-save
-description: 'Save session context to project memory — what was done, decisions, blockers, next steps. Ensures continuity between sessions and flags parallel sessions via an active-session lockfile.'
-argument-hint: optional — brief note to append; use --close for verified session exit
+description: 'Save session continuity — one document per workstream with the next action, current state, decisions, check results and blockers; history is appended separately. Runs at milestones and before irreversible steps; a parallel session cannot overwrite the same document.'
+argument-hint: optional — topic slug or note; --close for verified session exit; --sync / --push-memory (ITD repository only)
 license: MIT
-allowed-tools: Read Write Bash Glob Grep
+allowed-tools: Read Write Edit Bash Glob Grep
 metadata:
   effort: low
   side_effect: memory-write
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.83.0
+  version: 1.110.0
   category: workflow
   tags: [session, memory, context, persistence, continuity, parallel-sessions]
 ---
 
 # Session Save
-
 
 ## Trigger phrases
 
@@ -28,305 +27,105 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 - wrap up session, session summary
 - любой сигнал завершения сессии
 
-**Автоматическое срабатывание (без явного запроса):**
+## Когда сохранять
 
-Память — костяк непрерывности (v1.35.0): чекпоинт делается при КАЖДОЙ значимой
-смене состояния, а не только в конце сессии. Дешёвый инкрементальный чекпоинт
-(обнови/допиши текущий `session_YYYY-MM-DD.md` + lockfile) предпочтительнее
-редкого большого — при резком закрытии теряется минимум контекста.
-
-Claude должен вызывать этот скилл самостоятельно в следующих ситуациях:
-- После завершения значимой фичи (коммит + тесты пройдены)
-- После принятия архитектурного или бизнес-решения в разговоре
-- После исправления сложного бага (root cause найден и пофикшен)
-- После завершения фазы в /kickstart (Phase 2 → Phase 3 и т.д.)
-- После завершения подшага многошаговой задачи (закрыт пункт плана/roadmap)
-- После verified-юнита долгой цели `/goal` (юнит закрыт — инкрементальный чекпоинт)
-- После успешного `/review` который прошёл на 9+/10 и привёл к merge/PR
-- После применения миграции к тест/прод-БД или иной необратимой мутации данных
-- Перед рискованной или необратимой операцией — чекпоинт ДО неё как фиксация точки возврата (деплой / force-push / массовый ре-пост)
-- После отправки внешнего артефакта (письмо/отчёт/PR-описание ушли адресату)
-- Если сессия длится долго (5+ значимых действий без сохранения)
-- После любого `git commit` в feature-ветке подготавливаемой к pull request
-
-Это не заменяет явный вызов в конце сессии, а дополняет его — чтобы при резком закрытии терялся минимум контекста. **Каждый вызов также обновляет `.active-session.lock`** (см. Step 4.5) — чем чаще вызывается session-save, тем свежее lockfile и тем точнее работает parallel-session warning в pre-flight хуке других Claude-сессий.
-
-`/session-save` без флага остаётся дешёвым checkpoint. `/session-save --close`
-означает именно **закрытие**: контекст сохраняется в любом случае, но сессия
-считается закрытой только после зелёного vendor-neutral exit-контракта в Step
-4.10. Красный close не откатывает и не стирает работу — он оставляет сессию
-открытой с конкретными WHY+FIX.
-
+Без явного запроса — на вехах и перед необратимым, а не после каждого подшага: веха (фича или фикс закоммичены и
+тесты зелёные; юнит `/goal` verified; решение, меняющее план), шаг перед необратимым или внешним действием (деплой,
+миграция, push/PR, удаление, отправка наружу) как точка возврата, конец сессии или просьба пользователя; ~60%
+контекста при невидимом конце работы — `/handoff`. Не после каждого коммита, правки или прогона.
 
 ## Recommended model
 
-**sonnet** — Reading git log, summarizing session context, writing a file. No complex analysis needed.
-
-Set via `/model {model}` before invoking this skill, or via the project's default model in `~/.claude/settings.json`.
-
+**sonnet** — прочитать git и прежний документ, записать короткий файл. Глубокого анализа нет.
 
 ## Instructions
 
-### Step 1: Gather context
+### Документ продолжения
 
-Collect all available information about the current session:
+Один документ на поток работы: `.itd-memory/continuity/<тема>.md`. Тема — короткий kebab-slug задачи
+(`basler-oos`, `itd-plan`); ветка фичи — хорошая тема. Параллельные сессии ведут разные темы и друг другу не
+мешают. Документ хранит только текущее и **перезаписывается целиком** при каждом сохранении. История — отдельно,
+дозаписью в `.itd-memory/HISTORY.md`; в документе она не повторяется и с ним не конкурирует.
 
-```bash
-# Git context
-git branch --show-current
-git log --oneline -15
-git diff --stat
-git status --short
-```
-
-Also check:
-- Current working directory (project path)
-- Open plans in `.claude/plans/`
-- Current task list (if any)
-- `.itd-memory/GOAL.json` — активная долгая цель (`/goal`): срез генерирует
-  репортёр харнеса, вставь вывод в session-файл как есть (v1.45.0):
-  `GT="skills/goal/scripts"; [ -f "$GT/itd_goal_report.py" ] || GT="$HOME/.claude/skills/goal/scripts"; SHD="skills/_shared"; [ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/skills/_shared"; sh "$SHD/itd_py.sh" "$GT/itd_goal_report.py" --goal .itd-memory/GOAL.json`
-- What was discussed in the conversation (summarize from memory)
-
-### Step 2: Summarize the session
-
-Using the checklist from `references/session-save-checklist.md`, compose all 9 required fields:
-
-1. **Дата** — today's date in ISO 8601
-2. **Проект** — repo path + current branch
-3. **Резюме** — 2-5 sentences about what was done (concrete, not vague)
-4. **Ключевые решения** — decisions with rationale (WHY, not just WHAT)
-5. **Изменённые файлы** — from `git diff --stat` or conversation context
-6. **Блокеры** — anything preventing progress
-7. **Следующие шаги** — actionable next actions
-8. **Неочевидный контекст** — anything that can't be derived from code or git
-
-Quality rules:
-- Summaries must be specific: "Реализовал JWT-аутентификацию" not "работал над проектом"
-- Decisions must include WHY: "Выбрали Redis, потому что уже используется для кеша"
-- Next steps must be actionable: can start executing immediately without guessing
-- Non-obvious context: verbal agreements, constraints not in code, user preferences
-
-### Step 3: Write the session memory file
-
-Use the host-neutral, project-local continuity directory:
-
-```bash
-MEM_DIR="$(git rev-parse --show-toplevel)/.itd-memory"
-mkdir -p "$MEM_DIR"
-```
-
-`.itd-memory/` is canonical on every host. A pre-existing
-`~/.claude/projects/<project-hash>/memory/` directory may be read as a legacy
-fallback or updated as an optional mirror, but a successful save never depends
-on that private path and local state always wins on conflict.
-
-Write the file with frontmatter:
+Формат (тот же у `/handoff`; разделы в этом порядке, документ не длиннее 60 строк):
 
 ```markdown
 ---
-name: session_YYYY-MM-DD
-description: "One-line summary for MEMORY.md index"
-type: project
+topic: <тема>
+status: open
+updated: <YYYY-MM-DDTHH:MMZ>
+branch: <ветка> @ <короткий sha>
+unit: <id юнита (статус)> | n/a
 ---
 
-## Дата
-YYYY-MM-DD
+## Следующее действие
+> [!todo] <один точный шаг: можно начать без догадок>
 
-## Проект
-/path/to/project (ветка: branch-name)
+## Состояние
+- <что верно сейчас: закоммичено, запушено, выкачено; что в процессе>
 
-## Что сделано
-- Item 1
-- Item 2
+## Решения
+- <решение> — <почему>
 
-## Ключевые решения
-- **Decision** — rationale
-
-## Изменённые файлы
-- file1.py (новый / изменён)
-- file2.py (изменён)
+## Проверки
+- `<команда>` -> <результат с числами>, <когда>
 
 ## Блокеры
-- Blocker description (or "Нет блокеров")
-
-## Следующие шаги
-1. Step 1
-2. Step 2
-
-## Неочевидный контекст
-- Context item
+- нет | <блокер> -> <кто или что снимает>
 ```
+`status: done` — тема закрыта: следующее действие «нет», pre-flight ее больше не показывает.
 
-File naming:
-- `session_YYYY-MM-DD.md` — primary format
-- `session_YYYY-MM-DD_2.md` — if a file for today already exists
-
-### Step 3.2: Append decisions to `.itd/DECISIONS.md` (v1.70.0)
-
-**Микро-путь (v1.71.0, retro 2026-07-09 P3):** для micro-сессии (≤1–2 юнита,
-малый дифф, НИ ОДНОГО durable-решения) пропусти Steps 3.2 и 3.3 целиком —
-достаточно session-файла + строки в MEMORY.md. Замер amnesia-lab: артефакты
-стоят +2–8 tool-вызовов и +5–15k токенов за сессию и на микро-проекте не
-окупаются (recovery-разрыв A/B всего 14 vs 9 вызовов); окупаемость растёт с
-размером кодовой базы (recovery без артефактов = O(код), с ними = O(1)).
-Классификация — по числу юнитов и наличию durable-решений, не «по ощущению»
-(тот же критерий, что micro-path в `skills/_shared/helpers.md` §6). Есть хоть
-одно durable-решение — Step 3.2 обязателен независимо от размера сессии.
-
-Если в проекте есть `.itd/` — каждое **durable**-решение из поля «Ключевые
-решения» дополнительно допиши В КОНЕЦ `.itd/DECISIONS.md` (append-only журнал,
-формат в шапке файла: `## YYYY-MM-DD: <решение>` + Почему / Отвергнуто /
-Ограничение / Ссылки). Если файла нет, а `.itd/` есть — создай из шаблона
-`docs/templates/itd/DECISIONS.md` (или `~/.claude/templates/itd/DECISIONS.md`).
-
-Durable = влияет на будущие правки (выбор подхода, отвергнутая альтернатива,
-договорённость с заказчиком, сознательный trade-off). Ход работ и разовые
-наблюдения в журнал НЕ идут — они остаются в session-файле. Session-файл в
-«Ключевых решениях» может ссылаться на журнал вместо дублирования прозы.
-Отмена старого решения — новая запись со ссылкой на отменяемую, старую не
-редактируй. Нет `.itd/` — шаг пропускается молча (opt-in контрактного слоя).
-
-### Step 3.3: Regenerate PROGRESS view (v1.70.0)
-
-Если в проекте есть `.itd-memory/` — перегенерируй glance-вью инструментом из
-установки (`itd_tool.sh`, INSTALL-OWNED-1: копия в `.itd/` проекта не используется;
-интерпретатор, включая Windows Store-заглушку, выбирает `itd_py.sh`):
+### Step 1: Собери состояние
 
 ```bash
-T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
-[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
-sh "$T/itd_tool.sh" itd_progress.py 2>/dev/null || true  # win-ok: itd_py.sh выбирает интерпретатор сам
-# → .itd-memory/PROGRESS.md
+git status --short; git log --oneline -5; git branch --show-current
+ls -t .itd-memory/continuity/ 2>/dev/null | head -5
 ```
 
-Best-effort: скрипт всегда выходит с кодом 0, при ошибке НЕ блокируй
-сохранение сессии; нет установки или интерпретатора — шаг тихо пропускается.
-`PROGRESS.md` — derived-вью (канон: `STATE.json` / `GOAL.json` /
-`events.jsonl`), гейты на него не завязываются; в целевом проекте он —
-кандидат в `.gitignore` (перегенерируем, коммитить не обязательно).
-
-### Step 4: Update MEMORY.md
-
-Add a line to `.itd-memory/MEMORY.md`:
-
-```markdown
-- [Сессия YYYY-MM-DD](session_YYYY-MM-DD.md) — краткое описание до 150 символов
-```
-
-If `MEMORY.md` doesn't exist, create it with the first entry.
-
-> **Memory hygiene (periodic) — approval-diff mode only (v1.52.0).** When `MEMORY.md`
-> or the memory dir grows large or accumulates duplicate/stale facts, run the
-> `anthropic-skills:consolidate-memory` skill to merge duplicates, fix stale entries,
-> and prune the index. `MEMORY.md` and the session files are **durable state** — the
-> consolidation follows the data-sensitive gate (global CLAUDE.md, harness best-effort
-> invariant): **model the changes read-only first → show the before/after diff → get
-> explicit human approval → only then write.** Never a blind rewrite, never an
-> out-of-band/async writer (ADR-001 async-memory note): a merge that silently drops a
-> fact is worse than a slightly stale index. Concretely — before applying, surface the
-> proposed deletions/merges as a diff (which facts are being removed or rewritten, and
-> why), and wait for the user's go. idea-to-deploy does not build its own consolidation
-> engine; it delegates to that skill, but the approval-diff gate is ITD's, not optional.
-
-### Step 4.5: Write active-session lockfile (v1.5.0)
-
-Write `.active-session.lock` in the same memory directory. This file
-lets the `pre-flight-check.sh` hook in OTHER parallel Claude sessions
-know that someone is (or was very recently) working on this project —
-so they don't unknowingly duplicate the work (see NeuroExpert 2026-04-11
-incident: same kong.yml tech debt fixed twice in parallel).
-
-The lockfile MUST be idempotent — it's rewritten on every `/session-save`
-call, never appended. Stale locks self-expire (the pre-flight hook ignores any
-lock older than 10 minutes). Fields: `timestamp` (epoch seconds), `pid`,
-`branch`, `project` (abs path), `note` (one-line summary = MEMORY.md entry).
-Точный JSON-формат и готовые bash/python-сниппеты —
-`references/lockfile-format.md` (прочитай перед записью).
-
-### Step 4.6: Cost snapshot (v1.31.0 — New-SDLC port)
-
-Attach a token/cost snapshot to the session memory so OpEx is *visible* at wrap-up —
-context engineering is a financial lever, and a fleet of agents needs cost-awareness,
-not just correctness. **No new collector:** read the ledger that `hooks/cost-tracker.sh`
-already maintains for this session (shipped since v1.18.0, hard-ceiling ASK since
-v1.30.0). This is lightweight accounting, **not** an observability platform (see
-ADR-001 — we delegate runtime to existing hooks, we don't build our own).
-
-Read the cost-tracker ledger (script: `references/wrapup-scripts.md` §4.6). If
-a ledger exists, add a **`## Стоимость сессии`** line to the session memory file
-(estimated tokens + blended USD, and whether the soft/hard ceiling was hit); note
-`ctx-stats` context-savings on the same line when context-mode is installed. No
-ledger → soft no-op — never block `/session-save` on it.
-
-### Step 4.7: Auto-sync methodology (v1.18.1)
-
-If the current project IS the idea-to-deploy methodology repo (detected by
-`.claude-plugin/plugin.json` existence), run the sync script to propagate
-any changes to the active Claude Code install:
+Документ темы уже есть — прочитай его (Read) и обновляй, а не пиши с нуля. Нет `.itd-memory/` — создай
+каноническую папку (канон на каждом хосте; приватная память хоста `~/.claude/projects/<hash>/memory/` не источник
+и не цель, успех не зависит от этого private path):
 
 ```bash
-if [ -f ".claude-plugin/plugin.json" ]; then
-  bash scripts/sync-to-active.sh
-fi
+git rev-parse --show-toplevel >/dev/null 2>&1 && MEM_DIR="$(git rev-parse --show-toplevel)/.itd-memory" || MEM_DIR="$PWD/.itd-memory"
+mkdir -p "$MEM_DIR/continuity"
 ```
 
-This prevents the recurring bug where new skills/agents/hooks are added to
-the repo but not copied to `~/.claude/` (see: /discover not registered,
-business-analyst missing from global agents, 6 hooks missing after v1.18.0).
+### Step 2: Запиши документ
 
-**For non-methodology projects:** This step is a no-op (the guard clause
-skips it).
+Запиши `.itd-memory/continuity/<тема>.md` целиком по формату (Write; в Codex — apply_patch или shell). Конкретика
+(«JWT refresh с ротацией, 8 тестов», а не «работал над auth»); решения — с «почему»; проверки — только прогоны этой
+сессии, с числами, не прогнанное так и названо; секреты — именем переменной, не значением. Хук state-guard
+отклоняет Write поверх документа, который другая сессия меняла меньше 10 минут назад: прочитай его и слей свое
+Edit'ом или возьми другую тему.
 
-### Step 4.7b: Methodology-memory auto-push (v1.64.0)
+### Step 3: Дозапиши историю
 
-If `~/.claude/methodology-memory/` is a git repo (it has a private remote —
-`idea-to-deploy-memory`), commit and push any changes so every checkpoint of
-the methodology memory is backed up off-machine (script:
-`references/wrapup-scripts.md` §4.7b). Rules: **best-effort** — a network/auth
-failure NEVER blocks `/session-save` (one line report, local commit already
-preserved the state); **scope guard** — only methodology notes live there,
-never project/business memory, never secret VALUES (env-var names fine; the
-remote stays private); no repo / no remote → soft no-op.
+```bash
+cat >> .itd-memory/HISTORY.md <<'EOF'
 
-### Step 4.8: Branch-finish decision (v1.21 — PFO port)
+## <YYYY-MM-DD HH:MMZ> <тема> - <что сделано, одна строка>
+- <коммиты/PR, решения, итог проверок: 1-4 строки>
+EOF
+```
 
-If this session is wrapping up work on a **feature branch** (not `main`/`master`) and the branch looks done or is being parked, record an explicit branch-finish decision so no branch is left in an ambiguous state. Scaffold `BRANCH_FINISH.md` from `docs/templates/BRANCH_FINISH.md` and fill:
+Без следующих шагов: они только в документе. HISTORY.md только дописывается и при сохранении не перечитывается.
 
-- **Mode** — one of `PR` | `merge` | `keep` | `discard` (an explicit choice, never implicit).
-- **Verification** — *fresh* evidence collected now (re-run the relevant check at finish time; do not reuse evidence from an earlier step).
-- **Cleanup** — keep the branch/worktree for PR feedback unless `merge` or `discard` is explicitly selected.
+### Step 4: Durable-решения — в журнал
 
-Hard rule: **never discard work without explicit typed confirmation** from the user. If the mode is unclear, default to `keep` and ask. On `main`/`master`, or mid-task (branch not finishing), this step is a soft no-op.
+Есть `.itd/` и durable-решение (выбор подхода, отвергнутая альтернатива, договоренность, осознанный trade-off) —
+допиши в конец `.itd/DECISIONS.md` запись `## YYYY-MM-DD: <решение>` (Почему / Отвергнуто / Ограничение / Ссылки);
+отмена — новая запись со ссылкой. Ход работ туда не идет; нет durable-решений — шаг пропускается.
 
-### Step 4.9: Skill-coverage self-audit (v1.23.0 — Layer 2)
+### Step 5: Сообщи пользователю
 
-Before confirming, run a self-audit so a session never quietly skips a mandatory skill (the exact failure this layer exists to catch). Two cheap inputs:
+Путь документа, следующее действие, блокеры — одной-тремя строками.
 
-1. **Bypass ledger** — every `SKILL_BYPASS:` recorded this session by `check-tool-skill.sh` (`/tmp/claude-skill-ledger-<session>.jsonl`).
-2. **Skill sentinels** — which skills actually ran (`/tmp/claude-<skill>-done-*`), cross-checked against the *risk signals* in the work you did this session.
+### Флаг `--close`: явное закрытие сессии
 
-Сбор обоих входов — готовый скрипт в `references/wrapup-scripts.md` §4.9.
-Then reason over it against what the session actually changed (use `git diff --stat` / the committed diff):
-
-- Touched a **migration/schema**? → `/migrate` **and** `/test` sentinels must be present.
-- Touched **payments/auth/secrets**? → `/security-audit` must be present.
-- Committed a **multi-file** change? → `/review` must be present.
-- Added **brand-new source files**? → `/test` must be present.
-
-For any risk signal whose sentinel is missing, add a **`## Самоаудит скиллов`** subsection to the session memory file naming the gap (e.g. "миграция была, /test не вызван — долг") and surface it to the user in one line. Bypasses with a recorded reason are fine — an explicit choice, not a miss; just report how many there were. This audit is advisory: it never blocks `/session-save`. Its value is making a skipped gate impossible to miss at session end — the same gate `hooks/check-dod-before-commit.sh` enforces at commit time.
-
-### Step 4.10: Explicit session close (only with `--close`)
-
-Normal checkpoints skip this step. For `--close`, run the **`itd_hygiene.py close`**
-boundary from the installation (`itd_tool.sh`, INSTALL-OWNED-1 - a copy in the project's
-`.itd/` is not used); the contract is the project's own, or `docs/` in the methodology
-repository - recognized by its parsed plugin manifest (`skills/_shared/itd_contract_dir.py`:
-`.claude-plugin/plugin.json` with the top-level name `idea-to-deploy`) and only when that
-`docs/` contract exists. The helpers come from the installation - the host's plugin root
-(`$CLAUDE_PLUGIN_ROOT` / `$PLUGIN_ROOT`), then `~/.claude/skills/_shared`, then the Codex plugin
-cache entry with the highest version (version sort across marketplaces); the checkout's own
-`skills/_shared` only when nothing is installed - so a project cannot shadow them:
+На feature-ветке сначала запиши в «Состояние» режим ветки: PR | merge | keep | discard (`docs/templates/BRANCH_FINISH.md`;
+по умолчанию keep, discard — только по явному подтверждению). Затем граница **`itd_hygiene.py close`** из установки
+(INSTALL-OWNED-1); контракт — свой у проекта или `docs/` репо методологии (`skills/_shared/itd_contract_dir.py`):
 
 ```bash
 T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
@@ -335,121 +134,67 @@ CONTRACT="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" SESSION_EXIT_CONTRACT.jso
 sh "$T/itd_tool.sh" itd_hygiene.py close --root . --contract "$CONTRACT"
 ```
 
-For a deliberate exception, the user must supply a non-empty reason (for
-example `/session-save --close COMPLETION_BYPASS: emergency rollback`). Pass it
-as `--completion-bypass-reason "emergency rollback"`. The runner writes the
-exception to `.itd-memory/events.jsonl`; if that audit write fails, close stays
-red. Never infer a bypass from urgency or from the agent's own narration.
+Исключение — только с непустой причиной от пользователя (`--close COMPLETION_BYPASS: <причина>` ->
+`--completion-bypass-reason "<причина>"`; runner пишет его в `.itd-memory/events.jsonl`). Exit 0 — вся конъюнкция
+контракта зеленая; любой сбой: **документ сохранен, сессия НЕ закрыта**, строки WHY+FIX — в «Блокеры».
 
-Exit 0 means the conjunction is true: strict/high-risk runtime evidence passed
-(or a reasoned bypass was durably audited), configured verification commands passed,
-the finite startup probe passed, required state and the quality ledger are
-present/fresh, debug markers are absent in the configured scope, manifest-owned
-temporary artifacts were removed idempotently, and `git status` is clean. Any
-single failure means **checkpoint saved, session NOT closed**. Copy the runner's
-WHY+FIX lines into the session file under `## Session close blockers`; never turn
-a red exit into narration-level success. The ordinary Stop hooks remain soft —
-only the user's explicit `--close` request activates this hard boundary.
+### Флаги `--sync` и `--push-memory`: только репо ITD
 
-### Step 5: Confirm to user
+Только по явному флагу от пользователя и только в репо методологии: верхнеуровневое `name` разобранного
+`.claude-plugin/plugin.json` корня репо — `idea-to-deploy` (`itd_contract_dir.py` печатает `docs`); иначе ничего.
+Строку `--sync` или блок `--push-memory` (бэкап в приватный `~/.claude/methodology-memory/`) запускай после первых
+четырех строк:
 
-Tell the user:
-- What file was created and where
-- Brief summary of what was saved
-- Remind that this context will be available in the next session
-
-Example output:
-```
-Контекст сессии сохранён:
-  Файл: <project>/.itd-memory/session_2026-04-09.md
-  Резюме: JWT-аутентификация, Redis для сессий, 8 тестов
-  Блокеры: нужен SMTP-сервер
-  Следующие шаги: login endpoint, email verification
-
-В следующей сессии я прочитаю этот файл и продолжу с того же места.
+```bash
+R="$(git rev-parse --show-toplevel)"
+T="skills/_shared"; for d in "$HOME/.claude/skills/_shared" "${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-/nonexistent}}/skills/_shared"; do [ -f "$d/itd_tool.sh" ] && T="$d"; done
+[ "$T" = skills/_shared ] && C=$(ls -d "$HOME"/.codex/plugins/cache/*/idea-to-deploy/*/skills/_shared 2>/dev/null | awk -F/ '{print $(NF-2), $0}' | sort -k1,1V | tail -1 | cut -d" " -f2-) && [ -f "${C:-/}/itd_tool.sh" ] && T="$C"
+ITD="$(sh "$T/itd_py.sh" "$T/itd_contract_dir.py" --root "$R")"
+[ "$ITD" = docs ] && (cd "$R" && bash scripts/sync-to-active.sh)  # --sync
+MM="$HOME/.claude/methodology-memory"  # --push-memory
+if [ "$ITD" = docs ] && [ -d "$MM/.git" ]; then
+  git -C "$MM" add -A
+  git -C "$MM" diff --cached --quiet || git -C "$MM" commit -q -m "memory: session checkpoint $(date +%F)"
+  git -C "$MM" push -q origin HEAD || echo "memory push failed - the commit stays local"
+fi
 ```
 
+Сбой сети не блокирует сохранение. Старые `session_*.md` и `MEMORY.md` — история только для чтения (хуки
+показывают их, пока нет `continuity/`); `.active-session.lock` ведет хук state-guard. Их скилл не пишет.
 
 ## Examples
 
-### Example 1: End of feature development session
+### Example 1: веха в продуктовом проекте
+Фикс basler oos слит (PR #527, c0010c95), тесты 42/0. Один Bash (git + `continuity/`), Read и Write
+`continuity/basler-oos.md` («Следующее действие: выкатить c0010c95 на бой», «Проверки: pytest tests/basler 42
+passed»), дозапись HISTORY.md. DECISIONS не трогается — durable-решений не было.
 
-User says: «На сегодня всё, сохрани контекст»
-
-Session context:
-- Branch: `feature/payment-integration`
-- 3 commits: added Stripe webhook handler, payment schemas, integration tests
-- Decision: use Stripe Checkout instead of custom payment form (faster to implement)
-- Blocker: need production Stripe API key from client
-- Next: add subscription management, webhook signature verification
-
-Actions:
-1. Run `git log --oneline -15`, `git diff --stat`, `git status`
-2. Compose session file with all 9 fields
-3. Write `session_2026-04-09.md` to memory directory
-4. Update MEMORY.md: `- [Сессия 2026-04-09](session_2026-04-09.md) — Stripe Checkout интеграция, блокер: API ключ`
-5. Confirm to user
-
-### Example 2: Planning session (no code changes)
-
-User says: «Сохрани сессию, мы только обсуждали архитектуру»
-
-Session context:
-- No commits, no file changes
-- Discussed microservices vs monolith — decided on modular monolith
-- Drew data model on whiteboard (user described it verbally)
-- Agreed on tech stack: FastAPI + Vue + PostgreSQL
-- Next: create project with /kickstart
-
-Actions:
-1. Git shows no changes — that's OK
-2. Compose session file focusing on decisions and non-obvious context
-3. Emphasize: decisions (modular monolith rationale), verbal agreements (data model), chosen stack
-4. Write file, update MEMORY.md
-5. Confirm — note that even without code, the decisions are preserved
-
+### Example 2: перед необратимым шагом
+Перед `/deploy`: в «Состоянии» — уходящий коммит, в «Следующем действии» — проверка health после деплоя. Точка
+возврата зафиксирована до деплоя, а не после.
 
 ## Rules
 
-1. Все 9 обязательных полей должны присутствовать — пропуск любого поля делает session-save невалидным. Если данных нет (например, нет блокеров), пиши "Нет блокеров", а не пропускай секцию
-2. Конкретика, не абстракции — "Реализовал JWT refresh token с ротацией" вместо "работал над авторизацией". "Выбрали Redis потому что уже в стеке" вместо "выбрали кеш"
-3. Следующие шаги должны быть actionable — можно начать выполнять немедленно без дополнительного контекста. "Добавить POST /api/auth/reset-password по спеке из PRD §3.2" вместо "продолжить работу над auth"
-4. Lockfile `.active-session.lock` обновляется при КАЖДОМ вызове — идемпотентно перезаписывается, никогда не append. Timestamp должен быть свежим (`date +%s`)
-5. Неочевидный контекст — записывай устные договорённости, ограничения не из кода, решения принятые в разговоре. Если этого поля нет или оно пустое, следующая сессия потеряет контекст, который невозможно восстановить из git
-
+1. Один документ на тему, перезапись целиком; история — только дозапись в HISTORY.md.
+2. Следующее действие — одна строка, исполнимая без догадок; закрытая тема — `status: done`.
+3. Числа проверок — только из прогонов этой сессии.
+4. Сохранять на вехах и перед необратимым, не после каждого подшага.
+5. `--sync` и `--push-memory` — только в репо ITD и только по явному флагу пользователя.
+6. Секреты не пишутся.
 
 ## Self-validation
 
-Before confirming session save, verify:
-- [ ] All 9 required fields present (date, project, summary, decisions, files, blockers, next steps, non-obvious context)
-- [ ] Summary is specific (not "worked on project")
-- [ ] Next steps are actionable (can start immediately without guessing)
-- [ ] MEMORY.md index updated with new entry
-- [ ] .active-session.lock written with fresh timestamp
-- [ ] With `--close`: `itd_hygiene.py close` exited 0; otherwise the session is explicitly reported as still open
+- [ ] Документ темы по формату: frontmatter и пять разделов по порядку, не длиннее 60 строк.
+- [ ] Следующее действие — одна строка; блокеры — «нет» или с тем, кто снимает.
+- [ ] HISTORY.md дописан, без следующих шагов.
+- [ ] С `--close`: `itd_hygiene.py close` вернул 0, иначе сессия явно названа открытой.
 
 ## Troubleshooting
 
-### Memory directory not found
-If `.itd-memory/` is missing:
-1. Resolve the git root and create `<project>/.itd-memory/`.
-2. Write `session_YYYY-MM-DD.md`, `MEMORY.md`, and `.active-session.lock` there.
-3. If the project root cannot be resolved or written, stop and report the real
-   blocker; do not claim continuity from a host-private or project-root fallback.
+### Write отклонен: параллельная сессия
+Ту же тему меняла другая сессия меньше 10 минут назад: прочитай документ и слей свое Edit'ом или возьми другую тему.
+Write после двух отказов пройдет с предупреждением — только если чужое состояние уже учтено.
 
-### MEMORY.md conflicts
-If MEMORY.md already has an entry for today's date (from a previous save):
-1. Don't overwrite — append the new entry
-2. Name the file `session_YYYY-MM-DD_2.md` (or `_3.md`, etc.)
-
-### No git repository
-If the current directory is not a git repo:
-1. Skip git-based context gathering
-2. Focus on conversation context: what was discussed, decisions made, next steps
-3. Note in the file that no git data was available
-
-### Large session with many changes
-If there are 50+ changed files or 20+ commits:
-1. Group changes by area/module rather than listing every file
-2. Focus on the most significant changes
-3. Use `git diff --stat` summary rather than individual files
+### Нет git или документ больше 60 строк
+Без git — документ в `./.itd-memory/continuity/`, в «Состоянии» сказано, что данных git нет. Длинный документ
+содержит историю: перенеси сделанное в HISTORY.md.
