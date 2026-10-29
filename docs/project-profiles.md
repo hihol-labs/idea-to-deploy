@@ -6,16 +6,19 @@ scratch. It is the wrong shape when the work is a **feature on a mature existing
 codebase** — there the greenfield pipeline is ceremony, and the project's own
 `CLAUDE.md` is the real source of truth.
 
-Two markers let a project tell the methodology what kind of work it is:
+Three markers let a project tell the methodology what kind of work it is:
 
 - **`itd-profile`** (brownfield vs greenfield) is **auto-detected** by repo
   maturity from v1.36.0, and can be **overridden** explicitly in either
   direction. Greenfield stays the default for a fresh project.
 - **`itd-domain: data-sensitive`** is **opt-in** — set it only when the project
   mutates irreplaceable data.
+- **`itd-route: strict`** is **opt-in** — the strict steps of `/bugfix`,
+  `/test` and `/refactor` (ADR-016 session 8, see below).
 
 Markers live in the project's own `CLAUDE.md` (or `.claude/CLAUDE.md`),
-case-insensitive, matched in the first 8 KB.
+case-insensitive, matched in the first 8 KB; `itd-route` is also read from
+`AGENTS.md`.
 
 ---
 
@@ -92,6 +95,44 @@ entities before any write, and never touches the live DB until a before/after is
 approved.
 
 ---
+
+## `itd-route: strict` — strict steps of the daily skills
+
+**What it does.** `/bugfix`, `/test` and `/refactor` run a short minimal path by
+default: reproduce, find the cause, minimal fix, regression test, run the suite
+(`/refactor`: green baseline, refactor, green again). The strict route adds the
+steps of each skill's `references/strict.md`: the edit-scope freeze
+(`hooks/freeze.sh`) in `/bugfix` and `/refactor`, the fail-closed
+`ROOT_CAUSE.md` in `/bugfix`, the mutation refute pass in `/test`.
+
+**How to enable.** In the first 8 KB of the project's `CLAUDE.md`,
+`.claude/CLAUDE.md` or `AGENTS.md`, as a line by itself or as the comment:
+
+```
+<!-- itd:strict -->
+```
+
+or
+
+```
+itd-route: strict
+```
+
+`itd-domain: data-sensitive` also turns the strict route on. For a single call,
+pass `--strict` to the skill; a task in a strict class of the global rules (the
+methodology's own critical mechanisms, money, access, deploy, migrations,
+production data) takes the strict route without a marker.
+
+**What does not.** The `.itd/` contracts or a `.itd/SCOPE_LOCK.md` alone do not
+make a project strict: adopted ordinary projects have them too. Neither does the
+key inside a sentence, a prefixed key (`not-itd-route: strict`) or a bare
+`itd:strict` outside the comment. Each skill
+checks the marker with the same one-line command in its Step 0
+(`tests/verify_strict_route.py`).
+
+**When to use.** Projects whose own process keeps the strict route: financial
+documents and integrations (invoices), production data, and any project whose
+owner wants the freeze and the root-cause file on every fix.
 
 ## Design guarantees
 

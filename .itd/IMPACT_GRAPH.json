@@ -73,6 +73,7 @@
       "tests/verify_operational_continuation.py",
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
+      "tests/verify_strict_route.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     ".github/workflows/windows-verify.yml": [
@@ -81,6 +82,7 @@
       "tests/verify_operational_continuation.py",
       "tests/verify_runall_drift.py",
       "tests/verify_snapshot.py",
+      "tests/verify_strict_route.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     ".gitignore": [
@@ -214,6 +216,7 @@
       "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py",
       "tests/verify_stop_rule_closed_contract.py",
+      "tests/verify_strict_route.py",
       "tests/verify_verdict_contract.py",
       "tests/verify_verification_loop.py"
     ],
@@ -260,6 +263,7 @@
       "tests/verify_risk_score.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
+      "tests/verify_strict_route.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
@@ -294,7 +298,8 @@
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
-      "tests/verify_operational_continuation.py"
+      "tests/verify_operational_continuation.py",
+      "tests/verify_strict_route.py"
     ],
     "BACKLOG.md": [
       "tests/verify_closure_delta.py",
@@ -344,6 +349,9 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_operating_loops_release.py"
+    ],
+    "ROOT_CAUSE.md": [
+      "tests/verify_strict_route.py"
     ],
     "agents/code-reviewer.md": [
       "tests/verify_review_report_file.py",
@@ -709,6 +717,9 @@
     "docs/measurements/graph-v2/PROTOCOL.json": [
       "tests/verify_graph_study.py"
     ],
+    "docs/project-profiles.md": [
+      "tests/verify_strict_route.py"
+    ],
     "docs/semantic-navigation/DEMAND.json": [
       "tests/verify_harness_demo_portable.py",
       "tests/verify_operating_loops_release.py",
@@ -1038,7 +1049,8 @@
       "tests/verify_hook_table_completeness.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
-      "tests/verify_registration_and_counts.py"
+      "tests/verify_registration_and_counts.py",
+      "tests/verify_strict_route.py"
     ],
     "hooks/graph-route.sh": [
       "tests/verify_graph_study.py",
@@ -1703,7 +1715,11 @@
       "tests/verify_session_hygiene_quality.py"
     ],
     "skills/bugfix/SKILL.md": [
-      "tests/verify_operating_loops.py"
+      "tests/verify_operating_loops.py",
+      "tests/verify_strict_route.py"
+    ],
+    "skills/bugfix/references/strict.md": [
+      "tests/verify_strict_route.py"
     ],
     "skills/caveman/SKILL.md": [
       "tests/verify_fable_snippets.py"
@@ -1793,6 +1809,12 @@
     ],
     "skills/project/SKILL.md": [
       "tests/verify_hooks_autoinstall.py"
+    ],
+    "skills/refactor/SKILL.md": [
+      "tests/verify_strict_route.py"
+    ],
+    "skills/refactor/references/strict.md": [
+      "tests/verify_strict_route.py"
     ],
     "skills/refactor/references/worktree-isolation.md": [
       "tests/verify_feature_ledger_fallbacks.py",
@@ -1894,6 +1916,12 @@
     ],
     "skills/test/SKILL.md": [
       "tests/verify_refute_fleet.py",
+      "tests/verify_strict_route.py",
+      "tests/verify_test_skill_rules.py"
+    ],
+    "skills/test/references/strict.md": [
+      "tests/verify_refute_fleet.py",
+      "tests/verify_strict_route.py",
       "tests/verify_test_skill_rules.py"
     ],
     "skills/tool-sync/agents/openai.yaml": [
@@ -2172,6 +2200,7 @@
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_strict_completion_policy.py",
+      "tests/verify_strict_route.py",
       "tests/verify_targeted_regression.py",
       "tests/verify_test_skill_rules.py",
       "tests/verify_tier_source.py",

@@ -5974,7 +5974,7 @@
       "status": "passed",
       "criterion": "The session-save time in buying: by the owner's decision of 2026-10-28 it is measured after the merge and the sync from the buying transcripts (docs/measurements/itd-simplify/transcript_stats.py, the session 2 baseline median 154 s) and carried by the ITD-PLAN-S7 verified record in the session 8 PR (plan rule 5); this PR proves the documented path is shorter: SKILL.md 455 -> at most 200 lines, reference files read on an ordinary save 3 -> 0, mandatory steps after the document write: PROGRESS, MEMORY.md, lockfile, cost snapshot, skill self-audit -> none.",
       "source": "Owner 2026-10-20 plan, session 7 and ADR-016; owner 2026-10-27 session 7 task; owner decisions 2026-10-28.",
-      "evidence": "The buying measurement is deferred by the owner's decision of 2026-10-28 (.itd/DECISIONS.md) to after the merge and the sync; the ITD-PLAN-S7 verified record in the session 8 PR carries it (transcript_stats.py on the buying transcripts against the session 2 median of 154 s). This PR: skills/session-save/SKILL.md 455 -> 200 lines (verify_continuity checks at most 200); the three references files are removed, so an ordinary save reads none (it read the checklist, the lockfile format and the wrap-up scripts); the documented ordinary save is one Bash (git and the topic list), Read and Write of the topic document, one Bash appending HISTORY.md, and DECISIONS only for a durable decision - PROGRESS, MEMORY.md, the lockfile, the cost snapshot and the skill self-audit are no longer steps of a save. docs/measurements/itd-simplify/test_measure_tools.py: 16 tests OK (the session-save timer of transcript_stats.py the session 8 measurement uses). Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "evidence": "The buying measurement is deferred by the owner's decision of 2026-10-28 (.itd/DECISIONS.md) to after the merge and the sync; the ITD-PLAN-S7 verified record in the session 8 PR carries it (transcript_stats.py on the buying transcripts against the session 2 median of 154 s). This PR: skills/session-save/SKILL.md 455 -> 200 lines (verify_continuity checks at most 200); the three references files are removed, so an ordinary save reads none (it read the checklist, the lockfile format and the wrap-up scripts); the documented ordinary save is one Bash (git and the topic list), Read and Write of the topic document, one Bash appending HISTORY.md, and DECISIONS only for a durable decision - PROGRESS, MEMORY.md, the lockfile, the cost snapshot and the skill self-audit are no longer steps of a save. docs/measurements/itd-simplify/test_measure_tools.py: 16 tests OK (the session-save timer of transcript_stats.py the session 8 measurement uses). Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text. Measured after the merge and the sync (session 8, docs/measurements/ITD-SIMPLIFY-BASELINE.md section 11; owner decision 2026-10-28: accepted by the net time): 5 runs of the new skill in buying, all write the topic document and HISTORY.md, 0 CONTINUITY-WRITER denies; net median 87 s against 149 s (28 runs of the old skill) and 160 s (60 runs of the baseline window); raw median 177 s against the session 2 baseline of 154 s, not better - the excess is outside the skill: the desktop app's wrap_up tool returned after 208 s and 121 s and 9 ECONNRESET cost about 162 s; the net subtracts the wrap_up latency and the API time of failed attempts the same way for old and new runs.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_continuity.py && sh skills/_shared/itd_py.sh docs/measurements/itd-simplify/test_measure_tools.py",
       "reviewEvidence": {
         "claim": "The save path is shorter; the buying time is measured after the rollout.",
@@ -6024,6 +6024,122 @@
           "full"
         ]
       }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC1",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "The route is chosen the same way in /bugfix, /test and /refactor: each SKILL.md opens its instructions with one identical route command, run from the project root, that prints strict when the first 8 KB of the project's CLAUDE.md, .claude/CLAUDE.md or AGENTS.md hold, case-insensitive, a line itd-route: strict or itd-domain: data-sensitive by itself or the comment <!-- itd:strict --> / <!-- itd:data-sensitive -->, and minimal otherwise - also in a project with .itd/ and .itd/SCOPE_LOCK.md, for the key inside a sentence, for a prefixed key and for a bare itd:strict; --strict in the arguments or a strict task class of the global rules turns the strict route on for that call; no skill text uses a positional $N placeholder.",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task and the marker decision.",
+      "evidence": "tests/verify_strict_route.py: PASSED 65 passed, 0 failed on WSL and native Windows (Python 3.12.10, Git Bash through ITD_BASH, the tree copy C:/itd-src/s8-a1 refreshed from the candidate) - section [1] extracts the Step 0 command from the three SKILL.md files (identical) and runs it on 21 project fixtures plus two repositories: itd-route: strict, <!-- itd:strict -->, <!-- itd:strict--> without a space, itd-domain: data-sensitive in AGENTS.md, <!-- itd:data-sensitive -->, a case-insensitive marker, a marker at the end of a file and an indented marker line with CRLF print strict; no files, an ordinary project with .itd/, .itd/SCOPE_LOCK.md and ACCEPTANCE_CONTRACT.json, itd-route: strictly / strict-mode / minimal, itd-profile: brownfield, not-itd-route: strict, xitd-domain: data-sensitive, a bare itd:strict in prose, the key inside a sentence (review sol a2), a marker split across two files and a marker after the first 8 KB print minimal; from a subdirectory the root files decide; [4] no positional $N placeholder (the /test example \"$99.90\" replaced). Real projects (read-only): the invoices branch chore/itd-route-strict (85d42fc) strict at the root and from server/ and client/src through Git Bash; invoices main, buying, buy-wlb, hihol-landing, OneOfS and this repository minimal. Mutants: .itd-memory/host-inputs/ITD-PLAN-S8/mutants.py 23/23 killed (mutants-a2.log), among them data-sensitive dropped, no 8 KB limit, no file separator, no line-start anchor, no end-of-line anchor, a bare itd:strict accepted, case-sensitive, the current directory instead of the root, AGENTS.md not read, .itd/SCOPE_LOCK.md making a project strict, one skill drifting, a positional placeholder. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py",
+      "reviewEvidence": {
+        "claim": "The strict route is opt-in by an explicit marker and is chosen the same way in the three skills, under Linux sh and Windows Git Bash.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "strict-route"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC2",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "The minimal path of the three skills writes no strict artifacts: /bugfix is reproduce, find the cause (one sentence with evidence), minimal fix, regression test, run the suite; outside references/strict.md no instruction of /bugfix or /refactor writes the claude-freeze state or ROOT_CAUSE.md, and /test runs no mutation; the /test session marker for the DoD gate stays on the minimal path.",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task and the marker decision.",
+      "evidence": "tests/verify_strict_route.py section [2] on WSL and native Windows (Python 3.12.10, Git Bash through ITD_BASH, the tree copy C:/itd-src/s8-a1 refreshed from the candidate): no claude-freeze in the three SKILL.md files; Step 0 names references/strict.md and --strict; every ROOT_CAUSE.md sentence of bugfix SKILL.md is the strict route or says no ROOT_CAUSE.md, no docs/templates/ROOT_CAUSE scaffold; the bugfix headings are route, reproduce, locate, find the cause, fix, regression test and the suite; Step 3 is one sentence with evidence, fail-closed; Step 5 keeps a red-to-green regression test and runs the whole suite; test SKILL.md has no Step 5.5, no ITD_RUN_RECORD and no mutation marker; the /test session marker for the DoD gate is written to both temp dirs in Step 6. Mutants killed: freeze back on the bugfix minimal path, ROOT_CAUSE.md on the minimal path, Step 5.5 back in test SKILL.md, the DoD marker dropped. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py",
+      "reviewEvidence": {
+        "claim": "In an ordinary project /bugfix creates no freeze state and no ROOT_CAUSE.md.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "strict-route"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC3",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "On the strict route the steps run as before: references/strict.md of /bugfix carries the scope freeze (with its removal at the end) and the fail-closed ROOT_CAUSE.md gate with its sections, of /refactor the scope freeze, of /test the Step 5.5 refute pass with the recorded mutation run, the unique mutation marker and the escaped fixtures; verify_test_skill_rules and verify_refute_fleet read the rules from there; the freeze hook behaviour is unchanged; invoices declares the marker and the route command prints strict there.",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task and the marker decision.",
+      "evidence": "tests/verify_strict_route.py section [3] on WSL and native Windows (Python 3.12.10, Git Bash through ITD_BASH, the tree copy C:/itd-src/s8-a1 refreshed from the candidate): bugfix strict.md carries ROOT_CAUSE.md with Summary, Reproduction, Evidence, Fix Hypothesis, Regression Test and Constraints, fail-closed; test strict.md carries Step 5.5 with ITD_RUN_RECORD=1, the unique marker and the escaped fixtures; the freeze blocks of bugfix and refactor strict.md, run as written, make hooks/freeze.sh warn outside the scope and stay silent inside it, write both temp dirs (on Linux with TMPDIR apart from /tmp; on Windows Git Bash maps /tmp to the user temp dir, so both copies are one file there) and the lift blocks remove them so the hook falls silent. tests/verify_test_skill_rules.py 9 passed, tests/verify_refute_fleet.py 20 passed (both read Step 5.5 from skills/test/references/strict.md and require SKILL.md to point there), tests/verify_hook_depth.py 20 passed, tests/verify_feature_ledger_fallbacks.py 12 passed (the worktree fallback still names the freeze path), all on WSL and Windows. Mutants killed: freeze never lifted, only one copy lifted, written to one temp dir, the state file name drifting from the hook, a ROOT_CAUSE section dropped. invoices: the marker line is committed on the branch chore/itd-route-strict (85d42fc, worktree C:/Users/.../AI/invoices-itd-route, not pushed); the PR waits for the owner's confirmation. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py && sh skills/_shared/itd_py.sh tests/verify_test_skill_rules.py && sh skills/_shared/itd_py.sh tests/verify_refute_fleet.py && sh skills/_shared/itd_py.sh tests/verify_hook_depth.py",
+      "reviewEvidence": {
+        "claim": "The strict steps (scope freeze, ROOT_CAUSE.md, mutation refute pass) keep their content and run where the project declares the strict route; ordinary projects lose only ceremony, no gate.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "security"
+        ],
+        "oracleIds": [
+          "strict-route"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC4",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "The descriptions of the three skills follow the Agent Skills form - what the skill does, then when to use it (\"Use when ...\"), at most 1024 characters, no angle brackets; the Trigger phrases sections stay for check-skills.sh; every SKILL.md and references file of the three skills is at most 500 lines; the meta-review and trigger tests are green.",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task and the marker decision.",
+      "evidence": "Descriptions: bugfix 288, test 318, refactor 317 characters, each what it does then \"Use when ...\", no angle brackets (verify_strict_route [4]); the Trigger phrases sections are unchanged. Lines: bugfix SKILL.md 163, strict.md 47, debugging-patterns.md 248; test SKILL.md 229, strict.md 60, test-frameworks.md 417; refactor SKILL.md 162, strict.md 31, refactoring-catalog.md 452, worktree-isolation.md 67 - all at most 500. tests/meta_review.py FINAL STATUS: PASSED and tests/verify_triggers.py PASSED on WSL and Windows; mutant 'description without Use when' killed. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py && sh skills/_shared/itd_py.sh tests/meta_review.py && sh skills/_shared/itd_py.sh tests/verify_triggers.py",
+      "reviewEvidence": {
+        "claim": "The descriptions trigger the skills and the texts stay short.",
+        "impactClasses": [
+          "compatibility",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "strict-route",
+          "meta-review"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC5",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "The ITD-PLAN-S7 verified record (itd_unit_log.py) with the AC4 measurement and its followup move, the session 7 DECISIONS of decisions-after-candidate.md, the measurement section and the new BACKLOG items ride in this PR (plan rule 5); the state ledgers validate.",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task and the marker decision.",
+      "evidence": "scripts/validate_state.py: OK, validated 2 state file(s). The ITD-PLAN-S7 verified event (evt-unit-1793223023, 2026-10-28T21:30:23Z) and the ITD-PLAN-S8 activated event were written by itd_unit_log.py; the S7 followup is in closedFollowups with the closure evidence of that event; the S7 AC4 evidence carries the buying measurement (net 87 s against 149 s and 160 s, raw 177 s against 154 s and the reason); DECISIONS holds the records of decisions-after-candidate.md and the session 8 records; docs/measurements/ITD-SIMPLIFY-BASELINE.md section 11; BACKLOG holds the new items. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The ledger records are exact.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "state"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S8-AC6",
+      "unitId": "ITD-PLAN-S8",
+      "status": "passed",
+      "criterion": "The full suite is green on the exact candidate: tests/run-all.sh in the isolated checkout of the reviewed head, which is the full leg of the committed-head machine. A run in the owner's working tree is not this evidence: there verify_ledger_reconciliation also reads git-ignored local GOAL files (BACKLOG P3).",
+      "source": "Owner 2026-10-20 plan, session 8 and ADR-016; owner 2026-10-28 session 8 task; review gpt-5.6-sol a2 (2026-10-29).",
+      "evidence": "Committed-head machine full legs of this unit (full-host-guard.py: tests/run-all.sh --fail-fast in the isolated candidate checkout, 177 of 191 suites): a1 on 26536c0 and a5 on b45b83c DONE fails:none; a2-a4 on b45b83c each stopped on a different wall-clock test (verify_graph_study future owner authorization, verify_redteam_multihost, verify_state_hardening lock give-up) while the WSL2 clock jumped backwards about every 38 s (systemd-timesyncd on top of the Hyper-V time sync; the owner disabled it on 2026-10-29, a 60 s probe then showed 0.000 s drift). The owner's working-tree run (run-all-wsl-2.log) failed only verify_ledger_reconciliation (git-ignored GOAL files, the same on main) and verify_harness_map_fixtures (a load flake, alone 39 passed twice); it is recorded, not used as this evidence. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "bash tests/run-all.sh --fail-fast",
+      "reviewEvidence": {
+        "claim": "The full suite is green on the exact reviewed tree.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "full"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6042,11 +6158,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S7",
+    "unitId": "ITD-PLAN-S8",
     "status": "in_progress",
     "openedAt": "2026-10-28",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-27: session 7 of the approved ITD change plan - session-save and handoff in one PR. One continuity document (decisions, check results, blockers, the next action; history kept apart and never competing with the current state); session-save SKILL.md at most 200 lines, run at milestones and before irreversible steps, not after every sub-step; sync-to-active and the methodology-memory push only in the ITD repository and only by a flag; handoff in the same format, kept for a transfer without a way back. Acceptance: a new session recovers the next action from one document; session-save time in buying below the session 2 baseline; the skill tests green; the full suite green. The same PR carries the ITD-PLAN-S6 verified record (followup to closedFollowups), the DECISIONS records of .itd-memory/host-inputs/ITD-PLAN-S6/decisions-after-a7.md missing from .itd/DECISIONS.md, the S6 AC3 owner exception for the Codex legs on Windows and the AC1 bytecode wording, and the new BACKLOG items of the same file. The machine candidate is one single-parent commit; MEMORY.md is not touched during the full leg (snapshot HOST_MEMORY_INDEX.md). One independent review of the final candidate, convergence rule as in session 6 ('not worse than main': behaviour of main -> BACKLOG + ADJUDICATED; a high from the session diff -> fix and back to the owner; only medium/low -> ADJUDICATED and publication). Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+    "sourceRequest": "Owner 2026-10-28: session 8 of the approved ITD change plan - bugfix, test and refactor in one PR. The automatic scope freeze, the mandatory ROOT_CAUSE.md, the refute pass and the mutation runs move to references/strict.md of each skill and run only on the strict route; the minimal path is reproduce, find the cause, minimal fix, regression test, run the suite; the skill descriptions are refined for auto-triggering by the Agent Skills standard. Owner decision 2026-10-28: the strict route is chosen by an explicit project marker (itd-route: strict or <!-- itd:strict --> in CLAUDE.md, .claude/CLAUDE.md or AGENTS.md; itd-domain: data-sensitive counts), by --strict in the arguments or by a strict task class of the global rules, not by the presence of .itd/ or .itd/SCOPE_LOCK.md; invoices gets the marker by its own PR on the owner's confirmation. Acceptance: in an ordinary project /bugfix creates no freeze state and no ROOT_CAUSE.md; in invoices the strict steps run as before; texts at most 500 lines. The same PR carries the ITD-PLAN-S7 verified record with the AC4 measurement (both numbers and the reason for the net time) and its followup move, the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S7/decisions-after-candidate.md and the new BACKLOG items. One independent review of the final candidate, convergence rule as in sessions 6 and 7. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
@@ -6054,7 +6170,6 @@
         "correctness",
         "security",
         "host-parity",
-        "performance",
         "repository-hygiene",
         "compatibility"
       ],
@@ -6910,6 +7025,30 @@
         "adjudicator": "sealed-host-union"
       },
       "closureEvidence": "PR #376 squash-merged to main 0436ab5 on 2026-10-27; tree 543676be equals the reviewed tree of 60b1f30: committed-head machine ITD-PLAN-S6-machine-a15 PASSED 10/10 (full fails:none, receipt f632a0ec); review gpt-5.6-sol a1-a9r2 BLOCKED with every finding fixed with tests or adjudicated; a10r6 on 48a7c9a ADJUDICATED (binding 793cd639, receipt 2d81abcb); a11 on 60b1f30 ADJUDICATED (binding d5d44f1d, receipt 97a011ba); PR CI meta-review and windows-verify SUCCESS; sync with backups on WSL and Windo"
+    },
+    {
+      "unitId": "ITD-PLAN-S7",
+      "status": "closed",
+      "closedAt": "2026-10-28T21:30:23Z",
+      "openedAt": "2026-10-28",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-27: session 7 of the approved ITD change plan - session-save and handoff in one PR. One continuity document (decisions, check results, blockers, the next action; history kept apart and never competing with the current state); session-save SKILL.md at most 200 lines, run at milestones and before irreversible steps, not after every sub-step; sync-to-active and the methodology-memory push only in the ITD repository and only by a flag; handoff in the same format, kept for a transfer without a way back. Acceptance: a new session recovers the next action from one document; session-save time in buying below the session 2 baseline; the skill tests green; the full suite green. The same PR carries the ITD-PLAN-S6 verified record (followup to closedFollowups), the DECISIONS records of .itd-memory/host-inputs/ITD-PLAN-S6/decisions-after-a7.md missing from .itd/DECISIONS.md, the S6 AC3 owner exception for the Codex legs on Windows and the AC1 bytecode wording, and the new BACKLOG items of the same file. The machine candidate is one single-parent commit; MEMORY.md is not touched during the full leg (snapshot HOST_MEMORY_INDEX.md). One independent review of the final candidate, convergence rule as in session 6 ('not worse than main': behaviour of main -> BACKLOG + ADJUDICATED; a high from the session diff -> fix and back to the owner; only medium/low -> ADJUDICATED and publication). Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "performance",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closureEvidence": "PR #377 squash-merged to main 93bec47 on 2026-10-28; tree 61c99a29 = reviewed tree of 98cab16: machine ITD-PLAN-S7-machine-a4 PASSED 9/9 (receipt 8f7878ad); review sol a2 ADJUDICATED (binding ae355243, receipt 5d50baf5); CI meta-review and windows-verify pass; sync WSL+Windows with backups. AC4 in buying, owner 2026-10-28, by net: 5 runs, net median 87 s vs 149 s (28 old) and 160 s (60 baseline); raw 177 s vs baseline 154 s - excess is app wrap_up wait (208/121 s) and 9 ECONNRESET (~162 s)"
     }
   ]
 }

@@ -1,7 +1,7 @@
 ---
 name: bugfix
-description: 'Systematically debug an issue — find root cause and fix it. Traces errors through stack traces, logs, git history.'
-argument-hint: error message, symptom, or issue description
+description: 'Finds the root cause of a bug and fixes it with the smallest change - reproduce, trace through stack traces, logs and git history, fix, add a regression test, run the suite. Use when something is broken, throws an error or a stack trace, fails silently, or worked before and does not now.'
+argument-hint: error message, symptom, or issue description [--strict]
 license: MIT
 allowed-tools: Read Edit Glob Grep Bash
 metadata:
@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.83.0
+  version: 1.110.0
   category: code-quality
   tags: [debugging, bugfix, troubleshooting]
 ---
@@ -44,18 +44,15 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ## Instructions
 
-### Step 0: Auto-freeze scope (v1.17.0)
+### Step 0: Route - minimal or strict
 
-After identifying the target file/directory from $ARGUMENTS or the error context, automatically activate scope freeze:
+From the project root, check whether the project declares the strict route - a line `itd-route: strict` or `itd-domain: data-sensitive` by itself, or the comment `<!-- itd:strict -->` / `<!-- itd:data-sensitive -->`:
 
 ```bash
-# Write freeze state — limits edits to the bug's directory (dual-write: /tmp + platform temp)
-tmpd="$(python3 -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || python -c 'import tempfile;print(tempfile.gettempdir())' 2>/dev/null || echo /tmp)"  # win-ok: цепочка падает в /tmp (шим exit!=0)
-mkdir -p /tmp 2>/dev/null || true
-echo "/path/to/bug/directory" | tee "/tmp/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state" 2>/dev/null || echo "/path/to/bug/directory" > "$tmpd/claude-freeze-${CLAUDE_SESSION_ID:-default}.state"
+( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '^[[:space:]]*(itd-route:[[:space:]]*strict|itd-domain:[[:space:]]*data-sensitive)[[:space:]]*$|<!--[[:space:]]*itd:(strict|data-sensitive)[[:space:]]*-->' && echo strict || echo minimal
 ```
 
-This prevents accidental edits outside the bug's scope during debugging. The freeze is cleared automatically when the skill completes (Step 5+). If the fix legitimately requires changes outside the frozen scope (e.g., a shared utility), the freeze hook will warn and ask for confirmation — which is correct behavior.
+Take the **strict route** when it prints `strict`, when the arguments contain `--strict`, or when the task falls in a strict class of the global rules (ITD's own critical mechanisms, money, access, deploy, migrations, production data): read `references/strict.md` now and run its steps together with the steps below. Otherwise this is the **minimal path** - Steps 1-5, no scope freeze, no ROOT_CAUSE.md file. The `.itd/` directory alone does not make a project strict; the marker is described in the methodology's `docs/project-profiles.md`.
 
 ### Step 1: Reproduce
 Understand the exact symptoms. Find the error in logs/output.
@@ -69,7 +66,7 @@ Error: Exact error message or unexpected behavior
 **Рекомендация (goal-driven fix, v1.5.0):** по возможности напиши **failing test**, который воспроизводит баг, **до** правки. Это превращает размытое «почини баг» в verifiable goal: «сделай, чтобы этот тест прошёл». Преимущества:
 
 - Root cause становится явным (если тест не падает — ты ловишь не тот баг).
-- Автоматический регрессионный тест (Step 6 выполняется за счёт Step 1).
+- Автоматический регрессионный тест (Step 5 выполняется за счёт Step 1).
 - Проверка фикса — не ручная, а по зелёному тесту.
 
 Когда failing test писать нельзя (UI glitch без testable API, race condition без reproduction harness, env-specific баг) — зафиксируй явный критерий успеха в виде текста: «после фикса `curl /health` возвращает 200», «форма сохраняет данные после повторного submit». Критерий должен быть бинарным.
@@ -84,26 +81,23 @@ Trace from the error back to the root cause:
 
 If the bug is language- or stack-specific (Python pdb, JS source maps, Go race detector, Bash quoting, SQL query plans, frontend rendering), consult `references/debugging-patterns.md` for the idiomatic tools and common pitfalls of that ecosystem.
 
-### Step 3: Understand — record root cause (v1.21 — PFO port)
+### Step 3: Find the cause
 Explain WHY it fails, not just WHERE. Identify the incorrect assumption or state.
 
-**Root-cause gate:** before writing the fix, record the root cause as an artifact. For non-trivial bugs, scaffold `ROOT_CAUSE.md` from `docs/templates/ROOT_CAUSE.md` and fill: Summary, Reproduction, Evidence, Fix Hypothesis, Regression Test. The gate is **fail-closed** — if you cannot state the root cause in one sentence with evidence, it is not found yet; keep analysing (Step 2), do not jump to a fix. This prevents symptom-patching and repeat bugs. For a one-line trivial fix (typo, off-by-one with obvious cause) an inline root-cause sentence is sufficient — no separate file.
+Before writing the fix, state the root cause in **one sentence with evidence** (the failing line, the log entry, the wrong value) in your report. This is **fail-closed**: if you cannot state it, the cause is not found yet - keep analysing (Step 2), do not patch the symptom. On the minimal path the sentence is enough; the strict route also records `ROOT_CAUSE.md` (`references/strict.md`).
 
 ### Step 4: Fix
 Implement the minimal correct fix. Do not refactor surrounding code.
 
-### Step 5: Verify
-Run the relevant tests or reproduce steps to confirm the fix works.
+### Step 5: Regression test and the suite
+Keep the failing test of Step 1, or add one now: it fails on the old code and passes on the fix. Then run the project's whole test suite, not only the new test.
 
 ```bash
-# Run specific test
-pytest tests/test_affected_module.py -v
-# Or verify manually
-curl http://localhost:8000/api/health
+pytest tests/test_affected_module.py -v   # the regression test: red before the fix, green after
+pytest                                    # the whole suite
 ```
 
-### Step 6: Prevent
-If appropriate, add a test that would have caught this bug.
+Where a test is impossible (Step 1), check the binary success criterion instead and say so.
 
 Report your findings at each step. If you hit a dead end, say so and try a different angle.
 
@@ -134,7 +128,7 @@ Result: Found that validation middleware silently rejected the request due to mi
 ## Rules
 
 1. Ищи root cause, а не маскируй симптомы — `try/except: pass`, подавление ошибок, fallback на default value без логирования запрещены как "фикс"
-2. Каждый исправленный баг должен сопровождаться регрессионным тестом, который падает на старом коде и проходит на новом. **Предпочтительно** написать failing test до фикса (Step 1), а не после (Step 6) — это превращает задачу в verifiable goal и делает root cause явным (goal-driven, v1.5.0)
+2. Каждый исправленный баг должен сопровождаться регрессионным тестом, который падает на старом коде и проходит на новом. **Предпочтительно** написать failing test до фикса (Step 1), а не после (Step 5) — это превращает задачу в verifiable goal и делает root cause явным (goal-driven, v1.5.0)
 3. Минимальный фикс — не рефактори окружающий код, не добавляй фичи, не меняй форматирование в незатронутых строках
 4. Перед фиксом объясни WHY (Step 3) вслух — если не можешь сформулировать причину в одном предложении, root cause ещё не найден
 5. Не меняй тесты, чтобы они проходили — если тест падает после фикса, значит тест проверял корректное поведение, а фикс сломал контракт
@@ -142,9 +136,9 @@ Result: Found that validation middleware silently rejected the request due to mi
 ## Self-validation
 
 Before reporting fix to user, verify:
-- [ ] Root cause identified and documented (not just symptom fix)
+- [ ] Root cause stated in one sentence with evidence (not just symptom fix); strict route: `ROOT_CAUSE.md` too
 - [ ] Fix addresses the specific error/behavior described by user
-- [ ] Tests pass after fix (run existing test suite)
+- [ ] Tests pass after fix (the whole existing test suite was run)
 - [ ] No new warnings or errors introduced
 - [ ] Fix does not break other functionality (check related tests)
 - [ ] If regression test needed, it has been added or recommended

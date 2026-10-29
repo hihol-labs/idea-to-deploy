@@ -27,7 +27,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TEST = ROOT / "skills" / "test" / "SKILL.md"
+# Step 5.5 runs on the strict route only (ITD-PLAN-S8): it lives in references/strict.md, SKILL.md points there.
+TEST = ROOT / "skills" / "test" / "references" / "strict.md"
+TEST_SKILL = ROOT / "skills" / "test" / "SKILL.md"
 RUN_ALL = ROOT / "tests" / "run-all.sh"
 WORKFLOWS = ROOT / ".github" / "workflows"
 ORACLE = "verify_test_skill_rules"
@@ -85,7 +87,7 @@ def bullet_with(items: list[str], needle: str) -> str:
 
 def main() -> int:
     if not TEST.is_file():
-        check("skill file exists: skills/test/SKILL.md", False, str(TEST))
+        check("strict file exists: skills/test/references/strict.md", False, str(TEST))
         print("\n%d passed, %d failed" % (PASSED, FAILED))
         return 1
 
@@ -96,6 +98,10 @@ def main() -> int:
         print("\n%d passed, %d failed" % (PASSED, FAILED))
         return 1
     items = bullets(section)
+    check("SKILL.md sends the strict route to references/strict.md for Step 5.5",
+          TEST_SKILL.is_file() and "references/strict.md" in TEST_SKILL.read_text(encoding="utf-8")
+          and "Step 5.5" in TEST_SKILL.read_text(encoding="utf-8"),
+          "name references/strict.md and its Step 5.5 in skills/test/SKILL.md")
 
     # --- rule 1: unique mutation marker ------------------------------------
     marker = bullet_with(items, "marker")
