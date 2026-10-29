@@ -122,6 +122,8 @@ jobs:
         run: python tests/verify_continuity.py
       - name: Strict route of bugfix/test/refactor (Step 0 marker, references/strict.md) (plan session 8)
         run: python tests/verify_strict_route.py
+      - name: Task and adopt by the project route (thin router, adopt pointer, --strict full set) (plan session 9)
+        run: python tests/verify_task_adopt_route.py
       - name: run-all.sh vs workflows drift-guard (v1.79.1)
         run: python tests/verify_runall_drift.py
       - name: Token telemetry gate on legacy encoding (LPD003-4 consolidated)

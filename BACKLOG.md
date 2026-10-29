@@ -8,6 +8,52 @@
 > пункты ниже не берутся в работу, пока не блокируют продуктовую задачу. Правка ITD - только по такому блокеру и
 > минимальная; новая проверка становится обязательной только после выигрыша на A/B-замере.
 
+## P2 - тесты на настенных часах краснеют при шаге часов назад (2026-10-29, ITD-PLAN-S8, машины a2-a4)
+
+Три машины подряд на одном кандидате упали на трех разных тестах, отдельно каждый зеленый: `tests/verify_state_hardening.py:619`
+("POSIX lock give-up is bounded (< 4s)" мерит `time.time()`), `tests/verify_graph_study.py`
+(`test_real_codex_hook_transport_emits_authorized_native_context`: тест пишет `at = now()`, а
+`skills/graph/scripts/itd_graph_policy.py:69` в другом процессе отклоняет время позже своего `now()`), вероятно сетка
+`tests/verify_redteam_multihost.py:120`. Причина - часы WSL2 шагали назад примерно раз в 38 с (systemd-timesyncd поверх
+синхронизации Hyper-V; владелец выключил его 2026-10-29). Интервалы мерить `time.monotonic()`; проверке будущего
+времени - допуск на шаг часов (как `MAX_CLOCK_SKEW_SECONDS` брокера) или `at` с запасом в тесте. Тот же класс - P3
+`verify_cmp_protocol` ниже.
+
+## P2 - external-write gate отклоняет computer-use `request_access` к локальному приложению (2026-10-29, ITD-PLAN-S8)
+
+Запрос доступа computer-use к окну локального VPN-клиента MantaRay отклонен гейтом: `"approvable": false`, "external
+connector action has no provable read-only semantics". Запрос доступа сам ничего не отправляет наружу и подтверждается
+человеком в диалоге хоста; отказ без возможности одобрить вынудил переключать сервер VPN вручную. Классифицировать
+`request_access` (и чтение экрана) как ask, а не deny; тест на этот инструмент.
+
+## P3 - продюсер ревью: печатать переподключения Codex и причину обрыва (2026-10-29, ITD-PLAN-S8, ревью a3-a3r3)
+
+Три попытки ревью sol на одном кандидате закончились UNVERIFIED/UNAVAILABLE ("Reconnecting... 2/5 (request timed
+out)"), четвертая прошла; по квитанции не видно, сколько было переподключений и на каком шаге оборвалось. Писать в
+отчет транспорта число переподключений, последнюю причину и время до обрыва - тогда видно, канал это или сервис.
+
+## P3 - `verify_redteam_multihost`: печатать, какой гейт сетки не удержался (2026-10-29, ITD-PLAN-S8, машина a3)
+
+Полная нога машины a3 остановилась на "fixture grid green - all 8 hard gates hold (deny/block)"
+(`tests/verify_redteam_multihost.py:120`) - печатается только итог, какой из восьми гейтов пропустил, неизвестно; три
+отдельных прогона зеленые. Печатать имя гейта и фактическое решение.
+
+## P3 - ссылки на старые номера шагов `/task` и `/adopt` вне этих скиллов (2026-10-29, ITD-PLAN-S9)
+
+С сессии 9 учет юнитов `/task` - `references/strict.md` S4 (был Step 3.5), PIV-lite - S3 строгого маршрута (Step 3f
+теперь минимальная фича), предложение хуков `/adopt` - strict S8 (был Step 7). Старые номера остались вне зоны правок
+сессии: `skills/project/SKILL.md:129` («offer as `/adopt` Step 7»), `skills/retro/SKILL.md:229` и
+`hooks/pre-flight-check.sh:473` («/task Step 3.5»), `skills/goal/SKILL.md:188,362` (юнит цели - «Step 3f ... `/test` →
+`/review`»: `/goal` должен звать `/task` со `--strict`), `skills/_shared/itd_unit_lifecycle.py:37` (комментарий),
+`docs/CONTRACTS.md:34,86,90` и `docs/HARNESS_ENGINEERING_MAP.md:76` (исторические записи v1.40). Поправить ссылки при
+следующей правке этих файлов; `/goal` - явный `--strict`.
+
+## P3 - `sync-to-active.sh` применяет sync на неизвестном аргументе (2026-10-29, ITD-PLAN-S8)
+
+`scripts/sync-to-active.sh:50` распознает только `--check`; любой другой аргумент (`--help`, опечатка `--chek`)
+молча запускает настоящий sync. В сессии 8 `--help` обновил три скилла на WSL до бэкапа. Неизвестный аргумент -
+отказ с usage и ненулевым кодом, `--help` - usage; тест.
+
 ## P3 - `/perf` пишет freeze всегда и не снимает его (2026-10-28, ITD-PLAN-S8)
 
 С сессии 8 `/bugfix` и `/refactor` пишут состояние `claude-freeze-<session>.state` только на строгом маршруте и
@@ -55,13 +101,13 @@ SKILL.md: в резолвере `awk -F/ '{print $(NF-2), $0}'` получает
 файлах: session-save (2), handoff, task (2), retro (2), review, review/references/review-checklist.md, adopt;
 поведение main. Собрать путь без `$0` (например, `sed`/`cut`) и тест на подстановку аргумента.
 
-## P2 - другие скиллы ссылаются на старый формат памяти сессий (2026-10-28, ITD-PLAN-S7)
+## P2 - другие скиллы ссылаются на старый формат памяти сессий (2026-10-28, ITD-PLAN-S7; adopt и task - сессия 9)
 
 С сессии 7 `/session-save` ведет `.itd-memory/continuity/<тема>.md` и `HISTORY.md`, а не `session_YYYY-MM-DD.md` +
-`MEMORY.md`. Старый формат еще называют: `/adopt` (SKILL.md:191 - session-save дописывает MEMORY.md и пишет lockfile;
-:576 - sentinel `session_YYYY-MM-DD.md`), `skills/task/references/routing-matrix.md:22`, `/tool-sync`,
-`/obsidian-export` (источники памяти), `/retro` (замечания из `session_*.md`). Сессия 9 плана (task и adopt) - adopt и
-task; tool-sync, obsidian-export и retro - добавить `continuity/` и `HISTORY.md` к источникам при следующей правке.
+`MEMORY.md`. Сессия 9 (ITD-PLAN-S9) убрала старый формат из `/adopt` (минимальный путь не вызывает /session-save,
+строгий - один вызов с темой `adopt`) и из `/task` (Step 1 читает документ темы, `routing-matrix.md` строка 14);
+`tests/verify_task_adopt_route.py` держит это. Осталось: `/tool-sync`, `/obsidian-export` (источники памяти), `/retro`
+(замечания из `session_*.md`) - добавить `continuity/` и `HISTORY.md` к источникам при следующей правке.
 
 ## P2 - продюсер ревью сжигает refresh token Codex (2026-10-26, ITD-PLAN-S6, ревью a9)
 

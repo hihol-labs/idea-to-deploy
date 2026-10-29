@@ -18,8 +18,8 @@
 | 10 | "Настрой Terraform", "Helm chart", "K8s manifests", "provision droplet", "tfstate", "IaC", "secrets manager", "deploy to DigitalOcean" | **`/infra`** | Генерация IaC (Terraform/Helm), **не** shell-скрипты деплоя. |
 | 11 | "Объясни код", "как это работает", "walk me through", "разбери модуль" | **`/explain`** | Диаграммы + пошаговый разбор. |
 | 12 | "Проверь PR", "review", "оцени качество", "check quality", "validate architecture" | **`/review`** | Code-level + architecture-level проверка. |
-| 13 | "Реализуй фичу", "добавь функциональность", "new feature" в существующем проекте | **PIV-lite через `/task` Step 3f** | Существующий Plan → Implement → Validate → Review; не новый lifecycle skill. |
-| 14 | "Сохрани контекст", "итоги сессии", "заканчиваем работу", "save session" | **`/session-save`** | Пишет `session_YYYY-MM-DD.md` + `.active-session.lock`. |
+| 13 | "Реализуй фичу", "добавь функциональность", "new feature" в существующем проекте | **`/task` Step 3f** | Минимальный путь: правка, тесты к новому коду, прогон набора. Строгий маршрут: PIV-lite (Plan → Implement → Validate → Review) из `references/strict.md` S3; не новый lifecycle skill. |
+| 14 | "Сохрани контекст", "итоги сессии", "заканчиваем работу", "save session" | **`/session-save`** | Пишет `.itd-memory/continuity/<тема>.md` и дописывает `.itd-memory/HISTORY.md`. |
 
 ## Неявные маппинги
 

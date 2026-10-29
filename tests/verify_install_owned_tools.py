@@ -326,8 +326,10 @@ def no_project_copy_calls(base: Path) -> None:
           unsafe_tool_calls(probe, "probe") == ["probe:9", "probe:13", "probe:15", "probe:16", "probe:17", "probe:24",
                                                 "probe:31", "probe:38", "probe:45"],
           str(unsafe_tool_calls(probe, "probe")))
+    # ITD-PLAN-S9: /task runs project tools only on its strict route (references/strict.md)
     uses = [p for p in ("session-save", "handoff", "retro", "review", "task")
-            if "itd_tool.sh" not in (ROOT / "skills" / p / "SKILL.md").read_text(encoding="utf-8")]
+            if "itd_tool.sh" not in "".join(f.read_text(encoding="utf-8") for f in (
+                ROOT / "skills" / p / "SKILL.md", ROOT / "skills" / p / "references" / "strict.md") if f.is_file())]
     check("the skills that run project tools go through itd_tool.sh", not uses, ", ".join(uses))
 
 
@@ -336,8 +338,9 @@ def adopt_cases() -> None:
     check("itd_adopt copies the templates without the .py tools",
           'ignore=shutil.ignore_patterns("*.py"' in source)
     skill = (ROOT / "skills" / "adopt" / "SKILL.md").read_text(encoding="utf-8")
-    check("adopt Step 3.5 copies contracts, not the .py tools",
-          "not the `.py` tools" in skill and "plus the `.py` utilities" not in skill)
+    strict = (ROOT / "skills" / "adopt" / "references" / "strict.md").read_text(encoding="utf-8")
+    check("adopt strict S1 copies contracts, not the .py tools",
+          "not the `.py` tools" in strict and "plus the `.py` utilities" not in strict + skill)
     template = (ROOT / "skills" / "adopt" / "references" / "claude-md-template.md").read_text(encoding="utf-8")
     begin, end = template.find("<!-- idea-to-deploy:begin"), template.find("<!-- idea-to-deploy:end -->")
     block = template[begin:end] if 0 <= begin < end else ""
@@ -383,7 +386,7 @@ def adopt_marker_cases(base: Path) -> None:
     spec.loader.exec_module(adopt)
     args = types.SimpleNamespace(unit_id="U-001", allowed_area=["src"], baseline_command="true",
                                  verification_command="true", verification_argv=["true"],
-                                 trusted_verifier_path=[])
+                                 trusted_verifier_path=[], host="codex", strict=False)
     results = {}
     for name, head in (("older", "<!-- idea-to-deploy:begin v1.20 -->\nold rules\n<!-- idea-to-deploy:end -->\n"),
                        ("current", (ROOT / "skills" / "adopt" / "references" / "agents-md-template.md")

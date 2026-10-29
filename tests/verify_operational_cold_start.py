@@ -288,6 +288,7 @@ def main() -> int:
             PY, str(ADOPT),
             "--project", str(project),
             "--plugin-root", str(ROOT),
+            "--host", "codex", "--strict",
             "--baseline-command", baseline,
             "--verification-command", unit_command,
             "--trusted-verifier-path", "tests/test_first_task.py",

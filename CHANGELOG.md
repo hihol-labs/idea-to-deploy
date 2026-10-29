@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.109.2 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - программа ADR-016 (сессия 9): task и adopt
+
+- `/task` - тонкий роутер: выбирает скилл или делает небольшую фичу сам (правка, тесты к новому коду, прогон набора)
+  без обязательного /test + /review. PIV-lite с обязательным /test + /review, adjudication, Task Contract,
+  deployment baseline, классификация по `PROPORTIONALITY_POLICY.json`, очередь качества и учет юнитов WIP=1
+  перенесены в `skills/task/references/strict.md` и выполняются только на строгом маршруте (тот же Step 0, что у
+  `/bugfix`). Step 1a больше не останавливает маршрут вопросом «запустить /adopt?» - одна строка в отчете.
+  `PIV_LITE_ROUTE.json`: `activation: strict-route`.
+- `/adopt` по умолчанию пишет только блок-указатель (`CLAUDE.md` на Claude Code, `AGENTS.md` на Codex) с командами
+  тестов, линта и сборки из `justfile`, `Makefile`, `package.json`, `pyproject.toml`/`requirements*.txt`, `go.mod`,
+  `Cargo.toml`; в блок попадают только фиксированные строки команд, не текст репозитория. `/adopt strict` дает
+  прежний полный набор: строку `itd-route: strict` в блоке, `.itd/`, `.itd-memory/` с первым юнитом, профиль
+  merge-гейта, хуки проекта, план-документы и один `/session-save` в формате `continuity/` (шаги - в
+  `skills/adopt/references/strict.md`). Безусловный вызов `/session-save` и старый формат памяти убраны.
+- `skills/adopt/scripts/itd_adopt.py` общий для Claude Code и Codex: `--host claude|codex`, минимальный режим по
+  умолчанию, `--strict` для полного набора (strict-флаги без `--strict` - отказ); повтор идемпотентен, на уже
+  адоптированном проекте strict только добавляет абзац с маркером внутрь блока; маркер дальше первых 8 КБ - отказ с
+  WHY/FIX без записи. Тест `tests/verify_task_adopt_route.py` в run-all и обоих CI; тексты не длиннее 500 строк.
+
 ### Changed - программа ADR-016 (сессия 8): bugfix, test, refactor
 
 - `/bugfix`, `/test`, `/refactor`: строгие шаги вынесены в `references/strict.md` каждого скилла и выполняются только

@@ -105,7 +105,20 @@ steps of each skill's `references/strict.md`: the edit-scope freeze
 (`hooks/freeze.sh`) in `/bugfix` and `/refactor`, the fail-closed
 `ROOT_CAUSE.md` in `/bugfix`, the mutation refute pass in `/test`.
 
-**How to enable.** In the first 8 KB of the project's `CLAUDE.md`,
+`/task` and `/adopt` read the same marker with the same Step 0 command (plan
+session 9). `/task` on the minimal path routes, or does a small feature
+directly - change, tests for the new code, suite run; the strict route adds the
+PIV-lite pipeline with `/test`, `/review` and adjudication, process-cost
+classification and the WIP=1 unit ledger. `/adopt` on the minimal path writes
+only the pointer block in `CLAUDE.md` / `AGENTS.md` with the test, lint and
+build commands found in the manifests; `/adopt strict` (or a project that
+already declares the marker) gives the full set - this marker line inside the
+block, the `.itd/` contracts, `.itd-memory/` state with a first unit, the
+merge-gate profile, project hooks, one `/session-save`
+(`tests/verify_task_adopt_route.py`).
+
+**How to enable.** `/adopt strict` writes the line for you (and refuses when it
+would land beyond the first 8 KB). By hand: in the first 8 KB of the project's `CLAUDE.md`,
 `.claude/CLAUDE.md` or `AGENTS.md`, as a line by itself or as the comment:
 
 ```

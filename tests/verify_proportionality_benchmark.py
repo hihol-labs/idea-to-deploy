@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS_PATH = ROOT / "benchmarks" / "proportionality" / "CORPUS.json"
 SEAL_PATH = ROOT / "benchmarks" / "proportionality" / "CORPUS.sha256"
-TASK_SKILL = ROOT / "skills" / "task" / "SKILL.md"
+TASK_SKILL = ROOT / "skills" / "task" / "references" / "strict.md"  # ITD-PLAN-S9: classification is strict-only
 HELPERS = ROOT / "skills" / "_shared" / "helpers.md"
 EXPECTED_GUARDS = {
     "always-full-low",

@@ -373,7 +373,8 @@ def main() -> int:
 
         api_docs = (ROOT / "docs" / "API_REVIEWER.md").read_text("utf-8")
         ci_docs = (ROOT / "docs" / "CI.md").read_text("utf-8")
-        adopt_docs = (ROOT / "skills" / "adopt" / "SKILL.md").read_text("utf-8")
+        # ITD-PLAN-S9: the GitHub review profile is a strict-route step of /adopt (references/strict.md S6)
+        adopt_docs = (ROOT / "skills" / "adopt" / "references" / "strict.md").read_text("utf-8")
         check(
             all("itd gate register-profile" in text for text in
                 (api_docs, ci_docs, adopt_docs)),

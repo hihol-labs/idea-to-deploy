@@ -24,7 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 HOOK = REPO / "hooks" / "check-dod-before-commit.sh"
 TPL = REPO / "docs" / "templates" / "itd" / "TASK_CONTRACT.md"
-TASK_SKILL = REPO / "skills" / "task" / "SKILL.md"
+TASK_SKILL = REPO / "skills" / "task" / "references" / "strict.md"  # ITD-PLAN-S9: PIV-lite is strict-only
 
 PASS = FAIL = 0
 
@@ -97,7 +97,7 @@ def main():
 
     # 5) /task генерирует контракт до кода
     s = TASK_SKILL.read_text(encoding="utf-8")
-    check("/task SKILL.md: генерация контракта до кода",
+    check("/task strict.md: генерация контракта до кода",
           "TASK_CONTRACT" in s and ".itd-memory/contracts/" in s, "маркер не найден")
 
     print(f"\n{PASS} passed, {FAIL} failed")

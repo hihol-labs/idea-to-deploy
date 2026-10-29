@@ -1,6 +1,6 @@
 # Manual verification — fixture 10 (/task router)
 
-The `/task` skill is a **thin router**: it never generates code itself. It reads the user's request, optionally asks ONE routing question, then invokes the target daily-work skill via the Skill tool. This fixture verifies routing accuracy, not the target skills' behavior.
+The `/task` skill is a **thin router** (ITD-PLAN-S9): it reads the user's request, optionally asks ONE routing question, then invokes the target daily-work skill via the Skill tool; only a small feature in existing code (Step 3f) is done directly on the minimal path - change, tests for the new code, suite run - without a mandatory `/test` + `/review` floor. The PIV-lite pipeline, adjudication and the unit ledger run only on the strict route (`references/strict.md`). This fixture verifies routing accuracy, not the target skills' behavior.
 
 ## /task — Scenario A: ambiguous tech debt
 
@@ -45,7 +45,7 @@ User says: «хочу новый проект — CRM для фитнес-клу
 ## /task — Guard rails
 
 - [ ] NEVER invokes `/project`, `/kickstart`, `/blueprint`, `/guide` except in Scenario D (new-project redirect)
-- [ ] NEVER generates code itself — only routes
+- [ ] NEVER generates code itself for a routed task type - only a small feature (Step 3f) is done directly
 - [ ] NEVER asks the routing question twice in a row (if user gave a direct phrasing, trust it)
 - [ ] NEVER chains more than 3 skills without offering `/session-save`
 

@@ -182,13 +182,16 @@ def main() -> int:
               == ".itd-memory/")
         save_skill = (ROOT / "skills" / "session-save" / "SKILL.md").read_text(
             encoding="utf-8")
-        adopt_skill = (ROOT / "skills" / "adopt" / "SKILL.md").read_text(
+        # ITD-PLAN-S9: only the strict route of /adopt creates .itd-memory/ (the helper, strict S1)
+        adopt_skill = (ROOT / "skills" / "adopt" / "references" / "strict.md").read_text(
+            encoding="utf-8")
+        adopt_helper = (ROOT / "skills" / "adopt" / "scripts" / "itd_adopt.py").read_text(
             encoding="utf-8")
         check("session-save writes the project-local canonical directory",
               'MEM_DIR="$(git rev-parse --show-toplevel)/.itd-memory"' in save_skill
               and "private path" in save_skill)
-        check("adopt initializes local continuity without private suppression",
-              'mkdir -p "$PROJECT_ROOT/.itd-memory"' in adopt_skill
+        check("adopt (strict) initializes local continuity without private suppression",
+              'memory = root / ".itd-memory"' in adopt_helper
               and "never choose it over local files" in adopt_skill)
     finally:
         if old_home is None:

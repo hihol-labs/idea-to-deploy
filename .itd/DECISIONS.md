@@ -6704,3 +6704,40 @@ The third fresh Terra review found that a primary already containing :general-re
   мутанты 23/23 (без левого и правого якоря, голое itd:strict). Строка маркера в invoices (85d42fc) - уже отдельной
   строкой, правка не нужна.
 - По правилу сходимости high из диффа сессии исправлен и выносится владельцу до раунда a3.
+
+## 2026-10-29 - сессия 8: ревью sol a3-a3r3 без вердикта (канал), a3r4 PASSED
+- Кандидат 0993bef (дерево b373768d), машина ITD-PLAN-S8-machine-a6 PASSED 8/8, полная нога fails:none (receipt
+  b962ef1c). Ревью gpt-5.6-sol a3 - UNVERIFIED ("OpenAI reviewer event stream failed"), a3r2 и a3r3 - UNAVAILABLE
+  ("Reconnecting... 2/5 (request timed out)"): канал до OpenAI рвался через VPN MantaRay в режиме TUN (TLS 1-10 с и
+  таймауты и с Windows, и с WSL; гипотеза MTU проверена и отброшена). Владелец переключил сервер VPN.
+- a3r4 на том же кандидате - checker PASSED без находок (receipt 17db44da), adjudication PASSED (receipt 3e2967ea).
+  Почему a3-a3r3 обрывались, а a3r4 прошло, не установлено - BACKLOG P3 (продюсер печатает переподключения и причину).
+- computer-use `request_access` к локальному окну MantaRay отклонен external-write gate ("approvable": false) -
+  BACKLOG P2.
+
+## 2026-10-29 - сессия 8: публикация #378, merge, sync; маркер invoices - в ближайший PR invoices
+- Подтверждение владельца: бэкап `~/.config/itd/gates.json.bak-s8-20261029`, квитанция a3r4 в реестре, `itd gate
+  doctor` LOCAL_REVIEWED, `itd pr create` -> #378; `gh pr ready`, squash merge с --match-head-commit 0993bef -> main
+  c4b12d0 (родитель 93bec47, дерево b373768d = проверенное). CI 2/2 SUCCESS (meta-review, windows-verify).
+- Sync WSL и Windows с бэкапами (`host-inputs/ITD-PLAN-S8/backups/{wsl,win}`): обновились только /bugfix, /refactor,
+  /test; повторный `--check` WSL чистый, Windows - только известный chmod TIER_EXEMPT.json; smoke установленной
+  команды Step 0 через Git Bash: ветка invoices strict, buying minimal. На WSL `sync-to-active.sh --help` применил sync
+  до бэкапа (флага --help нет) - затронуты только эти три скилла, бэкап после равен состоянию до; BACKLOG P3.
+- invoices: push ветки chore/itd-route-strict (85d42fc) отклонен pre-push гейтом Windows ("registered repository
+  pushes must use itd pr create"); запись invoices в реестре гейтов Windows занята активным юнитом U-INV-T457, своей
+  квитанции у ветки нет. Решение владельца 2026-10-29: маркер `itd-route: strict` добавляется строкой в ближайший PR
+  invoices маршрутом самого invoices; ветка и worktree invoices-itd-route остаются как образец.
+
+## 2026-10-29 - сессия 9: ITD-PLAN-S8 verified, план сессии 9 согласован
+- По правилу плана 5 юнит ITD-PLAN-S8 записан verified писателем `itd_unit_log.py` (событие 2026-10-29T18:09:49Z:
+  #378 -> c4b12d0, дерево b373768d = проверенное a6/a3r4, CI 2/2 SUCCESS, sync WSL+Windows); его activeFollowup
+  перенесен в closedFollowups с тем же доказательством.
+- План сессии 9 согласован владельцем 2026-10-29: `/task` - тонкий роутер, PIV-lite с обязательным /test + /review,
+  adjudication, Task Contract, классификация по политике пропорциональности и учет юнитов - в
+  `references/strict.md`; `/adopt` по умолчанию пишет только блок-указатель с обнаруженными командами проекта, полный
+  прежний набор - по явному strict. Решения владельца по плану: команды - в блок-указатель (повтор при маркере ничего
+  не меняет); предложение хуков в проект - на строгий маршрут (хуки глобальные с сессии 5); Step 1a `/task` - строка в
+  отчете вместо вопроса; strict-адоптация, у которой маркер попал бы за первые 8 КБ, отказывает с WHY/FIX и ничего не
+  пишет. ITD-PLAN-S9 активирован с тиром high.
+- Ссылки: .itd-memory/events.jsonl evt-unit-1793297389, .itd/ACCEPTANCE_CONTRACT.json closedFollowups ITD-PLAN-S8,
+  .itd/SCOPE_LOCK.md.

@@ -10,6 +10,7 @@ import pathlib
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 ROUTE = ROOT / "skills" / "task" / "PIV_LITE_ROUTE.json"
 TASK = ROOT / "skills" / "task" / "SKILL.md"
+TASK_STRICT = ROOT / "skills" / "task" / "references" / "strict.md"
 MATRIX = ROOT / "skills" / "task" / "references" / "routing-matrix.md"
 CONTRACT = ROOT / "docs" / "HARNESS_DEMO_ABSORPTION_CONTRACT.json"
 
@@ -47,6 +48,8 @@ def validate_route(route: dict) -> None:
     require(route.get("completionAuthority") == "verification-loop-v1",
             "PIV-lite cannot create completion authority")
     require(route.get("wipLimit") == 1, "PIV-lite must preserve WIP=1")
+    require(route.get("activation") == "strict-route",
+            "PIV-lite runs on the strict route only (ITD-PLAN-S9)")
 
     stages = route.get("stages") or []
     require([row.get("id") for row in stages] ==
@@ -154,6 +157,9 @@ def mutation_count(route: dict) -> int:
     missing_receipt = copy.deepcopy(route)
     missing_receipt["riskRoutes"]["low"]["receiptRequired"] = False
     cases.append(("receipt bypass", missing_receipt))
+    any_route = copy.deepcopy(route)
+    any_route["activation"] = "always"
+    cases.append(("activation outside the strict route", any_route))
     unknown_fail_open = copy.deepcopy(route)
     unknown_fail_open["unknownRisk"] = {"route": "medium", "failClosed": False}
     cases.append(("unknown risk fail-open", unknown_fail_open))
@@ -183,8 +189,15 @@ def main() -> int:
     validate_route(route)
     validate_public_skills(contract)
 
-    task = TASK.read_text(encoding="utf-8")
+    # ITD-PLAN-S9: the PIV-lite pipeline and its floor live in references/strict.md; SKILL.md routes there on the
+    # strict route and keeps the minimal feature path without a mandatory /test + /review floor.
+    skill = TASK.read_text(encoding="utf-8")
+    task = TASK_STRICT.read_text(encoding="utf-8")
     matrix = MATRIX.read_text(encoding="utf-8")
+    require("references/strict.md" in skill and "PIV-lite feature pipeline" in skill
+            and "neither is a mandatory floor on the minimal path" in skill
+            and "mandatory floor)" not in skill and "including a one-file PIV-lite" not in skill,
+            "/task SKILL.md keeps the PIV-lite floor on the minimal path or lost the strict pointer")
     require("PIV-lite façade" in task
             and "Plan → Implement → Validate →" in task
             and "Review" in task,
@@ -199,7 +212,7 @@ def main() -> int:
     require("PIV-lite requires an adopted brownfield project" in task
             and "must not label the run PIV-lite" in task,
             "/task overclaims WIP=1 for non-adopted projects")
-    require("PIV-lite через `/task` Step 3f" in matrix
+    require("PIV-lite (Plan → Implement → Validate → Review) из `references/strict.md` S3" in matrix
             and "не новый lifecycle skill" in matrix,
             "routing matrix does not expose the existing PIV-lite route")
     require(not (ROOT / "skills" / "piv-lite").exists(),

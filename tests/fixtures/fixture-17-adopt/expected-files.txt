@@ -1,31 +1,27 @@
-# Expected files after /adopt runs
+# Expected files after /adopt runs (minimal path, ITD-PLAN-S9)
 #
-# /adopt writes exactly three targets per the "minimal writes" contract:
+# /adopt writes one target by default: the pointer block in the entry file.
 #
 # In the project root (validated by this fixture):
 
 CLAUDE.md
-.claude/settings.json
 
-# In the Claude Code project memory dir at
-# <project>/.itd-memory/
-# (NOT validated by expected-snapshot.json — lives outside output dir):
-#   - session_YYYY-MM-DD.md          — sentinel session file
-#   - MEMORY.md                      — pointer index (created if absent)
-#   - .active-session.lock           — current-session marker
+# Strict route only (/adopt strict - not validated by expected-snapshot.json):
+#   - itd-route: strict line inside the pointer block
+#   - .itd/ contracts (templates, no .py tools), .itd-memory/ state and the first unit
+#   - .claude/settings.json (project hooks, explicit yes), .itd-memory/continuity/adopt.md (one /session-save)
 #
 # /adopt MUST NOT produce (contract guard):
 #   - Plan documents (LAUNCH_PLAN.md / STRATEGIC_PLAN.md / PRD.md /
 #     PROJECT_ARCHITECTURE.md / IMPLEMENTATION_PLAN.md / DISCOVERY.md)
-#     — plan docs are voice-chained to /strategy or /blueprint AFTER
-#     adoption, never hallucinated by /adopt itself
+#     - plan docs come from /strategy or /blueprint on request, never from /adopt itself
 #   - Source code (.py / .ts / .js / .vue / etc.)
 #   - Writes to ~/.claude/settings.json (user-level, not project-level)
-#   - Writes OUTSIDE $PROJECT_ROOT (except the project memory dir above)
+#   - Writes OUTSIDE $PROJECT_ROOT
+#   - On the minimal path: .itd/, .itd-memory/, .claude/settings.json, MEMORY.md, session_*.md
 #
 # Idempotency:
-#   - Second /adopt run on the same project: three "skip" decisions
-#     in the plan preamble, no new writes, voice-chain question still
-#     offered (user may want to generate plan docs after initial adopt)
-#   - CLAUDE.md marker (<!-- idea-to-deploy:begin v1.20 --> ... end -->)
-#     is the source of truth for "already adopted" detection
+#   - Second /adopt run on the same project: "skip-marker-present", no write,
+#     CLAUDE.md byte-identical
+#   - Any <!-- idea-to-deploy:begin marker (an older version included) is the
+#     source of truth for "already adopted" detection

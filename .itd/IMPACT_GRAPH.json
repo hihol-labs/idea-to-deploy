@@ -74,6 +74,7 @@
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_strict_route.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     ".github/workflows/windows-verify.yml": [
@@ -83,6 +84,7 @@
       "tests/verify_runall_drift.py",
       "tests/verify_snapshot.py",
       "tests/verify_strict_route.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     ".gitignore": [
@@ -167,6 +169,7 @@
       "tests/verify_stop_rule.py",
       "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_strict_completion_policy.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_task_piv_lite.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
@@ -299,7 +302,8 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
-      "tests/verify_strict_route.py"
+      "tests/verify_strict_route.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "BACKLOG.md": [
       "tests/verify_closure_delta.py",
@@ -813,6 +817,7 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_semantic_navigation.py",
       "tests/verify_semantic_navigation_demand.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tool_trust_inventory.py"
     ],
     "docs/templates/itd/TOOL_CAPABILITY_REGISTRY.schema.json": [
@@ -838,7 +843,8 @@
     "docs/templates/itd/itd_init_validate.py": [
       "tests/verify_init_contracts.py",
       "tests/verify_install_owned_tools.py",
-      "tests/verify_operational_cold_start.py"
+      "tests/verify_operational_cold_start.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "docs/templates/itd/itd_progress.py": [
       "tests/verify_install_owned_tools.py"
@@ -1404,6 +1410,7 @@
     "skills/_shared/PROPORTIONALITY_POLICY.json": [
       "tests/verify_proportionality_benchmark.py",
       "tests/verify_risk_tier_default.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
       "tests/verify_unit_log.py",
@@ -1532,7 +1539,8 @@
       "tests/verify_project_checks.py"
     ],
     "skills/_shared/itd_project_hooks.py": [
-      "tests/verify_hooks_autoinstall.py"
+      "tests/verify_hooks_autoinstall.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/_shared/itd_projects_doctor.py": [
       "tests/verify_install_owned_tools.py"
@@ -1561,6 +1569,7 @@
       "tests/verify_risk_tier_default.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_stop_rule_closed_contract.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py"
     ],
@@ -1651,25 +1660,24 @@
       "tests/verify_work_deadline_benchmark.py"
     ],
     "skills/adopt/SKILL.md": [
-      "tests/verify_gate_registry_profiles.py",
       "tests/verify_hooks_autoinstall.py",
-      "tests/verify_host_neutral_memory.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_operating_loops_release.py",
-      "tests/verify_session_hygiene_quality.py",
-      "tests/verify_tool_trust_inventory.py"
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/adopt/references/agents-md-template.md": [
       "tests/verify_host_adapters.py",
       "tests/verify_install_owned_tools.py",
-      "tests/verify_live_model_benchmark.py"
+      "tests/verify_live_model_benchmark.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/adopt/references/claude-md-template.md": [
       "tests/verify_install_owned_tools.py"
     ],
     "skills/adopt/references/codex-adoption.md": [
       "tests/verify_host_adapters.py",
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/adopt/references/codex-project-hooks.json": [
       "tests/verify_completion_signals_powershell.py",
@@ -1688,15 +1696,27 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py"
     ],
+    "skills/adopt/references/strict.md": [
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_hooks_autoinstall.py",
+      "tests/verify_host_neutral_memory.py",
+      "tests/verify_install_owned_tools.py",
+      "tests/verify_session_hygiene_quality.py",
+      "tests/verify_task_adopt_route.py",
+      "tests/verify_tool_trust_inventory.py"
+    ],
     "skills/adopt/scripts/itd_adopt.py": [
+      "tests/verify_host_neutral_memory.py",
       "tests/verify_install_owned_tools.py",
       "tests/verify_operational_cold_start.py",
-      "tests/verify_operational_continuation.py"
+      "tests/verify_operational_continuation.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/adopt/scripts/itd_context_map.py": [
       "tests/verify_adopt_context.py",
       "tests/verify_harness_demo_absorption.py",
-      "tests/verify_operating_loops_release.py"
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/autopilot/agents/openai.yaml": [
       "tests/verify_host_adapters.py"
@@ -1716,9 +1736,11 @@
     ],
     "skills/bugfix/SKILL.md": [
       "tests/verify_operating_loops.py",
-      "tests/verify_strict_route.py"
+      "tests/verify_strict_route.py",
+      "tests/verify_task_adopt_route.py"
     ],
     "skills/bugfix/references/strict.md": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_strict_route.py"
     ],
     "skills/caveman/SKILL.md": [
@@ -1814,6 +1836,7 @@
       "tests/verify_strict_route.py"
     ],
     "skills/refactor/references/strict.md": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_strict_route.py"
     ],
     "skills/refactor/references/worktree-isolation.md": [
@@ -1892,9 +1915,20 @@
       "tests/verify_harness_demo_absorption.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_operating_loops_release.py",
+      "tests/verify_stall_fallback.py",
+      "tests/verify_task_adopt_route.py",
+      "tests/verify_task_piv_lite.py"
+    ],
+    "skills/task/references/routing-matrix.md": [
+      "tests/verify_operating_loops_release.py",
+      "tests/verify_task_adopt_route.py",
+      "tests/verify_task_piv_lite.py"
+    ],
+    "skills/task/references/strict.md": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_proportionality_benchmark.py",
       "tests/verify_session_hygiene_quality.py",
-      "tests/verify_stall_fallback.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_task_contract_advisory.py",
       "tests/verify_task_deployment_baseline.py",
       "tests/verify_task_piv_lite.py",
@@ -1902,14 +1936,11 @@
       "tests/verify_tier_wording.py",
       "tests/verify_verification_profiles.py"
     ],
-    "skills/task/references/routing-matrix.md": [
-      "tests/verify_operating_loops_release.py",
-      "tests/verify_task_piv_lite.py"
-    ],
     "skills/task/scripts/itd_unit_log.py": [
       "tests/verify_ledger_reconciliation.py",
       "tests/verify_risk_tier_default.py",
       "tests/verify_route_debts.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",
       "tests/verify_unit_log.py"
@@ -1920,6 +1951,7 @@
       "tests/verify_test_skill_rules.py"
     ],
     "skills/test/references/strict.md": [
+      "tests/verify_install_owned_tools.py",
       "tests/verify_refute_fleet.py",
       "tests/verify_strict_route.py",
       "tests/verify_test_skill_rules.py"
@@ -2202,6 +2234,7 @@
       "tests/verify_strict_completion_policy.py",
       "tests/verify_strict_route.py",
       "tests/verify_targeted_regression.py",
+      "tests/verify_task_adopt_route.py",
       "tests/verify_test_skill_rules.py",
       "tests/verify_tier_source.py",
       "tests/verify_tier_wording.py",

@@ -712,10 +712,18 @@ def confirmation_items(step: str) -> tuple[bool, bool]:
     return yes_ok, no_ok
 
 
+def strict_hook_step(text: str) -> str:
+    """ITD-PLAN-S9: the /adopt hook offer is the strict-route step S8 of references/strict.md."""
+    m = re.search(r"^## S8\. Offer the project enforcement hooks.*?(?=^## |\Z)", text, re.M | re.S)
+    return m.group(0) if m else ""
+
+
 def suite_docs(fails: list[str]) -> None:
     for skill in ("adopt", "project"):
-        text = (REPO / "skills" / skill / "SKILL.md").read_text(encoding="utf-8")
-        step = last_step(text)
+        if skill == "adopt":
+            step = strict_hook_step((REPO / "skills" / "adopt" / "references" / "strict.md").read_text(encoding="utf-8"))
+        else:
+            step = last_step((REPO / "skills" / skill / "SKILL.md").read_text(encoding="utf-8"))
         check(fails, "itd_project_hooks.py" in step and " plan" in step and "apply" in step
               and "--yes" in step, f"{skill}: last step runs the helper plan and apply --yes")
         check(fails, bool(re.search(r"(?i)подтвержд|confirm", step)),
