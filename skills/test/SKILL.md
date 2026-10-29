@@ -1,7 +1,7 @@
 ---
 name: test
-description: 'Generate comprehensive tests — unit, integration, edge cases. Detects project test framework and follows existing conventions.'
-argument-hint: file, function, or module to test
+description: 'Writes and runs tests for a file, function or module in the framework and conventions the project already uses - happy path, edge, error and boundary cases, a red-to-green regression test for a fix. Use when asked to add tests or coverage, when code has no tests, or when new code or a bug fix needs a regression test.'
+argument-hint: file, function, or module to test [--strict]
 license: MIT
 allowed-tools: Read Write Edit Glob Grep Bash
 metadata:
@@ -9,7 +9,7 @@ metadata:
   side_effect: command-execution
   explicit_invocation: false
   author: HiH-DimaN
-  version: 1.83.0
+  version: 1.110.0
   category: testing
   tags: [unit-tests, integration-tests, edge-cases, tdd]
 ---
@@ -36,6 +36,16 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 
 ## Instructions
+
+### Step 0: Route - minimal or strict
+
+From the project root, check whether the project declares the strict route:
+
+```bash
+( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '(itd-route:[[:space:]]*strict|itd:strict|itd-domain:[[:space:]]*data-sensitive|itd:data-sensitive)([^a-z0-9_-]|-->|$)' && echo strict || echo minimal
+```
+
+Take the **strict route** when it prints `strict`, when the arguments contain `--strict`, or when the task falls in a strict class of the global rules (ITD's own critical mechanisms, money, access, deploy, migrations, production data): read `references/strict.md` now - its Step 5.5 refute pass (mutation runs) runs after Step 5. Otherwise this is the **minimal path** - Steps 1-6 without mutation runs. The `.itd/` directory alone does not make a project strict; the marker is described in the methodology's `docs/project-profiles.md`.
 
 ### Step 1: Detect test framework
 Check the project for existing test setup:
@@ -142,60 +152,7 @@ All tests must pass before finishing.
 
 **TDD evidence gate (v1.21 — PFO port):** for a behavior change (new feature or bugfix), prefer writing the test **first** and capturing red→green evidence: the test fails on the old code, passes on the new. Note both states explicitly ("red: AssertionError … → green: 1 passed"). When red-first is genuinely impractical (UI glitch, race condition, env-specific bug), state that exception explicitly rather than silently skipping it.
 
-### Step 5.5: Refute pass — mutation-check each new test before you trust it as coverage (v1.60.0 — Ось 2, agentic engineering)
-
-The refute pass from `/review` Step 2.6, applied to the test verify fleet. Here
-the "finding" is a new test's implicit claim «this asserts real behavior». A
-test that passes on BOTH the correct and the broken code is vacuous coverage — a
-green that proves nothing and lies to every later reader. This pass adversarially
-challenges that claim before the suite's green is trusted.
-
-For each **behavior-asserting** test just written (not trivial getters /
-formatting / snapshot-only tests), run a **fresh** mutation check: break the code
-path the test claims to cover — invert a condition, drop a guard, return a wrong
-constant (or dispatch `Agent(subagent_type: "test-generator", …)` with a refute
-prompt to attempt it) — and confirm the test now **FAILS**. A test that stays
-green under the mutation is **refuted as meaningful coverage**. This is the
-red→green TDD gate (Step 5) run in reverse: green→red-under-mutation. **Default
-to `refuted: true` under uncertainty** — if you cannot make the test fail by
-breaking what it supposedly checks, treat its coverage claim as unproven.
-
-- Refuted (survives the mutation) → the test is vacuous: fix it (tighten the
-  assertion) or drop it; do not count it as coverage.
-- Confirmed (fails under mutation) → real coverage, keep it.
-- **Trivial / non-behavioral tests are NOT mutation-checked** — the cost is not
-  justified.
-- **Record the mutation run (COMPLETION-SUPERSEDE-1).** The red of a mutation run
-  is expected, but the completion gate sees a failed test. Launch the oracle
-  through the runner with a record — `ITD_RUN_RECORD=1 sh skills/_shared/itd_py.sh
-  <oracle> [args]`, one recorded run per Bash call with nothing else printing in
-  it, the oracle's summary line kept in the output (`| tail -3`, not `| tail -1`
-  or `| cut`) — and after reverting the
-  mutation run the same oracle the same way from the project root: the later
-  green record supersedes the red one (`docs/completion-gate.md`). A red without
-  a record, or without that final green run, still blocks the commit.
-- **Unique mutation marker (TEST-RULES-1).** The marker - the exact text a
-  mutation replaces - must occur **exactly once** in the mutated file. With a
-  repeated marker the mutant lands on the first copy, which may not be the code
-  path the test covers, or is refused: the run then proves nothing either way
-  (STOPRULE-STUB-1: the same type check sat in a second function and the
-  mutant did not apply). The mutation helper checks `text.count(marker) == 1`
-  **before applying** the mutant and refuses otherwise; widen the marker with
-  the surrounding lines until it is unique.
-- **Fixtures with non-ASCII or invisible characters (TEST-RULES-1).** The
-  file-write tool decodes escape sequences: `\u00a0` typed into it lands in
-  the file as the character itself, and an invisible one (U+00A0, U+3164, curly
-  quotes) then disappears from every diff and review. Write such a fixture as
-  escape sequences by a script (a Bash heredoc running Python that writes
-  `"\u00a0"`, not the raw character), then read the written bytes back
-  with Python (`repr()` of the line shows a backslash sequence, not the
-  character; `text.count(chr(0xa0)) == 0`) before trusting it.
-
-**Invariant:** the refute pass can only REMOVE vacuous tests from the trusted
-coverage set; it never fabricates a passing test and never reports mutation
-evidence it did not actually run. When a real mutation run is impractical
-(env-specific, flaky), state that exception explicitly rather than silently
-claiming the coverage is proven — same honesty rule as the TDD gate above.
+On the strict route, run the Step 5.5 refute pass of `references/strict.md` now, before Step 6.
 
 ### Step 6: Mark `/test` as done for this session (v1.23.0)
 
@@ -227,7 +184,7 @@ describe("formatPrice", () => {
   });
 
   it("handles decimal prices", () => {
-    expect(formatPrice(99.9, "USD")).toBe("$99.90");
+    expect(formatPrice(99.9, "EUR")).toBe("99,90 €");
   });
 
   it("throws on negative price", () => {

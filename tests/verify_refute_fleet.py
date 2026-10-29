@@ -35,7 +35,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SEC = ROOT / "skills" / "security-audit" / "SKILL.md"
 PERF = ROOT / "skills" / "perf" / "SKILL.md"
-TEST = ROOT / "skills" / "test" / "SKILL.md"
+# Step 5.5 runs on the strict route only (ITD-PLAN-S8): it lives in references/strict.md, SKILL.md points there.
+TEST = ROOT / "skills" / "test" / "references" / "strict.md"
+TEST_SKILL = ROOT / "skills" / "test" / "SKILL.md"
 WORKFLOWS = ROOT / ".github" / "workflows"
 
 PASSED, FAILED = 0, 0
@@ -98,7 +100,7 @@ def shared_invariants(label: str, sec: str) -> None:
 
 
 def main() -> int:
-    for p in (SEC, PERF, TEST):
+    for p in (SEC, PERF, TEST, TEST_SKILL):
         if not p.is_file():
             check("skill file exists: " + p.name, False, str(p))
             print("\n%d passed, %d failed" % (PASSED, FAILED))
@@ -125,6 +127,10 @@ def main() -> int:
         return 1
 
     sec_n, perf_n, test_n = norm(sec), norm(perf), norm(test)
+    skill_text = TEST_SKILL.read_text(encoding="utf-8")
+    check("test: SKILL.md sends the strict route to references/strict.md for Step 5.5",
+          "references/strict.md" in skill_text and "Step 5.5" in skill_text,
+          "name references/strict.md and its Step 5.5 in skills/test/SKILL.md")
 
     # --- shared invariants across the whole fleet ---------------------------
     shared_invariants("security-audit", sec_n)

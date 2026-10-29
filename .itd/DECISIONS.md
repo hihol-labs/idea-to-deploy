@@ -6581,3 +6581,99 @@ The third fresh Terra review found that a primary already containing :general-re
   a1 тест читает помощники `skills/_shared/` (itd_py.sh, itd_contract_dir.py), а `.itd/IMPACT_GRAPH.json` не был
   перегенерирован (рёбер 1489 -> 1491; полная нога остановилась на том же дрейфе в verify_verification_profiles).
   Карта перегенерирована (`tests/build_impact_graph.py`, --check FRESH), кода это не меняет; машина - a3.
+
+## 2026-10-28 - сессия 7: машина a3 на 98cab16 FAILED на плавающем паритете (кандидат в BACKLOG P3)
+- Машина ITD-PLAN-S7-machine-a3 (receipt 2947051b): 8 ног зеленые, включая parity (verify_all_hard_gate_host_parity
+  отдельно), полная нога остановилась на том же наборе: "Claude dispatcher, the gate alone, gives the direct run's
+  reason: state-guard.sh" - причины отличаются в начале строки, а тест печатает только последние 200 символов
+  (лог reports/ITD-PLAN-S7-full-20261028T145407.log). Путь отказа ledger-гейта state-guard диффом S7 не тронут (новый
+  гейт CONTINUITY стоит после него). Локально на кандидате 3 прогона подряд - 153 passed, 0 failed.
+- Решение: повтор машины a4 на том же коммите (как a10 -> a11 в сессии 6); BACKLOG P3 - печатать расхождение
+  причин целиком (или diff) и найти зависимость от нагрузки.
+
+## 2026-10-28 - сессия 7: машина a4 PASSED, ревью sol a2 BLOCKED (5 medium) -> ADJUDICATED
+- Машина ITD-PLAN-S7-machine-a4 на 98cab16 (тот же коммит, что a3) - PASSED 9/9 (receipt 8f7878ad, полная нога
+  DONE fails:none, 176 из 190). Флейк паритета a3 не повторился.
+- Ревью gpt-5.6-sol a2 (база 0436ab5) - BLOCKED, 5 medium (каждая в двух проходах): AC6 verificationCommand уже
+  полного набора; "еще N" в pre-flight считает и закрытые документы; session-open-diagnostic берет новейший документ
+  без фильтра done; тест запрета старых файлов ловит только литерал session_YYYY; тест "по явному флагу" проверяет
+  прозу. Отчет reports/ITD-PLAN-S7-canonical-a2.json.negative-i556qm1z/report.json.
+- Решение владельца 2026-10-28 по правилу сессии 6 (только medium/low -> ADJUDICATED): ADJUDICATED по ADR-007,
+  10 строк accepted-trade-off, binding ae355243, receipt 5d50baf5. Для тира high adjudication требует checker в режиме
+  full (модель/провайдер независимы от мейкера) - тот же отчет записан как full-checker; привязка та же.
+- BACKLOG сессии 8: pre-flight - считать только открытые темы в "еще N"; session-open-diagnostic - пропускать
+  status: done; verify_continuity - запрет любого session_-токена без построчных исключений.
+
+## 2026-10-28 - сессия 7: публикация #377
+- Шаг 1 (владелец): бэкап ~/.config/itd/gates.json.bak-s7-20261028; localReviewReceiptFile -> ITD-PLAN-S7-a2-adjudicated.json,
+  localReviewUnitId -> ITD-PLAN-S7, localReviewRiskTier -> high; `itd gate doctor` - LOCAL_REVIEWED (human-adjudication).
+- Шаг 2 (владелец): `itd pr create` -> PR #377 (head 98cab16, base 0436ab5), описание ITD-PLAN-S7-pr-body.md; CI
+  Gate 1 meta-review и windows-verify - pass.
+- Шаг 3 (владелец): `gh pr ready`, squash merge с --match-head-commit -> main 93bec47, дерево 61c99a29 = проверенное
+  (машина a4, ревью a2 ADJUDICATED), родитель 0436ab5. Sync - следующий шаг.
+
+## 2026-10-28 - сессия 7: sync WSL и Windows (main 93bec47)
+- WSL (владелец 2026-10-28): бэкап settings.json и itd-disabled-hooks.txt в host-inputs/ITD-PLAN-S7/backups/wsl;
+  --check rc 0 (дрейф: скиллы handoff и session-save, хуки handoff-readiness, pre-flight-check, session-open-diagnostic,
+  state-guard); применение rc 0 - байткод 67 файлов, 4 перекомпилированы; таблица 26 хуков и регистрация без
+  изменений; повторный --check чистый; в установке session-save и handoff - только SKILL.md. Пробный PreToolUse Bash
+  через установленный диспетчер - rc 0, без отказа, 348-360 мс.
+- Windows (владелец 2026-10-28, CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude): бэкап в .../backups/win; --check rc 0; применение
+  rc 0 - тот же дрейф, байткод 68 файлов, 4 перекомпилированы; повторный --check - только косметическое "would chmod
+  TIER_EXEMPT.json". Пробный вызов через python.exe - rc 0, без отказа, 772-1418 мс (первый холодный).
+- Следующее: замер session-save в buying по транскриптам после сессий владельца там (transcript_stats.py против
+  медианы 154 с) - доказательство verified ITD-PLAN-S7 в PR сессии 8.
+
+## 2026-10-28 - кандидат в BACKLOG P3: подстановка `$0` в теле скилла при вызове с аргументом
+- Вызов `/session-save itd-plan` через Skill tool: Claude Code подставил аргумент вместо `$0` в теле скилла - в строке
+  резолвера `awk -F/ '{print $(NF-2), $0}'` получилось `{print $(NF-2), itd-plan}`, запасная ветка поиска кэша Codex
+  ломается (основной путь через ~/.claude/skills/_shared не затронут). Та же строка была в session-save на main (шаги
+  3.3 и 4.10) и есть в других скиллах - поведение main. Исправление: awk без `$0` (например, `print $(NF-2) " " $_`
+  нельзя; взять `{ line=$0 }` тоже нельзя) - собрать путь через `sed`/`cut` без `$0`, тест на подстановку.
+
+## 2026-10-28 - сессия 7: приемка AC4 (время session-save в buying) - решение владельца: нетто
+- Замер (`host-inputs/ITD-PLAN-S7/buying-measurement-2026-10-28.txt`, скрипт `save_adjusted.py` рядом): 5 запусков
+  нового session-save в buying после sync 15:32Z; все пишут `continuity/<тема>.md` + HISTORY.md, отказов
+  CONTINUITY-WRITER 0.
+- Сырое время (правило `transcript_stats.py`, как baseline): медиана 177 с против 154 с baseline сессии 2 (пересчет
+  того же окна 10-14..10-22: 60 запусков, 160 с; старый скилл 10-22..sync: 28 запусков, 155 с) - НЕ лучше.
+- Нетто (сырое минус ожидание `mcp__ccd_turn__wrap_up` приложения и время на неудачные попытки API, одинаково для
+  старых и новых): 87 с против 149 с (28 старых) и 160 с (60 baseline). Избыток сырого - вне скилла: `wrap_up`
+  возвращался 208 с и 121 с (наш диспетчер PreToolUse на нем 506/661 мс), 9 ECONNRESET съели ~162 с.
+- Решение владельца 2026-10-28: AC4 ITD-PLAN-S7 принят по нетто-метрике; в PR сессии 8 - оба числа и причина;
+  verified ITD-PLAN-S7 пишет PR сессии 8 (правило плана 5). Ограничение: 5 запусков, сырые межквартили пересекаются.
+- Кандидат в BACKLOG P2: `transcript_stats.py` - считать нетто session-save (вычитать задержку `wrap_up` и
+  api_error-попыток) и печатать сырое рядом, чтобы замеры не зависели от приложения и сети.
+
+## 2026-10-28 - сессия 8: ITD-PLAN-S7 verified по нетто-замеру AC4
+- По правилу плана 5 юнит ITD-PLAN-S7 записан verified писателем `itd_unit_log.py` (событие 2026-10-28T21:30:23Z:
+  #377 -> 93bec47, дерево 61c99a29 = проверенное a4/a2, CI, sync WSL+Windows, AC4 по нетто); его activeFollowup
+  перенесен в closedFollowups с тем же доказательством. Следующий юнит ITD-PLAN-S8 активируется после согласования
+  плана сессии 8.
+- AC4 (время session-save в buying), оба числа: нетто - медиана 87 с (5 новых прогонов) против 149 с (28 прогонов
+  старого скилла) и 160 с (60 прогонов baseline-окна); сырое - 177 с против 154 с baseline сессии 2 (пересчет того же
+  окна - 160 с), сырое не лучше. Причина нетто: избыток сырого - вне скилла, ожидание `mcp__ccd_turn__wrap_up`
+  приложения (208 и 121 с; диспетчер ITD на нем 506/661 мс) и 9 ECONNRESET (~162 с); поправка одна для старых и новых
+  прогонов. Ограничение: 5 прогонов, сырые межквартили пересекаются (110-302 с против 88-320 с).
+- Замер записан в docs/measurements/ITD-SIMPLIFY-BASELINE.md (раздел 11); доказательство AC4 закрытого контракта S7
+  дополнено этими числами.
+- Ссылки: .itd-memory/events.jsonl evt-unit-1793223023, .itd/ACCEPTANCE_CONTRACT.json closedFollowups ITD-PLAN-S7.
+
+## 2026-10-28 - сессия 8: строгие шаги bugfix/test/refactor по явному маркеру проекта
+- Решение владельца 2026-10-28: строгий маршрут `/bugfix`, `/test`, `/refactor` выбирается явным маркером проекта
+  `itd-route: strict` (или `<!-- itd:strict -->`) в первых 8 КБ `CLAUDE.md`, `.claude/CLAUDE.md` или `AGENTS.md`;
+  `itd-domain: data-sensitive` тоже строгий; на один вызов - `--strict` или строгий класс задачи по глобальным
+  правилам. invoices получает маркер своим PR с подтверждения владельца.
+- Почему не автоопределение: `.itd/SCOPE_LOCK.md` есть в hihol-landing, OneOfS, worktree buying (`buy-*`) и других
+  обычных проектах, а у buying и invoices почти одинаковый набор `.itd/` - признак выбрал бы не те проекты.
+- Строгие шаги - в `references/strict.md` каждого скилла (формат Agent Skills: скилл самодостаточен); проверка маршрута
+  - одна одинаковая команда Step 0 в трех SKILL.md, без нового файла runtime. Репо ITD маркер не получает: его
+  строгость задают классы глобальных правил (критичные механизмы), а не весь репо.
+- Попутно, в зоне правок: freeze теперь снимается в конце строгого маршрута (`hooks/freeze.sh` сам состояние не
+  снимает, а текст скиллов обещал обратное); в `/refactor` с worktree-изоляцией freeze не нужен; пример `"$99.90"` в
+  `/test` заменен - хост подставляет аргумент вместо `$9` (та же ловушка, что `$0` в резолвере, BACKLOG P3).
+- Наблюдение: в invoices pre-deploy гейт (кандидат класса irreversible по HEAD) отклоняет команду с переменным именем
+  (`"$G" status`); команда Step 0 с `$(...)` проходит - проверено пробой хука и прогоном.
+- Тир: харнес поднял medium -> high по слову "invoices" в goal (класс money) - оставлено как есть.
+- Ссылки: skills/{bugfix,test,refactor}/SKILL.md и references/strict.md, tests/verify_strict_route.py,
+  docs/project-profiles.md.

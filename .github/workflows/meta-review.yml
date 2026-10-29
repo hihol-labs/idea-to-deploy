@@ -149,6 +149,9 @@ jobs:
       - name: Run continuity documents (session-save/handoff, pre-flight, CONTINUITY-WRITER-1) (plan session 7)
         run: python3 tests/verify_continuity.py
 
+      - name: Run strict route of bugfix/test/refactor (Step 0 marker, references/strict.md) (plan session 8)
+        run: python3 tests/verify_strict_route.py
+
       - name: Run hook-table completeness G-005 (map quadrants/blocking rows vs hooks/) (v1.76.0 — был латентным, протух на v1.75.0)
         run: python3 tests/verify_hook_table_completeness.py
 
