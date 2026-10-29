@@ -6034,10 +6034,11 @@
       "evidence": "tests/verify_strict_route.py: PASSED 60 passed, 0 failed on WSL and native Windows (Python 3.12.10, Git Bash through ITD_BASH, the tree copy C:/itd-src/s8-a1 refreshed from the candidate) - section [1] extracts the Step 0 command from the three SKILL.md files (identical) and runs it on 16 project fixtures plus two repositories: itd-route: strict, <!-- itd:strict -->, <!-- itd:strict--> without a space, itd-domain: data-sensitive in AGENTS.md, <!-- itd:data-sensitive -->, a case-insensitive marker and a marker at the end of a file print strict; no files, an ordinary project with .itd/, .itd/SCOPE_LOCK.md and ACCEPTANCE_CONTRACT.json, itd-route: strictly / strict-mode / minimal, itd-profile: brownfield, a marker split across two files and a marker after the first 8 KB print minimal; from a subdirectory the root files decide; [4] no positional $N placeholder (the /test example \"$99.90\" replaced). Real projects (read-only): the invoices branch chore/itd-route-strict (85d42fc) strict at the root and from server/ and client/src through Git Bash; invoices main, buying, buy-wlb, hihol-landing, OneOfS and this repository minimal. Mutants: .itd-memory/host-inputs/ITD-PLAN-S8/mutants.py 21/21 killed (mutants-final.log), among them data-sensitive dropped, no 8 KB limit, no file separator, no word boundary, case-sensitive, the current directory instead of the root, AGENTS.md not read, .itd/SCOPE_LOCK.md making a project strict, one skill drifting, a positional placeholder. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py",
       "reviewEvidence": {
-        "claim": "The strict route is opt-in by an explicit marker and is chosen the same way in the three skills.",
+        "claim": "The strict route is opt-in by an explicit marker and is chosen the same way in the three skills, under Linux sh and Windows Git Bash.",
         "impactClasses": [
           "correctness",
-          "compatibility"
+          "compatibility",
+          "host-parity"
         ],
         "oracleIds": [
           "strict-route"
@@ -6071,10 +6072,11 @@
       "evidence": "tests/verify_strict_route.py section [3] on WSL and native Windows (Python 3.12.10, Git Bash through ITD_BASH, the tree copy C:/itd-src/s8-a1 refreshed from the candidate): bugfix strict.md carries ROOT_CAUSE.md with Summary, Reproduction, Evidence, Fix Hypothesis, Regression Test and Constraints, fail-closed; test strict.md carries Step 5.5 with ITD_RUN_RECORD=1, the unique marker and the escaped fixtures; the freeze blocks of bugfix and refactor strict.md, run as written, make hooks/freeze.sh warn outside the scope and stay silent inside it, write both temp dirs (on Linux with TMPDIR apart from /tmp; on Windows Git Bash maps /tmp to the user temp dir, so both copies are one file there) and the lift blocks remove them so the hook falls silent. tests/verify_test_skill_rules.py 9 passed, tests/verify_refute_fleet.py 20 passed (both read Step 5.5 from skills/test/references/strict.md and require SKILL.md to point there), tests/verify_hook_depth.py 20 passed, tests/verify_feature_ledger_fallbacks.py 12 passed (the worktree fallback still names the freeze path), all on WSL and Windows. Mutants killed: freeze never lifted, only one copy lifted, written to one temp dir, the state file name drifting from the hook, a ROOT_CAUSE section dropped. invoices: the marker line is committed on the branch chore/itd-route-strict (85d42fc, worktree C:/Users/.../AI/invoices-itd-route, not pushed); the PR waits for the owner's confirmation. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
       "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_strict_route.py && sh skills/_shared/itd_py.sh tests/verify_test_skill_rules.py && sh skills/_shared/itd_py.sh tests/verify_refute_fleet.py && sh skills/_shared/itd_py.sh tests/verify_hook_depth.py",
       "reviewEvidence": {
-        "claim": "The strict steps keep their content and run where the project declares the strict route.",
+        "claim": "The strict steps (scope freeze, ROOT_CAUSE.md, mutation refute pass) keep their content and run where the project declares the strict route; ordinary projects lose only ceremony, no gate.",
         "impactClasses": [
           "correctness",
-          "compatibility"
+          "compatibility",
+          "security"
         ],
         "oracleIds": [
           "strict-route"
@@ -6150,7 +6152,6 @@
         "correctness",
         "security",
         "host-parity",
-        "performance",
         "repository-hygiene",
         "compatibility"
       ],

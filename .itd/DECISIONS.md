@@ -6677,3 +6677,11 @@ The third fresh Terra review found that a primary already containing :general-re
 - Тир: харнес поднял medium -> high по слову "invoices" в goal (класс money) - оставлено как есть.
 - Ссылки: skills/{bugfix,test,refactor}/SKILL.md и references/strict.md, tests/verify_strict_route.py,
   docs/project-profiles.md.
+
+## 2026-10-29 - сессия 8: классы влияния ревью, машина a1 и a2
+- Машина ITD-PLAN-S8-machine-a1 на 26536c0 (дерево 15aa08c0) - PASSED 8/8, полная нога fails:none (receipt f5bf61a1).
+- Ревью a1 остановил продюсер до отправки: "required impact evidence is missing: host-parity, performance, security" -
+  reviewPolicy followup S8 был скопирован из S7 с шестью классами. Исправлено: `performance` убран (у S8 нет заявки и
+  замера быстродействия), AC1 заявляет host-parity (команда маршрута одинакова в sh и Git Bash: приемка Windows, CI
+  windows-verify), AC3 - security (строгие защитные шаги сохраняются там, где проект их объявил; обычный проект теряет
+  только церемонию, не гейт). Новый кандидат - машина a2 с полной ногой, ревью a2.
