@@ -1,115 +1,74 @@
 # Manual verification — fixture 17 (/adopt)
 
-`/adopt` onboards a legacy project into the idea-to-deploy methodology. It performs **exactly three writes plus one voice-chain question** — no reverse-engineering of plan documents, no hallucinated architecture, no code changes.
+`/adopt` onboards a legacy project into the idea-to-deploy methodology. By default (minimal path, ITD-PLAN-S9) it
+performs **one write** - the pointer block in `CLAUDE.md` (Codex: `AGENTS.md`) with the project commands found in the
+manifests. Contracts, state, the first unit, project hooks and the merge gate come only on the strict route
+(`/adopt strict`). No reverse-engineering of plan documents, no hallucinated architecture, no code changes.
 
-This fixture exercises the "pre-existing CLAUDE.md + .claude/settings.json" path (append/merge), which is the hardest case for idempotency.
+The mechanical part is `skills/adopt/scripts/itd_adopt.py`; `tests/verify_task_adopt_route.py` runs it on fixtures
+(empty repo, existing file, idempotent re-run, strict full set, refusals). This checklist covers the skill's dialogue.
 
-## /adopt — Scenario A: happy path on a legacy repo with existing CLAUDE.md + settings
+## /adopt — Scenario A: minimal adoption of a legacy repo with an existing CLAUDE.md
 
-Prerequisites:
-- `output/` contains a seeded legacy project: `.git/` init'd, `CLAUDE.md` with some user content (no idea-to-deploy marker), `.claude/settings.json` with at least one custom hook, some source files (e.g., `main.py`)
+Prerequisites: `output/` contains a seeded legacy project - `.git/` initialised, `CLAUDE.md` with user content (no
+idea-to-deploy marker), `.claude/settings.json` with a custom hook, `pyproject.toml` with pytest and ruff, a
+`justfile` with a `test` recipe.
 
-### Step 0 — Safety and discovery
-- [ ] Skill resolves `$PROJECT_ROOT` via `git rev-parse --show-toplevel`
-- [ ] Skill self-reference guard: if `$PROJECT_ROOT/.claude-plugin/plugin.json` exists with `"name": "idea-to-deploy"` → refuses to adopt itself, exits
-- [ ] Skill detects CLAUDE.md (present, no marker → "append" branch)
-- [ ] Skill detects .claude/settings.json (present, no methodology hooks → "merge" branch)
-- [ ] Skill detects memory dir (absent → "create + sentinel" branch)
-- [ ] Skill resolves plugin hooks dir via: `$CLAUDE_PLUGIN_DIR` → `~/.claude/plugins/idea-to-deploy/hooks/` → grep → `~/.claude/hooks/` fallback
-- [ ] Skill best-effort detects stack via glob (package.json / pyproject.toml / etc.) — reports to user, does NOT embed in CLAUDE.md (sentinel only)
-
-### Step 0.5 — Plan preview
-- [ ] Skill prints a plan before writing:
-```
-/adopt plan:
-  - CLAUDE.md:              append methodology block
-  - enforcement hooks:      offered at the end (Step 7)
-  - memory dir:             create + sentinel /session-save
-  - Plugin hooks dir:       <resolved path>
-  - Detected stack:         <stack>
-Proceed? [yes/no]
-```
-- [ ] Waits for explicit "yes" — does not silently proceed
-
-### Step 1 — CLAUDE.md append
-- [ ] User's existing CLAUDE.md content is preserved verbatim above the marker
-- [ ] Methodology block is wrapped in `<!-- idea-to-deploy:begin v1.20 -->` ... `<!-- idea-to-deploy:end -->` markers
-- [ ] Placeholders replaced: `{{VERSION}}` → "1.20", `{{ADOPTED_AT}}` → today's date YYYY-MM-DD
-- [ ] One blank line separates existing content from the begin marker
-- [ ] Block references the methodology's core rules (not a rewrite of user's style guide)
-
-### Step 7 — enforcement hooks offer (last step, after the voice-chain answer)
-- [ ] Skill shows `itd_project_hooks.py plan --root <project>` output (read-only; the file is unchanged by it)
-- [ ] Skill asks explicit confirmation; on «нет» `apply` is NOT run and `.claude/settings.json` is byte-identical to before
-- [ ] On «да» the skill runs `itd_project_hooks.py apply --root <project> --yes` and reports `created | merged | unchanged`
-- [ ] Pre-existing keys (`permissions`, `env`, `statusLine`, `model`, ...) preserved
-- [ ] Pre-existing hooks in `hooks.UserPromptSubmit` / `hooks.PreToolUse` arrays preserved — NOT overwritten
-- [ ] Methodology hooks added only if absent (matched by event + matcher + `command` path): `pre-flight-check.sh`, `check-skills.sh`, `check-tool-skill.sh`, `check-skill-completeness.sh`, `check-commit-completeness.sh`, `check-review-before-commit.sh`, `session-open-diagnostic.sh`
-- [ ] `{{PLUGIN_HOOKS_DIR}}` placeholder substituted with the resolved plugin hooks dir from Step 0
-- [ ] JSON remains valid (parse with `python3 -c "import json; json.load(open('.claude/settings.json'))"` — no syntax errors from merge)
-
-### Step 3 — Memory dir bootstrap
-- [ ] Memory dir created at `<project>/.itd-memory/`
-- [ ] `session_YYYY-MM-DD.md` sentinel written with: project root path, detected stack, adoption note, "no blockers (just bootstrapped)"
-- [ ] `MEMORY.md` created (or updated) with a pointer line to the sentinel session
-- [ ] `.active-session.lock` written with fresh timestamp, pid, branch, project path, note
-
-### Step 4 — Voice-chain question
-- [ ] Skill asks ONE question at the end: «Сгенерировать план документов? (1) /strategy — обновит существующий план, (2) /blueprint — создаст с нуля, (3) пропустить»
-- [ ] Step 7 (hooks offer) runs before the chain; if user picks 1 or 2 — skill then invokes the corresponding skill via Skill tool
-- [ ] If user picks 3 — skill exits with: «OK, план-документы не создаю. /strategy или /blueprint можно запустить позже вручную.»
-- [ ] If user passed `skip-chain` argument at invocation — skip the voice-chain question entirely, but the Step 7 hooks offer still runs
+- [ ] Step 0 prints `minimal` (no `itd-route: strict` marker in the project, no `strict` argument)
+- [ ] Step 1 runs the helper with `--host claude --plan`; the `ADOPT PLAN` shows `"CLAUDE.md": "append-guarded-block"`
+      and `commands` = `{"test": "just test", "lint": "ruff check ."}`
+- [ ] The plan says nothing else is written (`.itd/`, `.itd-memory/`, hooks, merge gate - only `/adopt strict`) and asks
+      for confirmation before writing
+- [ ] On «да» the helper runs with `--apply --approved`; `ADOPTION: PASS` reports `"CLAUDE.md": "appended"`
+- [ ] `CLAUDE.md` keeps the user content byte-for-byte above one `<!-- idea-to-deploy:begin v... -->` block; the block
+      lists the two commands, one per line
+- [ ] `.claude/settings.json` is byte-identical; no `.itd/`, no `.itd-memory/` appear
+- [ ] `/session-save` is NOT invoked; `/strategy` / `/blueprint` are only mentioned in the report
 
 ## /adopt — Scenario B: second run (idempotency)
 
-User runs `/adopt` again on the same project after Scenario A.
+- [ ] The plan shows `"CLAUDE.md": "skip-marker-present"`; nothing is written, `CLAUDE.md` is byte-identical
+- [ ] The report still prints, confirming the adopted state
 
-- [ ] Skill detects CLAUDE.md with `<!-- idea-to-deploy:begin v1.20 -->` marker → "skip (already adopted)" decision
-- [ ] Skill detects existing memory dir with MEMORY.md → "skip (already bootstrapped)" decision
-- [ ] Plan preview shows the "skip" decisions for CLAUDE.md and the memory dir, and "enforcement hooks: offered at the end (Step 7)"
-- [ ] Skill asks the voice-chain question — user may still want plan docs they declined on first adoption
-- [ ] Step 7 runs after that answer: its plan reports `unchanged` for .claude/settings.json with all methodology hooks already present → «хуки уже установлены», no apply
-- [ ] NO new writes happen to any file
+## /adopt — Scenario C: strict route
 
-## /adopt — Scenario C: self-reference refusal
+`/adopt strict` on the same project (it needs a tracked verifier, e.g. `tests/test_smoke.py`, committed first).
 
-User (mistakenly) runs `/adopt` inside the `idea-to-deploy` methodology repo itself.
+- [ ] Step 0 takes the strict route because of the argument; `references/strict.md` is read
+- [ ] S1: the first-unit values (baseline, verification command, trusted verifier, criterion, allowed areas) are agreed
+      with the user, never invented; the helper `--strict --plan` is shown before any write
+- [ ] The block gains the strict paragraph with the line `itd-route: strict` inside the existing block (one marker);
+      Step 0 of `/bugfix` now prints `strict`
+- [ ] `.itd/` holds every contract template and no `.py` tool; `.itd-memory/` holds `STATE.json`, `events.jsonl`,
+      `session-artifacts.json`, `GOAL.json`, `contracts/U-001.md`; `BASELINE: PASS` is reported
+- [ ] S2-S8 are offered (example test, runnability, router split, context index, GitHub profile, plan documents,
+      project hooks last with `itd_project_hooks.py apply --yes` only on «да»)
+- [ ] S9: one `/session-save` with the topic `adopt` writes `.itd-memory/continuity/adopt.md`
 
-- [ ] Skill detects `.claude-plugin/plugin.json` exists with `"name": "idea-to-deploy"`
-- [ ] Skill refuses: «Ты внутри самой методологии `idea-to-deploy`. `/adopt` адоптирует ДРУГИЕ проекты в методологию, не саму методологию. Выход.»
-- [ ] Skill exits without writing anything
+## /adopt — Scenario D: refusals
 
-## /adopt — Scenario D: not a git repo
-
-User runs `/adopt` in a directory that is not a git repository.
-
-- [ ] Skill's `git rev-parse --show-toplevel` fails
-- [ ] Skill tells the user: «`/adopt` работает в git-репозиториях. Создай репо (`git init`) или перейди в существующий.»
-- [ ] Skill exits without writing anything
+- [ ] Inside the `idea-to-deploy` repository the helper refuses (self-reference guard) and nothing is written
+- [ ] Outside a git repository: «`/adopt` работает в git-репозиториях. Создай репо (`git init`) или перейди в существующий.»
+- [ ] `--unit-id` or other strict-only options without `--strict` are refused with WHY/FIX
+- [ ] A strict run on a `CLAUDE.md` larger than 8 KB refuses (`refuse-marker-beyond-8kb`) and writes nothing
 
 ## /adopt — Scenario E: guard rails (what /adopt MUST NOT do)
 
-- [ ] Does NOT generate plan documents (LAUNCH_PLAN.md / STRATEGIC_PLAN.md / PRD.md / PROJECT_ARCHITECTURE.md / IMPLEMENTATION_PLAN.md / DISCOVERY.md) — those are voice-chained to /strategy or /blueprint
+- [ ] Does NOT generate plan documents (LAUNCH_PLAN.md / STRATEGIC_PLAN.md / PRD.md / PROJECT_ARCHITECTURE.md /
+      IMPLEMENTATION_PLAN.md / DISCOVERY.md) - those come from /strategy or /blueprint on request
 - [ ] Does NOT reverse-engineer architecture from source code
-- [ ] Does NOT modify `~/.claude/settings.json` (user-level) — project-level only
+- [ ] Does NOT modify `~/.claude/settings.json` (user-level) - project-level only
 - [ ] Does NOT overwrite pre-existing CLAUDE.md content above the marker
-- [ ] Does NOT remove pre-existing `.claude/settings.json` keys or hooks
-- [ ] Does NOT run on Haiku — Sonnet required (bounded declarative templating; Opus is overkill)
-- [ ] Does NOT write OUTSIDE `$PROJECT_ROOT` except the single known-safe path (project memory dir)
+- [ ] Does NOT copy repository text (script bodies, recipe text) into the block - only fixed command strings
+- [ ] Does NOT write OUTSIDE `$PROJECT_ROOT`
 
 ## Cross-reference with `check-skill-completeness.sh`
 
 `/adopt` satisfies the three Quality Gate 2 requirements:
 
-1. ✅ `skills/adopt/references/` exists (claude-md-template.md, project-settings-template.json)
+1. ✅ `skills/adopt/references/` exists (claude-md-template.md, agents-md-template.md, strict.md, codex-adoption.md)
 2. ✅ `hooks/check-skills.sh` contains trigger phrases for `/adopt`
 3. ✅ `tests/fixtures/fixture-17-adopt/` exists with `idea.md`, `notes.md`, `expected-files.txt`, `expected-snapshot.json`
-
-## /review status
-
-- [ ] After adoption, run `/review` on the modified CLAUDE.md + settings.json
-- [ ] Expected status: `PASSED` or `PASSED_WITH_WARNINGS`
-- [ ] If `BLOCKED`, log the failing checks in Failures below
 
 ## Run manually
 
@@ -118,22 +77,23 @@ User runs `/adopt` in a directory that is not a git repository.
 3. Seed a minimal legacy repo:
    ```bash
    git init
-   echo "# Legacy project\n\nUser's own notes go here." > CLAUDE.md
+   printf "# Legacy project\n\nUser's own notes go here.\n" > CLAUDE.md
    mkdir .claude
    echo '{"permissions": {}, "hooks": {"UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": "echo lint-check"}]}]}}' > .claude/settings.json
+   printf "[project]\nname = 'legacy'\n[project.optional-dependencies]\ndev = ['pytest', 'ruff']\n" > pyproject.toml
+   printf "test:\n\tpytest\n" > justfile
    echo "print('hello')" > main.py
    git add -A && git commit -m "legacy baseline"
    ```
-4. Start Claude Code on Sonnet, paste `idea.md` content, invoke `/adopt`
-5. Answer "yes" at the plan preview; answer voice-chain with "3" (skip) for the first run
-6. Verify outputs per Scenario A checklist
-7. Invoke `/adopt` a second time — verify Scenario B idempotency
+4. Start Claude Code, paste `idea.md` content, invoke `/adopt`
+5. Answer «да» at the plan preview
+6. Verify outputs per the Scenario A checklist
+7. Invoke `/adopt` a second time - verify Scenario B idempotency
 8. `cd .. && python3 ../../verify_snapshot.py .`
 
 Expected: `✅ fixture-17-adopt: PASSED`.
 
-Note: the continuity sentinel (`session_YYYY-MM-DD.md`, `MEMORY.md`, `.active-session.lock`) lives in `<output-path>/.itd-memory/` and is validated via `ls -la` of that directory, not through expected-snapshot.json.
-
 ## Failures (fill in if any)
 
-(empty unless the fixture fails — leave space for documenting regressions, especially any plan doc written by /adopt in violation of the "no reverse-engineering" contract)
+(empty unless the fixture fails - leave space for documenting regressions, especially any plan doc written by /adopt
+in violation of the "no reverse-engineering" contract, or any write beyond the pointer on the minimal path)

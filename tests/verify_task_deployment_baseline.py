@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-SKILL = REPO / "skills" / "task" / "SKILL.md"
+SKILL = REPO / "skills" / "task" / "references" / "strict.md"  # ITD-PLAN-S9: PIV-lite is strict-only
 
 PASS = FAIL = 0
 
@@ -30,7 +30,7 @@ def check(name, cond, detail=""):
 
 def main():
     t = SKILL.read_text(encoding="utf-8")
-    seg = t[t.index("Step 3f"):] if "Step 3f" in t else t
+    seg = t[t.index("## S3. PIV-lite"):] if "## S3. PIV-lite" in t else ""
     check("шаг 3f содержит Deployment baseline", "Deployment baseline" in seg)
     # ключевые требования планки присутствуют
     for token, label in [

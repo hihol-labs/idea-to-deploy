@@ -419,7 +419,7 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
                   cu.get("id") == "G-9" and "riskTierExempt" not in cu, repr(cu)[:200])
     except Exception as exc:  # noqa: BLE001 - a crash is a failed check, not a pass
         c("goal-projection-drops-exempt", False, repr(exc)[:200])
-    skill = read(root / "skills" / "task" / "SKILL.md")
+    skill = read(root / "skills" / "task" / "references" / "strict.md")  # ITD-PLAN-S9: unit bookkeeping moved
     c("task-skill-documents-exemption", "riskTierExempt" in skill and "tests-only" in skill)
     adr = read(root / "docs" / "adr" / "ADR-011-default-risk-tier-low.md")
     c("adr-011-amended", "TIER-SOURCE-1" in adr and "tests-only" in adr)

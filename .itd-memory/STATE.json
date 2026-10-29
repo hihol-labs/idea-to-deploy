@@ -37,21 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ITD-PLAN-S8",
-    "goal": "Plan session 8 (ADR-016): bugfix, test, refactor - the automatic scope freeze, the mandatory ROOT_CAUSE.md, the refute pass and the mutation runs move to each skill's references/strict.md and run only on the strict route (an explicit project marker itd-route: strict or itd-domain: data-sensitive, the --strict argument, or a strict task class of the global rules); the minimal path is reproduce, find the cause, minimal fix, regression test, run the suite; descriptions in the Agent Skills form for auto-triggering; texts at most 500 lines; acceptance: in an ordinary project /bugfix creates no freeze state and no ROOT_CAUSE.md, in invoices the strict steps run as before, the skill tests green, the full suite green; carries the ITD-PLAN-S7 verified record with the AC4 measurement, its DECISIONS and the new BACKLOG items (plan rule 5).",
+    "id": "ITD-PLAN-S9",
+    "goal": "Plan session 9 (ADR-016): task and adopt - /task is a thin router without the mandatory /test + /review floor for a one-file feature, adjudication only on the strict route; /adopt by default writes only a pointer to the installation and the discovered project commands (tests, lint, build), the .itd/ contracts, goal state and the App/broker/ruleset gate profile only on an explicit strict choice consistent with the session 8 marker itd-route: strict; /adopt no longer calls /session-save unconditionally; texts at most 500 lines; acceptance: adopting an empty repository creates only the pointer, a repeated adopt is idempotent, adopt with strict gives the previous full set, the skill tests green, the full suite green; carries the ITD-PLAN-S8 verified record, its DECISIONS and the new BACKLOG items (plan rule 5).",
     "status": "in_progress",
-    "startedAt": "2026-10-28T21:51:42Z",
+    "startedAt": "2026-10-29T18:18:20Z",
     "ledger": "STATE",
-    "riskTier": "high",
-    "riskTierMatch": {
-      "class": "money",
-      "match": "strict class 'money' matched keyword 'invoices' in goal"
-    },
-    "riskTierForced": {
-      "declared": "medium",
-      "class": "money",
-      "match": "strict class 'money' matched keyword 'invoices' in goal"
-    }
+    "riskTier": "high"
   },
   "gateResults": {
     "acceptanceContract": "pending",

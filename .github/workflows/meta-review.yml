@@ -152,6 +152,9 @@ jobs:
       - name: Run strict route of bugfix/test/refactor (Step 0 marker, references/strict.md) (plan session 8)
         run: python3 tests/verify_strict_route.py
 
+      - name: Run task and adopt by the project route (thin router, adopt pointer, --strict full set) (plan session 9)
+        run: python3 tests/verify_task_adopt_route.py
+
       - name: Run hook-table completeness G-005 (map quadrants/blocking rows vs hooks/) (v1.76.0 — был латентным, протух на v1.75.0)
         run: python3 tests/verify_hook_table_completeness.py
 

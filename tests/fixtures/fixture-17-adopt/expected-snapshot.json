@@ -3,8 +3,7 @@
   "fixture_type": "adopt-bootstrap",
   "skill_under_test": "/adopt",
   "status": "active",
-  "description": "Bootstrap a legacy project into the idea-to-deploy methodology. Validates that /adopt produces three minimal, idempotent writes: CLAUDE.md (append-with-marker), .claude/settings.json (hooks merge), and a memory-dir sentinel session file. Pre-existing CLAUDE.md and settings.json content must be preserved.",
-
+  "description": "Bootstrap a legacy project into the idea-to-deploy methodology. Validates that /adopt by default (minimal path, ITD-PLAN-S9) writes one pointer block into CLAUDE.md (append-with-marker) that names the installed methodology and the test, lint and build commands found in the manifests; pre-existing CLAUDE.md content is preserved. .claude/settings.json, .itd/ and .itd-memory/ are written only on the strict route (/adopt strict).",
   "files": {
     "required": [
       "CLAUDE.md"
@@ -14,7 +13,6 @@
     ],
     "min_count": 1
   },
-
   "content_contracts": {
     "CLAUDE.md": {
       "required_sections": [
@@ -25,15 +23,25 @@
         "<!-- idea-to-deploy:end -->"
       ],
       "must_contain_any_of": {
-        "methodology_version": ["v1.20", "1.20"],
-        "adoption_marker": ["adopted", "adoption", "адоптиров"]
+        "methodology_version": [
+          "<!-- idea-to-deploy:begin v"
+        ],
+        "adoption_marker": [
+          "/adopt",
+          "adopted",
+          "адоптиров"
+        ]
       },
       "min_length_chars": 400
     }
   },
-
   "rubric_status": {
-    "expected": ["PASSED", "PASSED_WITH_WARNINGS"],
-    "forbidden": ["BLOCKED"]
+    "expected": [
+      "PASSED",
+      "PASSED_WITH_WARNINGS"
+    ],
+    "forbidden": [
+      "BLOCKED"
+    ]
   }
 }

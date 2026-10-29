@@ -290,8 +290,8 @@ Claude-only. Host-neutral output naming remains follow-up work.
 | Skill | Description |
 |-------|-------------|
 | `/project` | Smart router for **creating** something — asks one question and routes to /kickstart, /blueprint, or /guide |
-| `/task` | Smart router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) based on the task type |
-| `/adopt` | Onboard a legacy project through the active host adapter — `CLAUDE.md` + `.claude/settings.json` on Claude Code, or `AGENTS.md` + Codex hooks on Codex — then bootstrap canonical `.itd/` contracts and `.itd-memory/` state. No reverse-engineering of plan docs. |
+| `/task` | Thin router for **working on existing code** — routes to the right daily-work skill (/bugfix, /refactor, /doc, /test, /perf, /review, ...) or does a small feature directly (change, tests, suite run); the PIV-lite pipeline with `/test`, `/review` and adjudication runs on the strict route |
+| `/adopt` | Onboard a project with one pointer block — `CLAUDE.md` on Claude Code, `AGENTS.md` on Codex — naming the installed methodology and the test, lint and build commands found in the manifests. `/adopt strict` adds the `itd-route: strict` marker, `.itd/` contracts, `.itd-memory/` state with a first unit, the merge gate and project hooks. No reverse-engineering of plan docs. |
 | `/discover` | **New in v1.17.0.** Product discovery phase — market analysis (TAM/SAM/SOM), competitor research, user personas, feature prioritization (MoSCoW + RICE). Outputs `DISCOVERY.md` ready for `/blueprint`. |
 | `/strategy` | **New in v1.19.0.** Strategic replanning for existing projects — 5-dimension gap analysis, option generation with devil's advocate, ADR for pivot decisions, LAUNCH_PLAN.md updates. |
 | `/advisor` | **New in v1.19.0.** Advisory/consulting mode — analysis-only (no code changes), multi-perspective evaluation via business-analyst + devils-advocate subagents. |
@@ -402,7 +402,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | Skill | Inputs | Outputs (files written) | Side effects | Idempotent |
 |---|---|---|---|:---:|
 | `/project` | User idea (text) | None directly — routes to another skill | None | ✅ |
-| `/task` | Task description (text) for an existing project | None directly — routes to /bugfix, /refactor, /doc, /test, /perf, /review, /security-audit, /deps-audit, /migrate, /harden, /infra, or /explain | None (router only) | ✅ |
+| `/task` | Task description (text) for an existing project + optional `--strict` | Routes to /bugfix, /refactor, /doc, /test, /perf, /review, /security-audit, /deps-audit, /migrate, /harden, /infra, or /explain; a small feature directly | Project-local code edits for a direct feature; strict: unit ledger | ✅ |
 | `/discover` | Product idea or problem statement | `DISCOVERY.md` (market analysis, personas, prioritization) | None (analysis only, no code) | ✅ |
 | `/kickstart` | User idea + clarifications | 7 docs + scaffolded project + commits | Git commits, file scaffolding, possible deploy | ⚠️ Resumes from CLAUDE.md status |
 | `/blueprint` | User idea + clarifications | 6 docs + CLAUDE.md + .gitignore | None (planning only, no code) | ⚠️ Asks before overwrite |
@@ -425,7 +425,7 @@ Each skill has a documented contract — what it reads, what it writes, what sid
 | `/migrate-prod` | Source host + target host + service list | `MIGRATION_PLAN.md` + executed migration steps | SSH, Docker, DNS changes, DB dumps — **production impact** | ⚠️ Production operations, requires confirmation |
 | `/advisor` | Question, comparison, or strategic decision | Analysis report (stdout) — pros/cons/risks | None (read-only by design, no Write/Edit) | ✅ |
 | `/deploy` | Service name (`web`, `all`, or specific) + git HEAD | Deployed containers + healthcheck result (stdout) | SSH to target host, file sync, Docker build, container restart, optional DB migration — **production impact** | ⚠️ Production operations, requires confirmation |
-| `/adopt` | Existing repo path (defaults to `cwd`) + optional `skip-chain` | Host guidance/config (`CLAUDE.md` + `.claude/settings.json`, or `AGENTS.md` + Codex hooks), canonical `.itd/`, `.itd-memory/` | Project-local writes only; voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency |
+| `/adopt` | Existing repo path (defaults to `cwd`) + optional `strict` | The pointer block in `CLAUDE.md` / `AGENTS.md`; strict: `.itd/`, `.itd-memory/`, `.claude/settings.json` | Project-local writes only; strict: voice-chain invokes `/strategy` or `/blueprint` | ✅ Marker-based idempotency |
 | `/grill-me` | Plan / design / architecture / decision (text or repo) | None — questions + analysis (stdout); optional artifact only if the user asks | None (read-only by default; no Write/Edit) | ✅ |
 | `/handoff` | Project state + handoff reason (compaction / delegation / AFK / recovery) | `HANDOFF.md` (context packet) + `STATE.json` refresh | Memory-write (`HANDOFF.md` in root + `STATE.json`); no source/code changes | ✅ Overwrites the packet each run |
 | `/goal` | Goal text (empty = resume active goal) | `.itd-memory/GOAL.json` (persistent unit ledger) + unit events in `events.jsonl`; optional sealed `runPolicy`, attempt journal, and typed budget stops; units delivered via the standard `/task` pipeline | Memory-write only; code changes happen inside `/task` under its own gates | ✅ Resume-only — an active ledger is never recreated |

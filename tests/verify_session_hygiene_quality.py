@@ -497,9 +497,10 @@ def test_fixed_component_benchmark() -> None:
 
 def test_integration_contract() -> None:
     session = (ROOT / "skills" / "session-save" / "SKILL.md").read_text(encoding="utf-8")
-    task = (ROOT / "skills" / "task" / "SKILL.md").read_text(encoding="utf-8")
+    # ITD-PLAN-S9: the quality queue and the contract filling run on the strict route of /task and /adopt
+    task = (ROOT / "skills" / "task" / "references" / "strict.md").read_text(encoding="utf-8")
     retro = (ROOT / "skills" / "retro" / "SKILL.md").read_text(encoding="utf-8")
-    adopt = (ROOT / "skills" / "adopt" / "SKILL.md").read_text(encoding="utf-8")
+    adopt = (ROOT / "skills" / "adopt" / "references" / "strict.md").read_text(encoding="utf-8")
     global_rules = (ROOT / "docs" / "templates" / "global-claude-md.md").read_text(encoding="utf-8")
     run_all = (ROOT / "tests" / "run-all.sh").read_text(encoding="utf-8")
     ci = (ROOT / ".github" / "workflows" / "meta-review.yml").read_text(encoding="utf-8")

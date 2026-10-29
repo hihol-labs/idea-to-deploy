@@ -15,6 +15,8 @@
   ],
   "completionAuthority": "verification-loop-v1",
   "wipLimit": 1,
+  "activation": "strict-route",
+  "activationSource": "skills/task/references/strict.md S3",
   "stages": [
     {
       "id": "plan",

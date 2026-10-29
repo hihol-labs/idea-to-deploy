@@ -466,7 +466,8 @@ def suite(root: Path, quiet: bool = False) -> list[str]:
       and "tests-only" in reason and "list of paths" not in reason, f"rc={code} currentUnit={cu}")
 
     # 4. docs and registration
-    skill = " ".join(read(root / "skills" / "task" / "SKILL.md").split())
+    # ITD-PLAN-S9: the unit bookkeeping lives in the strict file of /task
+    skill = " ".join(read(root / "skills" / "task" / "references" / "strict.md").split())
     c("task-skill-documents-path-list", "TIER-WORDING-2" in skill and "riskTierExempt" in skill
       and "a list of paths" in skill and "_FILE_EXTS" in skill)
     adr = " ".join(read(root / "docs" / "adr" / "ADR-011-default-risk-tier-low.md").split())

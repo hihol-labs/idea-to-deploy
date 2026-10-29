@@ -238,7 +238,8 @@ def main() -> int:
                        bool(list(Draft202012Validator(schema).iter_errors(mutated)))))
 
     if args.phase in {"all", "integration"}:
-        adopt = (ROOT / "skills/adopt/SKILL.md").read_text(encoding="utf-8")
+        # ITD-PLAN-S9: the provider inventory is a strict-route step of /adopt (references/strict.md S1)
+        adopt = (ROOT / "skills/adopt/references/strict.md").read_text(encoding="utf-8")
         security = (ROOT / "skills/security-audit/references/security-checklist.md").read_text(
             encoding="utf-8")
         contracts = (ROOT / "docs/CONTRACTS.md").read_text(encoding="utf-8")
