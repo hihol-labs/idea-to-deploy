@@ -39,10 +39,10 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 ### Step 0: Route - minimal or strict
 
-From the project root, check whether the project declares the strict route:
+From the project root, check whether the project declares the strict route - a line `itd-route: strict` or `itd-domain: data-sensitive` by itself, or the comment `<!-- itd:strict -->` / `<!-- itd:data-sensitive -->`:
 
 ```bash
-( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '(itd-route:[[:space:]]*strict|itd:strict|itd-domain:[[:space:]]*data-sensitive|itd:data-sensitive)([^a-z0-9_-]|-->|$)' && echo strict || echo minimal
+( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '^[[:space:]]*(itd-route:[[:space:]]*strict|itd-domain:[[:space:]]*data-sensitive)[[:space:]]*$|<!--[[:space:]]*itd:(strict|data-sensitive)[[:space:]]*-->' && echo strict || echo minimal
 ```
 
 Take the **strict route** when it prints `strict`, when the arguments contain `--strict`, or when the task falls in a strict class of the global rules (ITD's own critical mechanisms, money, access, deploy, migrations, production data): read `references/strict.md` now - its Step 5.5 refute pass (mutation runs) runs after Step 5. Otherwise this is the **minimal path** - Steps 1-6 without mutation runs. The `.itd/` directory alone does not make a project strict; the marker is described in the methodology's `docs/project-profiles.md`.

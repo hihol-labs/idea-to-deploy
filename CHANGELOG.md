@@ -18,9 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ROOT_CAUSE.md` (`/bugfix`), refute-проход с мутациями и правила TEST-RULES-1 (`/test`, Step 5.5). Минимальный путь
   `/bugfix`: воспроизвести, причина одним предложением с доказательством, минимальный фикс, регрессионный тест, прогон
   набора; маркер `/test` для DoD-гейта остается.
-- Строгий маршрут выбирается в Step 0 одной одинаковой командой: маркер проекта `itd-route: strict` (или
-  `<!-- itd:strict -->`) либо `itd-domain: data-sensitive` в первых 8 КБ `CLAUDE.md`, `.claude/CLAUDE.md` или
-  `AGENTS.md`; на один вызов - `--strict` или строгий класс задачи по глобальным правилам. Наличие `.itd/` или
+- Строгий маршрут выбирается в Step 0 одной одинаковой командой: строка проекта `itd-route: strict` или
+  `itd-domain: data-sensitive` целиком (или комментарий `<!-- itd:strict -->`) в первых 8 КБ `CLAUDE.md`,
+  `.claude/CLAUDE.md` или `AGENTS.md`; на один вызов - `--strict` или строгий класс задачи по глобальным правилам. Наличие `.itd/` или
   `.itd/SCOPE_LOCK.md` проект строгим не делает. Маркер описан в `docs/project-profiles.md`.
 - Описания трех скиллов - в форме Agent Skills: что делает, затем "Use when ...". Тест `tests/verify_strict_route.py`
   в run-all и обоих CI; `verify_test_skill_rules.py` и `verify_refute_fleet.py` читают Step 5.5 из

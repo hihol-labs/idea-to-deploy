@@ -6685,3 +6685,22 @@ The third fresh Terra review found that a primary already containing :general-re
   замера быстродействия), AC1 заявляет host-parity (команда маршрута одинакова в sh и Git Bash: приемка Windows, CI
   windows-verify), AC3 - security (строгие защитные шаги сохраняются там, где проект их объявил; обычный проект теряет
   только церемонию, не гейт). Новый кандидат - машина a2 с полной ногой, ревью a2.
+
+## 2026-10-29 - сессия 8: машины a2-a5, ревью sol a2 BLOCKED (1 high, 1 medium), ответ
+- Машины a2, a3, a4 на b45b83c - FAILED на трех разных тестах настенного времени (verify_graph_study "future owner
+  authorization", сетка verify_redteam_multihost, verify_state_hardening "lock give-up < 4s"); отдельно каждый
+  зеленый. Причина - часы WSL2 скакали назад примерно раз в 38 с (systemd-timesyncd поверх синхронизации Hyper-V,
+  проба 30 с: -7.2 с). Владелец выключил systemd-timesyncd 2026-10-29; проба 60 с - 0.000 с; машина a5 PASSED 8/8
+  (receipt 7327b721). BACKLOG P2: тесты на настенных часах.
+- Ревью gpt-5.6-sol a2 (база 93bec47, кандидат b45b83c, машина a5) - BLOCKED, каждая находка в двух проходах
+  (отчет reports/ITD-PLAN-S8-canonical-a2.json.negative-t19wzk_v/report.json).
+- high: AC5 стоял passed и заявлял зеленый полный набор, а его evidence - прогон рабочей копии с падениями, команда -
+  только validate_state. Ответ: AC5 - только записи леджера (оракул state); новый AC6 - полный набор на точном
+  кандидате (`bash tests/run-all.sh --fail-fast` в изолированной копии = полная нога машины, оракул full); прогон
+  рабочей копии записан, но доказательством не считается.
+- medium: regex маршрута проверял только правую границу - `not-itd-route: strict`, `xitd-domain: data-sensitive`
+  и голое `itd:strict` в тексте включали строгий маршрут. Ответ: маркер - строка целиком (`^[[:space:]]*...[[:space:]]*$`,
+  CRLF и отступ допустимы) или комментарий `<!-- itd:strict -->`; 5 новых случаев в verify_strict_route (65),
+  мутанты 23/23 (без левого и правого якоря, голое itd:strict). Строка маркера в invoices (85d42fc) - уже отдельной
+  строкой, правка не нужна.
+- По правилу сходимости high из диффа сессии исправлен и выносится владельцу до раунда a3.

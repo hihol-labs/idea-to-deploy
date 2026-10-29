@@ -105,8 +105,8 @@ steps of each skill's `references/strict.md`: the edit-scope freeze
 (`hooks/freeze.sh`) in `/bugfix` and `/refactor`, the fail-closed
 `ROOT_CAUSE.md` in `/bugfix`, the mutation refute pass in `/test`.
 
-**How to enable.** In the project's `CLAUDE.md`, `.claude/CLAUDE.md` or
-`AGENTS.md`:
+**How to enable.** In the first 8 KB of the project's `CLAUDE.md`,
+`.claude/CLAUDE.md` or `AGENTS.md`, as a line by itself or as the comment:
 
 ```
 <!-- itd:strict -->
@@ -124,7 +124,9 @@ methodology's own critical mechanisms, money, access, deploy, migrations,
 production data) takes the strict route without a marker.
 
 **What does not.** The `.itd/` contracts or a `.itd/SCOPE_LOCK.md` alone do not
-make a project strict: adopted ordinary projects have them too. Each skill
+make a project strict: adopted ordinary projects have them too. Neither does the
+key inside a sentence, a prefixed key (`not-itd-route: strict`) or a bare
+`itd:strict` outside the comment. Each skill
 checks the marker with the same one-line command in its Step 0
 (`tests/verify_strict_route.py`).
 
