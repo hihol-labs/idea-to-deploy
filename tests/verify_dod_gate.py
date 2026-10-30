@@ -93,9 +93,29 @@ def run_hook(repo, command="git commit -m x", description="", session=SID):
     return p.returncode
 
 
+def security_policy_contract(unit="review"):
+    """Plan session 10: the security kind is unlocked by coverage - the unit's
+    review policy must require the security impact class and a checker must
+    have run; the fixture declares that policy for the detected unit."""
+    return json.dumps({
+        "version": 2, "criteria": [],
+        "activeFollowup": {
+            "unitId": unit, "status": "in_progress",
+            "reviewPolicy": {
+                "mode": "evidence-first", "riskTier": "unknown",
+                "requiredImpactClasses": ["correctness", "security"],
+                "minimumIndependentReviewers": 1,
+                "explorer": "isolated-machine-oracle",
+                "adjudicator": "sealed-host-union",
+            },
+        },
+    })
+
+
 def record_security(repo, verdict="PASSED"):
     receipt_args = []
     if verdict in ("PASSED", "PASSED_WITH_WARNINGS"):
+        stage(repo, ".itd/ACCEPTANCE_CONTRACT.json", security_policy_contract())
         receipt = make_review_receipt(
             Path(repo), unit_id="review", risk_tier="unknown", kind="security")
         receipt_args = ["--verification-receipt", str(receipt)]

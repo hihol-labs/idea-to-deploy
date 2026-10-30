@@ -32,44 +32,18 @@ These are the user phrases (Russian and English) that should auto-invoke this sk
 
 You are a quality validator for project documentation and code. Your job is to find gaps, inconsistencies, and missing pieces BEFORE implementation begins.
 
-## Mandatory independent pre-PR route
+## Route
 
-For every medium/high/unknown-risk candidate that is going to be published as a PR,
-`/review`, `/cross-review`, and the Verification Loop use the same producer:
-`skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless route is
-`Sol -> Terra` and `Terra -> Sol`: exactly one fresh opposite OpenAI
-model/session reviews the evidence-bound candidate. `BLOCKED`, `UNVERIFIED`
-and `UNAVAILABLE` stop the gate. Anthropic, GitHub Copilot, Antigravity and
-paid API adapters are optional separately invoked facilities, not automatic
-fallbacks or quorum members.
-
-Approved maker compatibility also routes `gpt-6.1-sol` and `gpt-6-astra`
-to `gpt-5.6-terra`. Preserve the observed maker identity in provenance.
-These additions do not make either maker a reviewer or standby.
-
-The signed phase-one v2 receipt contains the exact attempt prefix and one fresh
-opposite-GPT identity plus its prompt/report. Missing or malformed route
-evidence is `UNVERIFIED`, and the broker must reject it before authorization.
-
-For PR publication, pass the producer-emitted prompt/report plus
-`--phase-one-receipt` and its trusted `--producer-keyring` to Verification Loop
-`checker`. The local gate revalidates the final adjudication with
-`--require-mandatory-route`; a generic checker receipt is diagnostic only and
-cannot satisfy guarded publication. Never default a missing verdict field.
-
-This route has no caller bypass. A user acknowledgement, a local self-review,
-or a request to publish anyway cannot replace its exact-candidate receipt.
-The default route uses installed user/subscription authentication and must not
-request a provider API key. The Verification Loop adjudication receipt remains
-the sole acceptance authority; the shared producer supplies its independent
-checker evidence rather than creating a parallel gate.
-
-When `activeFollowup.reviewPolicy.mode=evidence-first`, validate the closed
-criterion → impact class → exact-tree oracle matrix before semantic review.
-Missing coverage is `UNVERIFIED`, even when ordinary tests are green. For
-medium/high/unknown risk require one clean fresh opposite-GPT report; combine
-every unit, integration and reviewer finding by host adjudication. A clean
-later response can never erase earlier negative evidence.
+Step 0 below prints `minimal` or `strict` from the project's own marker. On
+the minimal route the review is the host's native command and nothing in the
+rest of this file applies beyond reading the findings. On the strict route one
+independent review of the final candidate runs through the shared producer
+`skills/_shared/itd_free_reviewer_producer.py` on the fixed keyless route
+`Sol -> Terra` / `Terra -> Sol`, and its receipt - one per candidate, minted
+under the bare active unit id - is the receipt every gate consumes. That route
+has no caller bypass: the project chose it by its marker, not the caller. The
+exact steps, the evidence-first coverage rule and the recording of the receipt
+are in `references/strict.md`.
 
 ## Recommended model
 
@@ -79,6 +53,31 @@ Set via `/model {model}` before invoking this skill, or via the project's defaul
 
 
 ## Instructions
+
+### Step 0: Route - minimal or strict
+
+Run this first. The command detects the project's marker; `--strict` in the
+arguments or a strict task class selects the strict route as well.
+
+```bash
+( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '^[[:space:]]*(itd-route:[[:space:]]*strict|itd-domain:[[:space:]]*data-sensitive)[[:space:]]*$|<!--[[:space:]]*itd:(strict|data-sensitive)[[:space:]]*-->' && echo strict || echo minimal
+```
+
+`minimal` (the command printed `minimal`, no `--strict` in the arguments, no
+strict task class): review with the
+host's native command and stop here - `/code-review` in Claude Code, the
+built-in `/review` in Codex. Read its findings, fix what is real, run the
+project's tests again, report. No receipt, no claim id, no cache record and no
+second model: the ITD mechanics of this file and of `references/strict.md` are
+the strict route. `/cross-review` by a second model is a strict-route step too.
+
+`strict` - taken when the command printed `strict` (marker `itd-route: strict`
+or `itd-domain: data-sensitive` in the first 8 KB of the entry file), when the
+arguments contain `--strict`, or when the task falls in a strict class of the
+global rules (ITD's own critical mechanisms, money, access and secrets, security,
+deploy, migrations and production data, external actions), whatever the command
+printed: continue below and follow `references/strict.md` for the independent
+review and its receipt.
 
 ### Step 0 (pre): Runner selection — avoid fork-thrash on a large CLAUDE.md (v1.24.0)
 
@@ -96,7 +95,7 @@ autocompact-thrashes to death); dispatch the review instead:
   target + files/dirs **by path** — never paste `CLAUDE.md` or file bodies
   (the agent reads them itself).
 - Tell the agent the review mode (methodology self-review vs regular project —
-  Step 0 detection below; `agents/code-reviewer.md` carries matching logic).
+  Step 0.6 detection below; `agents/code-reviewer.md` carries matching logic).
 - **Pass a report-file path** under
   `.itd-memory/verification-loop/reports/` and a matching immutable prompt
   under `.itd-memory/verification-loop/prompts/`; require INCREMENTAL writes —
@@ -129,7 +128,7 @@ reviewed cwd and reported «nothing to review»). Rule:
 4. Never report «нет изменений» from a directory the user did not ask about:
    name the resolved target in the report header so a mismatch is visible.
 
-### Step 0: Detect review mode (v1.13.0)
+### Step 0.6: Detect review mode (v1.13.0)
 
 Before anything else, determine whether this is a **methodology self-review** or a **regular project review**. The two modes use different rubrics and different runners — mixing them produces nonsense reports.
 
@@ -383,44 +382,17 @@ For each Critical failure (and optionally each Important warning), ask:
 
 If user agrees, fix the documents directly. Then re-run only the previously-failing checks to confirm the fix. Do not re-run the entire rubric — that's wasteful.
 
-### Step 5: Record the exact-context `/review` verdict
+### Step 5: Record the receipt (strict route only)
 
-This is the final step of every `/review` invocation. Persist the real status
-against the exact repository/base/tree/diff, scope and acceptance contracts,
-rubric/version, and risk tier. Only an accepted verdict for that complete key
-unblocks `hooks/check-review-before-commit.sh` and pays down the **general**
-risk bucket. `BLOCKED` and `UNVERIFIED` are deliberately recorded as rejected
-and overwrite any stale pass for the same checkout.
-
-Use the Bash tool, substituting the actual verdict. For
-`PASSED_WITH_WARNINGS`, add one durable `--warning` argument per warning in the
-form `path: summary`; an empty warning list is rejected.
-
-`PASSED*` is proof-carrying: before recording it, run the shared workflow in
-`docs/VERIFICATION_LOOP.md` with claim id `<active-unit>:general-review`. The
-machine receipt must execute the deterministic review oracle (for this repo,
-`tests/meta_review.py --verbose`); the checker receipt must bind the exact
-prompt, durable report, and real host-observed maker/checker provenance. Use
-`targeted` for medium risk and `full` for high/unknown. Low risk stays
-machine-only. Then pass the resulting adjudication path:
-
-```bash
-RC="skills/review/scripts/itd_review_cache.py"
-[ -f "$RC" ] || RC="$HOME/.claude/idea-to-deploy/skills/review/scripts/itd_review_cache.py"
-SHD="skills/_shared"
-[ -f "$SHD/itd_py.sh" ] || SHD="$HOME/.claude/idea-to-deploy/skills/_shared"
-sh "$SHD/itd_py.sh" "$RC" record --root . --kind general --verdict PASSED \
-  --verification-receipt "$ADJUDICATION_RECEIPT"
-```
-
-`BLOCKED`/`UNVERIFIED` are recorded without a receipt and remain non-gating.
-Plain verdict text or a generic SubagentStop payload can never mint a cache hit.
-
-The workflow caller must run this explicit producer only after accepting the
-independent verdict. Generic `SubagentStop` payloads are not authenticated
-workflow provenance, so `hooks/verdict-contract.sh` validates the JSON shape
-and records non-gating findings but never writes cache evidence. Rationale and recovery rules:
-`references/runner-and-recovery.md` §5.
+On the minimal route there is nothing to record: the native review left its
+findings and the project's tests are the evidence. On the strict route record
+the final candidate's adjudication receipt with
+`skills/review/scripts/itd_review_cache.py` as in `references/strict.md` S3-S4:
+one receipt per candidate, minted under the bare active unit id, the same file
+the pre-push gate, `itd pr create` and the unit closure consume; the security
+gate is unlocked by it when the review covered the security impact class.
+`BLOCKED` and `UNVERIFIED` are recorded without a receipt and remain
+non-gating.
 
 ## Quality Gate
 

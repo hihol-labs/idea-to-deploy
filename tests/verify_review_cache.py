@@ -116,6 +116,23 @@ def receipt(repo: Path, kind: str = "general") -> Path:
         command=f'"{sys.executable}" -c "pass"')
 
 
+def security_policy_contract(unit: str) -> dict:
+    """An acceptance contract whose active followup requires security review."""
+    return {
+        "version": 2, "criteria": [],
+        "activeFollowup": {
+            "unitId": unit, "status": "in_progress",
+            "reviewPolicy": {
+                "mode": "evidence-first", "riskTier": "high",
+                "requiredImpactClasses": ["correctness", "security"],
+                "minimumIndependentReviewers": 1,
+                "explorer": "isolated-machine-oracle",
+                "adjudicator": "sealed-host-union",
+            },
+        },
+    }
+
+
 # Deployment baseline: no command is a quiet no-op.
 r = sh([PY, str(SCRIPT)], ROOT)
 check("no command is a quiet no-op",
@@ -209,12 +226,33 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
     wrong_kind["kind"] = "security"
     check("security evidence cannot occupy the general review cache slot",
           core.record_matches(wrong_kind, context) is False)
-    accepted, _ = core.record_review(
-        repo, verdict="PASSED", kind="security", session="rc-security",
-        verification_receipt=receipt(repo, "security"))
-    check("accepted security verdict unlocks only the security cache slot",
-          accepted and core.cache_allows(repo, kind="security")
-          and core.cache_allows(repo, kind="general"))
+    # Plan session 10: the security kind is unlocked by coverage, not by a
+    # separate claim id. Without a security-requiring review policy the same
+    # receipt is refused for the security kind and never written there.
+    check("a receipt without security coverage leaves the security slot closed",
+          core.cache_allows(repo, kind="security") is False)
+    try:
+        core.record_review(
+            repo, verdict="PASSED", kind="security", session="rc-security",
+            verification_receipt=receipt(repo, "security"))
+        security_refused = "accepted"
+    except core.CacheError as exc:
+        security_refused = str(exc)
+    check("an explicit security record needs security coverage",
+          "security coverage" in security_refused, security_refused)
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps(security_policy_contract("RC-001")))
+    sh(["git", "add", ".itd/ACCEPTANCE_CONTRACT.json"], repo)
+    accepted, covered = core.record_review(
+        repo, verdict="PASSED", kind="general", session="rc-security",
+        verification_receipt=receipt(repo))
+    check("one receipt with security coverage unlocks the general and the security slot",
+          accepted and core.cache_allows(repo, kind="general")
+          and core.cache_allows(repo, kind="security")
+          and covered["verificationReceipt"]["securityCoverage"] == "covered")
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps({"criterion": "exact context"}))
+    sh(["git", "add", ".itd/ACCEPTANCE_CONTRACT.json"], repo)
 
     # Actual producer changes invalidate without touching the cache file.
     write(repo / "change-2.txt", "changed after review\n")
@@ -288,6 +326,9 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
         "risk_score": 12.0, "general_score": 4.0, "security_score": 8.0,
         "last_escalation_score": 12.0, "escalations": 1,
     }))
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps(security_policy_contract("RC-001")))
+    sh(["git", "add", ".itd/ACCEPTANCE_CONTRACT.json"], repo)
     security_receipt = receipt(repo, "security")
     core.record_review(repo, verdict="PASSED", kind="security", session="rc-risk",
                        verification_receipt=security_receipt)
@@ -295,6 +336,10 @@ with tempfile.TemporaryDirectory(prefix="review-cache-") as td:
     check("security review resets only security risk",
           state["general_score"] == 4.0 and state["security_score"] == 0.0
           and state["risk_score"] == 4.0 and state["last_escalation_score"] == 4.0)
+    # restore the exact candidate general_receipt was minted on
+    write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json",
+          json.dumps({"criterion": "changed"}))
+    sh(["git", "add", ".itd/ACCEPTANCE_CONTRACT.json"], repo)
 
     write(state_path, json.dumps({
         "risk_score": 25.0, "general_score": 15.0, "security_score": 10.0,

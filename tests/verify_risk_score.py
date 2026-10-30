@@ -105,6 +105,24 @@ def verdict(repo: Path, session: str, value: str, kind: str) -> int:
         # one claim's deliberate three-attempt repair budget.
         write(repo / "change.txt", f"candidate for {session} {kind}\n")
         run_git(repo, "add", "change.txt")
+        # Plan session 10: the security kind is unlocked by coverage of the
+        # unit's review policy; a general verdict keeps a correctness-only
+        # policy so it pays down the general bucket alone.
+        classes = ["correctness", "security"] if kind == "security" else ["correctness"]
+        write(repo / ".itd" / "ACCEPTANCE_CONTRACT.json", json.dumps({
+            "version": 2, "criteria": [],
+            "activeFollowup": {
+                "unitId": "R-1", "status": "in_progress",
+                "reviewPolicy": {
+                    "mode": "evidence-first", "riskTier": "medium",
+                    "requiredImpactClasses": classes,
+                    "minimumIndependentReviewers": 1,
+                    "explorer": "isolated-machine-oracle",
+                    "adjudicator": "sealed-host-union",
+                },
+            },
+        }))
+        run_git(repo, "add", ".itd/ACCEPTANCE_CONTRACT.json")
         receipt = make_review_receipt(
             repo, unit_id="R-1", risk_tier="medium", kind=kind,
             command=f'{sys.executable} -c "pass"')

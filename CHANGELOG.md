@@ -11,6 +11,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.109.2 открыт; записи появляются по мере слияния юнитов.
 
+### Changed - программа ADR-016 (сессия 10): одно ревью на кандидат
+
+- Одна квитанция ревью финального кандидата: `itd_review_cache.review_claim_id` возвращает голый id активного
+  юнита для любого вида ревью; квитанция adjudication под `<unit>` принимается кэшем коммита, security-гейтом DoD,
+  pre-push, `itd pr create` и закрытием юнита, пока совпадают дерево и хеш диффа. Раунда `<unit>:general-review`
+  больше нет: квитанция под суффиксом отказывается кэшем как чужой юнит; измененный кандидат требует нового ревью.
+- Security-гейт (`check-dod-before-commit.sh`, kind `security`) открывается той же квитанцией, когда политика
+  ревью юнита требует класс `security` и checker выполнялся (`security_coverage`); запись `--kind general` такой
+  квитанции пишет и security-запись. Квитанция без покрытия security или machine-only не открывает гейт;
+  явный `--kind security` без покрытия - отказ с WHY/FIX.
+- Провенанс закрытия: для чистого ledger-close кандидата `itd_free_reviewer_producer.py freeze_packet`
+  резолвит коммиты из строки «Start from» SCOPE_LOCK и из добавленных строк леджера, считает
+  `git merge-base --is-ancestor` и первого родителя и передает ревьюеру блок MACHINE-VERIFIED PROVENANCE во
+  всех промптах; scope без стартового коммита, нерезолвимый стартовый токен или стартовый коммит вне истории
+  кандидата - UNVERIFIED до вызова модели (ложная находка REL-1.109.1 о parent/child); блок перевычисляется
+  git перед подписью промпта, пакет с провенансом без корня репозитория не подписывается; оракул -
+  `tests/verify_close_provenance.py`.
+- `/review` и `/cross-review` получили тот же Step 0 маршрута, что `/bugfix`, `/task`, `/test`, `/refactor` и
+  `/adopt`: на минимальном маршруте - нативное `/code-review` (Claude Code) или встроенный `/review` (Codex)
+  без квитанций; строгие шаги `/review` (обязательный маршрут Sol/Terra, evidence-first, запись квитанции,
+  провенанс закрытия) - в `skills/review/references/strict.md`. Напоминание `cross-review-precommit.sh`
+  печатается только на строгом маршруте.
+- Доки и рецепты регистрации (`docs/VERIFICATION_LOOP.md`, `docs/API_REVIEWER.md`, `docs/CI.md`,
+  `skills/adopt/references/strict.md`, `skills/task/references/strict.md`, `docs/RELEASE_RUNBOOK.md`) называют
+  голый id юнита; `tests/verify_one_review_per_candidate.py` в run-all и обоих CI.
+
 ### Changed - программа ADR-016 (сессия 9): task и adopt
 
 - `/task` - тонкий роутер: выбирает скилл или делает небольшую фичу сам (правка, тесты к новому коду, прогон набора)

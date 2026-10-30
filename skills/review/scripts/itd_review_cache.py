@@ -5,6 +5,12 @@ The cache is reusable only while every frozen context key still matches. A
 recorded failure deliberately replaces an older success for the same review
 kind, so stale green evidence cannot survive a newer BLOCKED/UNVERIFIED result.
 No arguments is a quiet no-op; the module is also importable by hook adapters.
+
+One review per candidate (plan session 10): the receipt the cache consumes is
+the final candidate's adjudication minted under the bare active unit id - the
+same file the pre-push gate, ``itd pr create`` and the unit closure consume.
+The security kind is unlocked by that receipt only when its review covered the
+security impact class (``security_coverage``).
 """
 from __future__ import annotations
 
@@ -293,8 +299,51 @@ def detected_unit_id(root: Path) -> str:
 
 
 def review_claim_id(root: Path, kind: str) -> str:
-    """Separate general/security claims so one receipt cannot unlock both."""
-    return f"{detected_unit_id(root)}:{kind}-review"
+    """One claim id per candidate: the bare active unit id, for every kind.
+
+    Plan session 10: the final candidate's adjudication receipt is minted
+    under the active unit id and the same receipt serves every consumer - this
+    cache (the commit review gate), the DoD security gate, the pre-push gate,
+    ``itd pr create`` and the unit closure. A ``<unit>:general-review`` or
+    ``<unit>:security-review`` receipt is refused as another unit. The
+    ``kind`` no longer changes the id: what separates the security kind is
+    coverage, checked by ``security_coverage`` at record and match time.
+    """
+    del kind
+    return detected_unit_id(root)
+
+
+SECURITY_CHECKER_MODES = {"targeted", "full"}
+
+
+def security_coverage(root: Path, receipt: dict[str, Any]) -> bool:
+    """True when the receipt's review covered the security impact class.
+
+    The receipt binds the acceptance contract by hash (``validate_common``
+    has already proven the current file is the one reviewed), so the policy is
+    read from the repository's ``.itd/ACCEPTANCE_CONTRACT.json``: the active
+    followup must belong to the receipt's unit and require ``security``, and
+    a checker must have run (``targeted`` or ``full``) - a machine-only low
+    receipt reviewed nothing. A strict candidate without this coverage keeps
+    the security gate closed.
+    """
+    if str(receipt.get("checkerMode") or "") not in SECURITY_CHECKER_MODES:
+        return False
+    try:
+        contract = json.loads(
+            (root / ".itd" / "ACCEPTANCE_CONTRACT.json").read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    followup = contract.get("activeFollowup") if isinstance(contract, dict) else None
+    if not isinstance(followup, dict):
+        return False
+    if str(followup.get("unitId") or "") != str(receipt.get("unitId") or ""):
+        return False
+    policy = followup.get("reviewPolicy")
+    if not isinstance(policy, dict):
+        return False
+    classes = policy.get("requiredImpactClasses")
+    return isinstance(classes, list) and "security" in classes
 
 
 def parent_state_hash(root: Path) -> str:
@@ -335,12 +384,21 @@ def validate_review_receipt(root: Path, receipt_path: Path | str,
     except module.LoopError as exc:
         raise CacheError(
             f"review receipt is UNVERIFIED: {exc.why}", exc.fix) from exc
+    covers_security = security_coverage(root, receipt)
+    if kind == "security" and not covers_security:
+        raise CacheError(
+            "review receipt has no security coverage",
+            "Review the candidate on the strict route with the security impact "
+            "class required by activeFollowup.reviewPolicy and a checker run; "
+            "a machine-only or security-less receipt cannot unlock the security gate.",
+        )
     return {
         "path": relative,
         "sha256": sha256_file(path),
         "receiptSha256": str(receipt.get("receiptSha256") or ""),
         "outcome": str(receipt.get("outcome") or ""),
         "claimId": review_claim_id(root, kind),
+        "securityCoverage": "covered" if covers_security else "none",
     }
 
 
@@ -551,28 +609,51 @@ def record_review(root: Path | str, *, verdict: str, kind: str = "general",
                 "evidence as PASSED; labels are never interchangeable.",
             )
     recorded_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    gate_material = json.dumps({
-        "context": context, "verdict": normalized_verdict,
-        "kind": normalized_kind, "warnings": warning_list,
-        "recordedAt": recorded_at, "verificationReceipt": receipt_binding,
-    }, sort_keys=True, ensure_ascii=False).encode("utf-8")
-    record = {
-        "context": context,
-        "verdict": normalized_verdict,
-        "kind": normalized_kind,
-        "durableWarnings": warning_list,
-        "accepted": accepted,
-        "recordedAt": recorded_at,
-        "gateId": sha256_bytes(gate_material),
-        "policySha256": policy_digest,
-        "verificationReceipt": receipt_binding,
-    }
+    # One receipt per candidate (plan session 10): a general record whose
+    # receipt covers the security impact class also writes the security record,
+    # so the DoD security gate is unlocked by the same final-candidate review
+    # and no second model call is needed. A receipt without that coverage
+    # writes only its own kind; an explicit security kind was already refused
+    # above when the coverage is absent.
+    kinds = [normalized_kind]
     cache = load_cache(root)
-    cache["records"][normalized_kind] = record
+    if normalized_kind == "general":
+        if accepted and receipt_binding.get("securityCoverage") == "covered":
+            kinds.append("security")
+        elif not accepted:
+            # The one review of the candidate came back negative: every slot
+            # it could have fed closes with it. An accepted security record
+            # written for the SAME exact candidate (by the earlier general
+            # record or by an explicit security verdict) would otherwise stay
+            # green while the candidate is BLOCKED or UNVERIFIED (review a2).
+            # A security record of another candidate never matches anyway.
+            existing = (cache.get("records") or {}).get("security")
+            if isinstance(existing, dict) and existing.get("context") == context:
+                kinds.append("security")
+    records: dict[str, dict[str, Any]] = {}
+    for record_kind in kinds:
+        gate_material = json.dumps({
+            "context": context, "verdict": normalized_verdict,
+            "kind": record_kind, "warnings": warning_list,
+            "recordedAt": recorded_at, "verificationReceipt": receipt_binding,
+        }, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        records[record_kind] = {
+            "context": context,
+            "verdict": normalized_verdict,
+            "kind": record_kind,
+            "durableWarnings": warning_list,
+            "accepted": accepted,
+            "recordedAt": recorded_at,
+            "gateId": sha256_bytes(gate_material),
+            "policySha256": policy_digest,
+            "verificationReceipt": receipt_binding,
+        }
+        cache["records"][record_kind] = records[record_kind]
     write_json_atomic(cache_path(root), cache)
     if accepted:
-        pay_down_risk(normalized_kind, session, record["gateId"])
-    return accepted, record
+        for record_kind in kinds:
+            pay_down_risk(record_kind, session, records[record_kind]["gateId"])
+    return accepted, records[normalized_kind]
 
 
 def cache_allows(root: Path | str, risk_tier: str | None = None,

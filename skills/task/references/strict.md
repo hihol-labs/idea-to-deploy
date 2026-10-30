@@ -177,8 +177,10 @@ claim machine-enforced WIP.
    fresh-session checker; high/unknown adds a full checker from a fresh session
    and different model/provider. Mint the unit receipt with claim id equal to
    the active unit, validate it again with `itd_verification_loop.py check`, and
-   only then mark the unit verified. `/review` separately records its
-   `<unit>:general-review` receipt for the exact-context cache.
+   only then mark the unit verified. That one receipt is what `/review`
+   records for the exact-context cache and what the security gate, pre-push,
+   `itd pr create` and the closure consume (plan session 10); there is no
+   separate review round under a suffixed claim.
 6. Commit per the project's branch/PR rules; `/session-save` at the block end.
 
 Tier note (S1): a feature is **standard** by default; escalate to

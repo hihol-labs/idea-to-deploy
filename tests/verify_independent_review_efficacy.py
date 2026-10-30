@@ -91,6 +91,9 @@ HISTORY_PINNED_SNAPSHOTS = {
     "diagnostic-f0cedfe6-wsl-rerun1/wsl.json": "2c881206a81a39774c738fef0dcf744fa0ea30781ee9a7b64a82e25c859a84b3",
     "diagnostic-f0cedfe6-wsl-rerun1/windows.json": "7d9e68bd7a4ff9a56171a92b98e29e5618879cfebcc4f0c3f7ea6567b17a22b9",
     "diagnostic-f0cedfe6-wsl-rerun1/u12-cross-vendor-wsl.json": "b99d504db44fd7b5ac6f6dd6e03ef289d051561e10e44c506afc288cc4b6254a",
+    "diagnostic-141c105d/wsl.json": "0e1d8b9d0510bc8b20eb3318855257dc9c0088f33ef22ff950b9b0c0be0cbbbe",
+    "diagnostic-141c105d/u12-cross-vendor-wsl.json": "516e0e4f8f880cd8cf675cfeba0cf196c6eefcebab40e0c522f7c664cf8fcf06",
+    "diagnostic-141c105d/windows.json": "9dda0d7100ba0573773965eeff811e72ea6687b1fffe7fd245f57ae48a1c535a",
 }
 # These values are deliberately in the verifier rather than trusting a mutable
 # archive manifest.  They bind the accepted evidence to the bytes that Git

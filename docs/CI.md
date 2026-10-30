@@ -190,7 +190,7 @@ itd gate register-profile \
   --deployment-profile local-submission \
   --protection-profile local-review \
   --local-review-receipt-file <absolute-current-adjudication.json> \
-  --local-review-unit-id <unit-id>:general-review \
+  --local-review-unit-id <unit-id> \
   --local-review-risk-tier high \
   --local-review-producer-keyring-sha256 <trusted-keyring-sha256>
 

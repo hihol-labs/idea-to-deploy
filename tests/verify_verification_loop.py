@@ -1503,44 +1503,44 @@ head_context = loop_module.candidate_context(empty_root, "low", "committed-head"
 check("committed-head still binds a non-empty candidate on the same tree (RR2)",
       head_context["diffHash"] != EMPTY_SHA256, head_context["diffHash"])
 
-# --- ROUTE-REPAIR-2: the review claim chain is a documented route ---
+# --- ROUTE-REPAIR-2 -> plan session 10: one claim id, the bare unit id ---
 #
-# itd_review_cache validates against `<UNIT>:general-review`. Minting the whole
-# chain under that claim id already works; nothing in the route said so, so the
-# discovery was paid for once per session.
+# itd_review_cache validated against `<UNIT>:general-review` until plan
+# session 10, while every other consumer (goal harness, pre-push, PR) wanted the
+# bare unit id, so each session paid for a second `<unit>:general-review` round.
+# The cache now derives the bare unit id for every kind, and the chain minted
+# under it is the one receipt of the candidate.
 claim_root = fixture()
 claim_machine = last_path(run([
-    "machine", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
+    "machine", "--root", str(claim_root), "--unit-id", "U-loop",
     "--risk-tier", "low", "--candidate-mode", "staged",
     "--command", interpreter_oracle(),
 ], claim_root))
 claim_adj = last_path(run([
-    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
+    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop",
     "--risk-tier", "low", "--machine", str(claim_machine),
 ], claim_root))
 claim_bound = ""
 try:
-    loop_module.validate_adjudication(
-        claim_root, claim_adj, "low", "U-loop:general-review")
+    loop_module.validate_adjudication(claim_root, claim_adj, "low", "U-loop")
     claim_bound = "bound"
 except loop_module.LoopError as exc:
     claim_bound = f"UNVERIFIED: {exc.why}"
-check("the review subclaim chain validates under the cache's claim id (RR2)",
+check("the bare-unit chain validates under the unit id (S10)",
       claim_bound == "bound", claim_bound)
 
 claim_wrong = ""
 try:
-    loop_module.validate_adjudication(claim_root, claim_adj, "low", "U-loop")
+    loop_module.validate_adjudication(
+        claim_root, claim_adj, "low", "U-loop:general-review")
     claim_wrong = "accepted"
 except loop_module.LoopError as exc:
     claim_wrong = exc.why
-check("a subclaim receipt does not unlock the bare unit (RR2)",
+check("a bare-unit receipt does not unlock a suffixed claim (S10)",
       claim_wrong != "accepted", claim_wrong)
 
 # The criterion names the review CACHE as the consumer, so the proof must run
-# through it and not stop at validate_adjudication: an earlier version of this
-# block only called the loop directly, and independent review pointed out the
-# unit could be marked verified without ever exercising the consumer it names.
+# through it and not stop at validate_adjudication.
 cache_spec = importlib.util.spec_from_file_location(
     "itd_review_cache_fixture", CACHE)
 assert cache_spec and cache_spec.loader
@@ -1557,8 +1557,9 @@ cache_spec.loader.exec_module(cache_module)
                "verifiedAt": "", "evidence": "", "skippedReason": "",
                "blockedReason": ""}],
 }), encoding="utf-8")
-check("the cache derives the subclaim id from the active unit (RR2)",
-      cache_module.review_claim_id(claim_root, "general") == "U-loop:general-review",
+check("the cache derives the bare unit id for every review kind (S10)",
+      cache_module.review_claim_id(claim_root, "general") == "U-loop"
+      and cache_module.review_claim_id(claim_root, "security") == "U-loop",
       cache_module.review_claim_id(claim_root, "general"))
 
 cache_bound = ""
@@ -1568,8 +1569,8 @@ try:
     cache_bound = str(accepted.get("claimId") or "")
 except cache_module.CacheError as exc:
     cache_bound = f"UNVERIFIED: {exc}"
-check("the review cache accepts the subclaim chain with no workaround (RR2)",
-      cache_bound == "U-loop:general-review", cache_bound)
+check("the review cache accepts the bare-unit chain with no workaround (S10)",
+      cache_bound == "U-loop", cache_bound)
 
 cache_security = ""
 try:
@@ -1577,32 +1578,30 @@ try:
     cache_security = "accepted"
 except cache_module.CacheError as exc:
     cache_security = str(exc)
-check("a general-review receipt does not unlock the security claim (RR2)",
-      cache_security != "accepted", cache_security)
+check("a machine-only receipt does not unlock the security kind (S10)",
+      "security coverage" in cache_security, cache_security)
 
-# The criterion says the CACHE refuses a chain minted under the BARE unit id.
-# An earlier version of this block proved only the two neighbouring cases - a
-# suffixed receipt validated as a bare unit, and a suffixed chain accepted by
-# the cache - and independent review pointed out that neither is the stated
-# one. A whole chain is therefore minted under "U-loop" and handed to the
-# cache, which is exactly the shape every earlier session produced by default.
-bare_machine = last_path(run([
-    "machine", "--root", str(claim_root), "--unit-id", "U-loop",
+# A whole chain minted under the old suffixed claim is handed to the cache,
+# which is exactly the shape every earlier session produced on purpose; the
+# cache now refuses it as another unit, so the suffixed round cannot linger.
+suffixed_machine = last_path(run([
+    "machine", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
     "--risk-tier", "low", "--candidate-mode", "staged",
     "--command", interpreter_oracle(),
 ], claim_root))
-bare_adj = last_path(run([
-    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop",
-    "--risk-tier", "low", "--machine", str(bare_machine),
+suffixed_adj = last_path(run([
+    "adjudicate", "--root", str(claim_root), "--unit-id", "U-loop:general-review",
+    "--risk-tier", "low", "--machine", str(suffixed_machine),
 ], claim_root))
-bare_cache = ""
+suffixed_cache = ""
 try:
-    cache_module.validate_review_receipt(claim_root, bare_adj, "low", "general")
-    bare_cache = "accepted"
+    cache_module.validate_review_receipt(claim_root, suffixed_adj, "low", "general")
+    suffixed_cache = "accepted"
 except cache_module.CacheError as exc:
-    bare_cache = str(exc)
-check("the cache refuses a chain minted under the bare unit id (RR2)",
-      bare_cache != "accepted" and "another unit" in bare_cache, bare_cache)
+    suffixed_cache = str(exc)
+check("the cache refuses a chain minted under a suffixed claim (S10)",
+      suffixed_cache != "accepted" and "another unit" in suffixed_cache,
+      suffixed_cache)
 
 # --- ROUTE-REPAIR-2: the mirror attribution must DERIVE, not be asserted ---
 #
@@ -1686,24 +1685,23 @@ loop_doc = (ROOT / "docs" / "VERIFICATION_LOOP.md").read_text(encoding="utf-8")
 # canonical explanation was gone. The whole paragraph is normalized (newlines
 # collapsed) and required verbatim, so a rearrangement fails.
 CLAIM_CHAIN_BLOCK = (
-    "One claim id runs through the whole chain. "
-    "`skills/review/scripts/itd_review_cache.py` is the consumer of a review "
-    "receipt, and `review_claim_id` builds the id it validates against as "
-    "`<active-unit>:general-review` (or `:security-review`), so a chain minted "
-    "under the bare unit id is refused with `review receipt is UNVERIFIED: "
-    "receipt belongs to another unit`. The machine receipt, the checker receipt "
-    "and the adjudication must all carry that same `--unit-id`, and the two "
-    "failure modes surface at different moments. MIXING ids breaks at the MINT: "
-    "an adjudication validates its machine and checker dependencies against its "
-    "own unit id, so a chain whose links disagree is refused while it is being "
-    "built. A chain minted CONSISTENTLY under the bare unit id mints cleanly "
-    "and is refused later, by the cache, which is why that failure surfaces "
-    "late and why every session that defaulted to the bare id paid for the "
-    "discovery at the gate rather than at the producer. `v2_primary_unit` "
-    "derives the root unit from the exact `:general-review` suffix, so the "
-    "subclaim keeps the general and security claims separate while still "
-    "resolving to one primary unit - a receipt minted under one claim never "
-    "unlocks the other."
+    "One claim id runs through the whole chain, and it is the bare active unit "
+    "id. `skills/review/scripts/itd_review_cache.py` is the consumer of a review "
+    "receipt, and `review_claim_id` returns the active unit id for every review "
+    "kind, so the final candidate's adjudication minted under `<unit>` is the one "
+    "receipt the commit cache, the DoD security gate, the pre-push gate, `itd pr "
+    "create` and the unit closure all accept while the reviewed tree and the diff "
+    "hash still match (plan session 10). A chain minted under a suffixed claim "
+    "such as `<unit>:general-review` is refused by the cache with `review receipt "
+    "is UNVERIFIED: receipt belongs to another unit`, and no such round exists any "
+    "more. The machine receipt, the checker receipt and the adjudication must all "
+    "carry that same `--unit-id`: an adjudication validates its machine and "
+    "checker dependencies against its own unit id, so a chain whose links "
+    "disagree is refused while it is being built. What separates the security "
+    "kind is coverage, not the id: `security_coverage` accepts the receipt for "
+    "the security gate only when the unit's `reviewPolicy.requiredImpactClasses` "
+    "names `security` and a checker ran, so a machine-only or security-less "
+    "receipt never unlocks the security gate."
 )
 normalised_doc = " ".join(loop_doc.split())
 check("the route states the claim chain as one canonical block (RR2)",
@@ -1718,13 +1716,15 @@ check("the route states the claim chain as one canonical block (RR2)",
 # The semantic claim "no sentence anywhere licenses the opposite" is not
 # decidable by pattern matching, so it is NOT claimed here.
 #
-# What IS established, behaviourally rather than textually: the cache refuses a
-# chain minted under the bare unit id. That is proved above by "a subclaim
-# receipt does not unlock the bare unit" and by "the review cache accepts the
-# subclaim chain with no workaround", and M12 - which strips the suffix from
-# the cache's own claim id - kills both. Documentation cannot license what the
-# code refuses, so the duty rests on the executable proof plus the positive
-# clauses of the canonical block, not on scanning prose for its negation.
+# What IS established, behaviourally rather than textually (plan session 10):
+# the cache accepts the chain minted under the bare unit id and refuses a
+# chain minted under a suffixed claim. That is proved above by "the review
+# cache accepts the bare-unit chain with no workaround" and by "the cache
+# refuses a chain minted under a suffixed claim"; a mutant that re-appends
+# the suffix to the cache's own claim id kills both. Documentation cannot
+# license what the code refuses, so the duty rests on the executable proof
+# plus the positive clauses of the canonical block, not on scanning prose for
+# its negation.
 
 # --- WIN-TESTQUOTE-1: oracle commands survive a non-ASCII interpreter path ---
 #

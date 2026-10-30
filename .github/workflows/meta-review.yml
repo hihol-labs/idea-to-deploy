@@ -155,6 +155,12 @@ jobs:
       - name: Run task and adopt by the project route (thin router, adopt pointer, --strict full set) (plan session 9)
         run: python3 tests/verify_task_adopt_route.py
 
+      - name: Run one review per candidate (bare claim id, security by coverage, review route) (plan session 10)
+        run: python3 tests/verify_one_review_per_candidate.py
+
+      - name: Run machine-verified provenance of a ledger close (plan session 10)
+        run: python3 tests/verify_close_provenance.py
+
       - name: Run hook-table completeness G-005 (map quadrants/blocking rows vs hooks/) (v1.76.0 — был латентным, протух на v1.75.0)
         run: python3 tests/verify_hook_table_completeness.py
 

@@ -175,22 +175,23 @@ tails, so alternate field names cannot turn secrets or PII into durable memory.
 
 ## Canonical producer sequence
 
-One claim id runs through the whole chain. `skills/review/scripts/itd_review_cache.py`
-is the consumer of a review receipt, and `review_claim_id` builds the id it
-validates against as `<active-unit>:general-review` (or `:security-review`), so
-a chain minted under the bare unit id is refused with `review receipt is
-UNVERIFIED: receipt belongs to another unit`. The machine receipt, the checker
-receipt and the adjudication must all carry that same `--unit-id`, and the two
-failure modes surface at different moments. MIXING ids breaks at the MINT: an
-adjudication validates its machine and checker dependencies against its own
-unit id, so a chain whose links disagree is refused while it is being built. A
-chain minted CONSISTENTLY under the bare unit id mints cleanly and is refused
-later, by the cache, which is why that failure surfaces late and why every
-session that defaulted to the bare id paid for the discovery at the gate rather
-than at the producer. `v2_primary_unit` derives the root unit from
-the exact `:general-review` suffix, so the subclaim keeps the general and
-security claims separate while still resolving to one primary unit - a receipt
-minted under one claim never unlocks the other.
+One claim id runs through the whole chain, and it is the bare active unit
+id. `skills/review/scripts/itd_review_cache.py` is the consumer of a review
+receipt, and `review_claim_id` returns the active unit id for every review
+kind, so the final candidate's adjudication minted under `<unit>` is the one
+receipt the commit cache, the DoD security gate, the pre-push gate, `itd pr
+create` and the unit closure all accept while the reviewed tree and the diff
+hash still match (plan session 10). A chain minted under a suffixed claim
+such as `<unit>:general-review` is refused by the cache with `review receipt
+is UNVERIFIED: receipt belongs to another unit`, and no such round exists any
+more. The machine receipt, the checker receipt and the adjudication must all
+carry that same `--unit-id`: an adjudication validates its machine and
+checker dependencies against its own unit id, so a chain whose links
+disagree is refused while it is being built. What separates the security
+kind is coverage, not the id: `security_coverage` accepts the receipt for
+the security gate only when the unit's `reviewPolicy.requiredImpactClasses`
+names `security` and a checker ran, so a machine-only or security-less
+receipt never unlocks the security gate.
 
 The machine receipt minted under the bare unit id must carry a leg for every
 `reviewEvidence.oracleIds` entry of that unit's acceptance criteria, because the
@@ -223,8 +224,9 @@ cannot manufacture apparent independence.
 SHD="skills/_shared"
 VL="$SHD/itd_verification_loop.py"
 
-# CLAIM_ID is G-00X for /goal, or <active-unit>:general-review /
-# <active-unit>:security-review for cache gates. EVERY receipt in the chain -
+# CLAIM_ID is the bare unit id for every consumer: G-00X for /goal, the
+# active unit for the commit cache, the security gate, pre-push, PR and the
+# closure (plan session 10). EVERY receipt in the chain -
 # machine, checker and adjudication - carries the SAME CLAIM_ID; see the
 # paragraph under this block before minting the first one. Under the bare id of
 # an open follow-up unit, pass one --command per reviewEvidence.oracleIds entry
@@ -283,7 +285,7 @@ receipt or authorizes a route:
 sh "$SHD/itd_py.sh" "$VL" prepare-adjudication --root . \
   --unit-id "$UNIT" --risk-tier "$RISK_TIER" --checker "$CHECKER_RECEIPT" \
   --dispositions completed-dispositions.json --claim "$UNIT" \
-  --claim "$UNIT:general-review" > v2-approval-draft.json
+  > v2-approval-draft.json
 ```
 
 The closed v2 draft has `version`, `confirmedBy`, `confirmation`,
@@ -301,12 +303,13 @@ complete candidate context (`repository`, `baseCommit`, `reviewedTree`,
 the Verification Loop policy SHA-256, the root unit, explicit claims, and the
 complete ordered checker target plus disposition content. Reordering a finding
 is semantic. Byte-identical repeated checker targets are deduplicated once in
-their first source position; all other rows remain distinct. Claims are closed: the root unit is mandatory and only its exact
-`<unit>:general-review` claim may be added. Security claims, wildcards,
+their first source position; all other rows remain distinct. Claims are closed: the root unit is mandatory; the route mints no other
+claim since plan session 10, and only a legacy approval may still list the
+root's exact `:general-review` claim. Security claims, wildcards,
 duplicates, foreign units, and a colon-bearing primary v2 unit fail closed.
-The exact `<unit>:general-review` claim derives that stored root primary unit
-only for its own validation; it does not create authority for security or any
-other subclaim.
+A legacy suffixed claim derives that stored root primary unit only for its
+own validation; it does not create authority for security or any other
+subclaim.
 The required affirmation names the canonical binding digest. Any changed
 candidate, policy, risk, target, class, rationale, evidence, claim, or checker
 file invalidates approval. A new checker file may reuse an unchanged v2

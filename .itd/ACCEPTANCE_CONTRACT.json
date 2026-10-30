@@ -6260,6 +6260,128 @@
           "full"
         ]
       }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC1",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "One receipt, every consumer: skills/review/scripts/itd_review_cache.py review_claim_id returns the bare active unit id for every review kind; the final candidate's adjudication minted under <unit> is accepted by the commit review cache (record --kind general), by hooks/check-dod-before-commit.sh through the security kind when the unit's reviewPolicy.requiredImpactClasses names security and a checker ran, by validate_adjudication in committed-head mode after exactly one commit (the pre-push gate and itd pr create) and by the goal harness itd_goal_verify.validate_verification_receipt (the unit closure) - all without a second model call; a chain minted under <unit>:general-review is refused by the cache as another unit; a changed candidate (new tree or diff) is refused by every consumer, the goal harness included; a negative general verdict on the same candidate closes the security slot it had opened.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "tests/verify_one_review_per_candidate.py 45 passed, 0 failed (the one-review machine leg, python3.12 -I; 53 on native Windows before the provenance section moved to its own module): [1] review_claim_id returns the bare id for the general and the security kind; one high receipt (checkerMode full) recorded with --kind general unlocks cache_allows(general) and cache_allows(security), both records bind the same file with securityCoverage covered; check --kind security exits 0; the DoD hook accepts a git-commit payload with src/auth/login.py staged; after exactly one commit validate_adjudication (committed-head: the pre-push gate and itd pr create) and itd_goal_verify.validate_verification_receipt (the unit closure) bind the same receipt; a second commit or a newly staged file is refused by every consumer; a BLOCKED general verdict closes both slots and re-recording the accepted receipt reopens them; [3] a chain under <unit>:general-review is refused as 'receipt belongs to another unit'. tests/verify_review_cache.py 67 passed, tests/verify_verification_loop.py 121 passed (S10 block: bare chain accepted, suffixed chain refused, machine-only receipt never unlocks security), tests/verify_adjudication_channel.py 65 checks PASSED - WSL and native Windows. The eight claim-id and coverage mutants of mutants.py are killed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_one_review_per_candidate.py",
+      "reviewEvidence": {
+        "claim": "One accepted candidate passes every gate with one receipt and no second model call; a changed candidate needs a new review.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "one-review",
+          "review-cache",
+          "verification-loop"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC2",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "A strict candidate without security coverage stays blocked: a receipt whose unit policy does not require security, or a machine-only (low) receipt, never unlocks the security kind; record --kind security with such a receipt refuses with WHY/FIX (CLI non-zero); the DoD gate denies the commit of a money/auth path; the general kind stays usable.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "tests/verify_one_review_per_candidate.py [2] on WSL and native Windows: a high receipt whose unit policy requires only correctness leaves cache_allows(security) False while the general kind is unlocked; the binding says securityCoverage none and no security record is written; record --kind security with that receipt refuses 'review receipt has no security coverage' with the strict-route FIX in the library and in the CLI (non-zero, WHY/FIX JSON); the DoD gate denies the commit of the staged auth path (exit 2, permissionDecision deny naming security-audit); a security policy declared for another unit does not cover the receipt; a low (machine-only) receipt never unlocks the security kind. tests/verify_review_cache.py: 'a receipt without security coverage leaves the security slot closed' and 'an explicit security record needs security coverage'. Mutants 'machine-only receipt covers security', 'policy without security still covers', 'foreign unit policy covers' killed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_one_review_per_candidate.py",
+      "reviewEvidence": {
+        "claim": "The security gate is unlocked by coverage of the same receipt, never by its absence.",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "one-review",
+          "review-cache"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC3",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "Machine-verified provenance before the model review of a closure: for a closed-unit-inherited candidate itd_free_reviewer_producer.freeze_packet adds a closed provenance block computed by git - the scope's start commit is required - the start line is the first scope line that carries the directive and a commit token, prose that merely says 'start from' is skipped - (no such line, an unresolvable or ambiguous first token, or a start outside the candidate parent's history is UNVERIFIED before any model call), every commit named in the added hunk lines is resolved before the related-commit cap (more than 64 related commits is UNVERIFIED, never a silent cut; a close naming more than 4096 distinct hex-looking tokens is UNVERIFIED before any git call - a fail-closed work bound, not a cut) with its first parent and its relation to the parent and to the scope start, non-commit tokens are listed as unresolved without truncation, digits-only ones included, and prefixes matching several objects as ambiguous; hex is accepted in either case and keeps its spelling; the block is rendered only after a closed structural validation bound to the packet's exact candidate (base and parent) and only with closed-unit-inherited coverage, as MACHINE-VERIFIED PROVENANCE with the no-inference instruction on every prompt surface before the inherited-coverage note; the receipt issuer re-derives the block with git before it branches on the reviewer mode (direct or legacy quorum) and refuses a provenance-bearing packet without the repository root or with any difference; an ordinary candidate carries no block; prompt artifacts validate.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "tests/verify_close_provenance.py 36 passed, 0 failed (the one-review machine leg, python3.12 -I): on a three-commit history with a side branch the block is closed (version, kind itd-ledger-close-provenance, method, baseCommit, parentCommit, baseIsAncestorOfParent, scopeStart, commits, unresolved, ambiguous); the scope start resolves from its 7-char form and is an ancestor of the parent; a commit named in an added ledger line is related (first parent, ancestorOfParent True, descendantOfScopeStart True); the squashed side-branch head is reported ancestorOfParent False without judgement; non-commit tokens are unresolved; removed lines and +++ headers are ignored while ++ content inside a hunk is read, and an unresolved digits-only token is listed like any other (review a13); a prefix matching several objects is ambiguous (an ambiguous start is UNVERIFIED); seventy counters before a commit do not crowd it out and are all listed as unresolved, seventy unresolved names are all kept; an uppercase start token resolves and an uppercase ledger reference is related and keeps its spelling; a close naming 4097 distinct hex-looking tokens is UNVERIFIED 'more hex tokens' before any resolution; more than 64 commits, a start outside the history, no start line and an unresolvable first token are UNVERIFIED with their own reasons before any model call; a token-less 'start from' prose line above the directive is skipped and the directive counts, a scope whose only start lines carry no token is UNVERIFIED 'names no start commit', and the token bound fires before the scope start is resolved (a token swarm with no start line is refused for its tokens); nine malformed or altered blocks, a block about another candidate and a block with active-unit coverage fail closed on every surface; validate_review_prompt_artifact(root=repo) accepts the real packet and refuses an altered ancestry flag by git recomputation; the same packet without a root is UNVERIFIED 'needs the repository root' while a packet without the block still validates; phase_one_receipt with legacy quorum arguments refuses the packet without a root before any identity check and, given the root, refuses the altered flag (the shared step runs before the reviewer-mode branch, the quorum validator passes the root through). End-to-end: freeze_packet on a real ledger-close repository (scope 'Start from merged main <base>') inherits coverage and carries the block (scopeStart = base, baseCommit = parentCommit, the closing STATE line's commit related by git), review_prompt shows it before the inherited-coverage note, a real close whose scope names no start commit is UNVERIFIED. tests/verify_free_reviewer_producer.py 321 checks PASSED (317 on native Windows), 0 live or paid calls: the pure-close fixture carries the block; close-plus-code, plan-ledger and ledger add/delete cases carry none. The producer edit moved the efficacy pin ten times (f0cedfe6 -> 7b373538 by the provenance block, -> ccb79d5b review a1, -> 88ff3491 a2, -> 2cb60b75 a4, -> 189734a9 a5, -> 75c14336 a6, -> 1464bd41 a7, -> 243830ce a9, -> 4b7790e0 a11, -> 141c105d a13) and the three semantic legs (WSL astra -> terra, native Windows astra -> terra, U12 claude-opus-5 -> sol; 9 cases each) were re-minted live each time. The archive ships the legs of the producer bytes that ship: benchmarks/independent-review-efficacy/history/route-debts/diagnostic-141c105d with its manifest entries, the results/ views and the verifier pins (every case scored at its first attempt and each leg PASSED; the WSL leg was resumed twice and the U12 leg once from their signed checkpoints after Codex event-stream drops (UNAVAILABLE / UNVERIFIED without proven unavailability, logs kept as wsl-attempt1-unavailable.log, wsl-attempt2-unavailable.log, u12-attempt1-unverified.log), the Windows leg ran through a private CODEX_HOME holding a legacy-schema copy of the host's Codex auth (BACKLOG); tests/verify_independent_review_efficacy.py passes on it with criticalHighDetection 1.0, mediumDetection 1.0, cleanFalseBlockRate 0.0 on both hosts). The signed observations of the nine intermediate producer versions, which never ship, stay on the host under .itd-memory/host-inputs/ITD-PLAN-S10/efficacy-<sha8>/ with their failed invocation logs - among them the first 2cb60b75 WSL observation that reported the high-export-capacity defect at src/export.ts line 11 with category 'capacity', outside the frozen fault binding (lines 4-10; specification-compliance/correctness/scale/bounded-output), so the matcher scored criticalHighDetection 0.667 (the line-binding class of 2026-10-15), and its second observation that matched all three high cases; those observations are not part of this candidate's evidence. The nineteen provenance mutants of mutants.py (from 'provenance never computed' to 'uppercase hex rejected') are killed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_close_provenance.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "reviewEvidence": {
+        "claim": "The reviewer of a closure receives commit ancestry as git-verified data, not as text to guess from.",
+        "impactClasses": [
+          "correctness"
+        ],
+        "oracleIds": [
+          "one-review",
+          "free-reviewer-producer"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC4",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "Review by the project's route: skills/review/SKILL.md and skills/cross-review/SKILL.md carry the identical Step 0 route command of bugfix, test, refactor, task and adopt; the route is strict when the command prints strict, when --strict is given or when the task is of a strict class; the minimal route names /code-review (Claude Code) and the built-in /review (Codex) with no receipt, claim id or cache record; the strict steps of /review (mandatory Sol/Terra route, evidence-first coverage, one receipt per candidate and its recording, close provenance) live in skills/review/references/strict.md, which opens with the rule that it is read whenever any strict selector applies, whatever the command printed; hooks/cross-review-precommit.sh reminds only on the strict route (same marker, same 8 KB window; the entry path is opened non-blocking and the descriptor checked with fstat, so a FIFO cannot block it); the README rows name --strict and the strict task class as selectors, say that every strict selector selects the mandatory route with the unit's risk tier setting only the depth, and state the security-gate condition (the unit policy requires security and a checker ran); review SKILL.md, strict.md, cross-review SKILL.md and the two session 10 test modules at most 500 lines; the registration recipes (docs/API_REVIEWER.md, docs/CI.md, skills/adopt/references/strict.md), skills/task/references/strict.md and docs/VERIFICATION_LOOP.md name the bare unit id; the new oracle runs in run-all and both CI workflows.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "tests/verify_one_review_per_candidate.py [4]: the Step 0 command of /bugfix appears exactly once in review and cross-review SKILL.md and exactly once in test, refactor, task and adopt SKILL.md (identity across the seven route skills, review a12); the minimal route names '/code-review in Claude Code' and the 'built-in /review in Codex' with 'No receipt, no claim id, no cache record' and 'nothing to record'; cross-review defers with 'no second-model gate' and 'not a caller bypass'; strict.md has S1-S5, the bare active unit id, itd_review_cache.py, MACHINE-VERIFIED PROVENANCE, 'no caller bypass' and 'whenever any strict selector applies'; review SKILL.md and task strict.md name no suffixed claim; API_REVIEWER.md, CI.md and adopt strict.md register --local-review-unit-id <unit-id>; VERIFICATION_LOOP.md states the bare id and security_coverage; the five line counts are <= 500; the Step 0 text says --strict and a strict task class select the strict route whatever the command printed; the /review rows of README.md and README.ru.md (review a7) say every strict selector selects the route, the risk tier sets the depth and the security gate needs a security policy and a checker; the hook has strict_route, ROUTE_WINDOW 8192, O_NONBLOCK and os.fstat(fd) and returns 0 off the strict route; run-all and both workflows run the oracle. tests/verify_cross_review_precommit.py 14 passed (minimal route + migration -> SKIP, marker beyond 8 KB -> SKIP, a FIFO at CLAUDE.md -> SKIP without hanging, AGENTS.md comment marker -> REMIND, the eight strict-marked cases); verify_mandatory_keyless_review 85 checks; verify_review_autoping 12; verify_strict_route 65; meta_review PASSED; verify_triggers no drift; verify_runall_drift 135; verify_review_sentinel_diffbind 19 under python3.12 -I. Native Windows: verify_review_autoping 12 passed; verify_strict_route, verify_mandatory_keyless_review, verify_review_sentinel_diffbind and verify_adjudication_channel are red there on clean main 7326af1 too (host/launcher, windows-acceptance-wt1.txt); verify_cross_review_precommit invokes python3 by name and does not run on Windows. The shared Step 0 command itself still reads the entry files with head (S8/S9 texts outside this scope): the FIFO hardening of all seven skills is a BACKLOG item (owner adjudication of the review a7 medium). The thirteen route and wiring mutants of mutants.py (a Step 0 drift in /test among them) are killed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_one_review_per_candidate.py && sh skills/_shared/itd_py.sh tests/verify_cross_review_precommit.py && sh skills/_shared/itd_py.sh tests/verify_mandatory_keyless_review.py && sh skills/_shared/itd_py.sh tests/verify_review_autoping.py && sh skills/_shared/itd_py.sh tests/verify_strict_route.py && sh skills/_shared/itd_py.sh tests/meta_review.py",
+      "reviewEvidence": {
+        "claim": "Ordinary projects review natively; the strict route keeps the mandatory producer and its one receipt.",
+        "impactClasses": [
+          "compatibility",
+          "repository-hygiene",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "one-review",
+          "review-route",
+          "meta-review"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC5",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "The ITD-PLAN-S9 verified record (itd_unit_log.py) and its followup move, the session 9 DECISIONS of decisions-after-candidate.md, the first lesson in the lesson format (run, change, before/after) and the session 10 plan decisions, the new BACKLOG items ride in this PR (plan rule 5, amendment 2026-10-30); the state ledgers validate.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "scripts/validate_state.py: OK, validated 2 state file(s). The ITD-PLAN-S9 verified event evt-unit-1793347845 (2026-10-30T08:10:45Z) and the ITD-PLAN-S10 activated event (2026-10-30T08:33:00Z) were written by itd_unit_log.py; the S9 followup is in closedFollowups with the closure evidence of that event; DECISIONS holds the eight session 9 records of decisions-after-candidate.md, the S9 lesson in the lesson format (the run where the problem is visible: the a2/a3 review reports; the change: refuse-entry-not-regular-file and strict_unsafe_paths in itd_adopt.py; before/after: 2 high + 1 high -> 0 high in a4), the S9 verified record and the session 10 plan decisions; BACKLOG holds the four new P3 items. Exact-candidate evidence is the committed-head machine receipt of the reviewed head, supplied to the review; this record cannot name that receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The ledger records are exact.",
+        "impactClasses": [
+          "repository-hygiene",
+          "correctness"
+        ],
+        "oracleIds": [
+          "state"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S10-AC6",
+      "unitId": "ITD-PLAN-S10",
+      "status": "passed",
+      "criterion": "The full suite is green on the exact candidate: tests/run-all.sh in the isolated checkout of the reviewed head, which is the full leg of the committed-head machine (oracle full); a run of the working copy is recorded but is not this evidence.",
+      "source": "Owner 2026-10-20 plan, session 10, the amendment of 2026-10-30 and ADR-016; owner 2026-10-30 session 10 task and the plan decisions.",
+      "evidence": "Committed-head machines of this unit: a1 FAILED on a stale .itd/IMPACT_GRAPH.json and the sentinel suite's plain fixture import under python -I; a2 PASSED 11 of 12 legs with the full leg (tests/run-all.sh --fail-fast in the isolated checkout) stopped on verify_independent_review_efficacy because the producer edit moved the pin; later machines showed a stale graph (a5), a moved pin (a6) and, on a13, verify_graph_study red within 30 minutes of a host boot (red on clean main too, a BACKLOG item) - each answered. This candidate carries the efficacy evidence of the final producer bytes 141c105d (diagnostic-141c105d, whose three legs are the current results/ views; the intermediate versions' observations stay on the host) and rebuilds the impact graph after staging as the last step before the commit. The full leg of the machine of this head (the one whose tree contains these records) is the evidence of this criterion; it is supplied to the review and named by the PR, and this record cannot name its receipt because the receipt binds the tree that contains this text.",
+      "verificationCommand": "sh tests/run-all.sh",
+      "reviewEvidence": {
+        "claim": "Nothing else in the methodology regressed.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "full"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6278,11 +6400,11 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S9",
+    "unitId": "ITD-PLAN-S10",
     "status": "in_progress",
-    "openedAt": "2026-10-29",
+    "openedAt": "2026-10-30",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-29: session 9 of the approved ITD change plan - task and adopt in one PR. /task is a thin router without the mandatory /test + /review floor for a one-file feature; adjudication only on the strict route. /adopt by default writes only a pointer to the installation and the discovered project commands (tests, lint, build); the .itd/ contracts, GOAL, App, broker and ruleset only on an explicit strict choice, consistent with the session 8 marker itd-route: strict; /adopt no longer calls /session-save unconditionally. Acceptance: adopting an empty repository creates only the pointer; a repeated adopt is idempotent; adopt with strict gives the previous full set; texts at most 500 lines. Owner decisions on the session 9 plan (2026-10-29): the discovered commands go into the pointer block and a re-run with the marker present changes nothing; the project hook offer moves to the strict route; /task Step 1a gives one report line instead of stopping on an /adopt question; a strict adoption whose marker would land beyond the first 8 KB refuses with WHY/FIX and writes nothing. The same PR carries the ITD-PLAN-S8 verified record (followup to closedFollowups), the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S8/decisions-after-candidate.md and its BACKLOG candidates, and the adopt and task parts of BACKLOG P2 'other skills name the old session memory format'. One independent review of the final candidate, convergence rule as in sessions 6-8. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+    "sourceRequest": "Owner 2026-10-30: session 10 of the approved ITD change plan - one review per candidate. The review receipt of the final candidate is accepted by every consumer (the commit review cache, the DoD security gate, the pre-push gate, itd pr create and the unit closure) when the reviewed tree and the diff hash match; no separate <unit>:general-review round. Before the model review of a closure the producer runs a machine provenance check (git merge-base --is-ancestor) so the REL-1.109.1 false parent/child finding cannot recur. For ordinary projects the review is the native /code-review in Claude Code or /review in Codex without ITD mechanics; cross-review by a second model only for strict candidates (marker itd-route: strict). Acceptance: one accepted candidate passes every gate without a second model call; a changed candidate requires a new review; a strict candidate without security coverage stays blocked; texts at most 500 lines. Owner decisions on the session 10 plan (2026-10-30): the bare unit id is the claim id and a suffixed receipt is not accepted even as a legacy alias; the DoD security gate accepts the same receipt by its coverage (reviewPolicy requires security and a checker ran); the cross-review-precommit reminder stays silent on the minimal route. The same PR carries the ITD-PLAN-S9 verified record (followup to closedFollowups), the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S9/decisions-after-candidate.md, the first lesson in the lesson format and its BACKLOG candidates (plan rule 5, amendment 2026-10-30). One independent review of the final candidate, convergence rule as in sessions 6-9. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
@@ -7192,6 +7314,29 @@
         "adjudicator": "sealed-host-union"
       },
       "closureEvidence": "PR #378 squash-merged to main c4b12d0 on 2026-10-29; tree b373768d = reviewed tree of 0993bef: machine ITD-PLAN-S8-machine-a6 PASSED 8/8 (full fails:none, receipt b962ef1c); review gpt-5.6-sol a3r4 PASSED with 0 findings (checker receipt 17db44da, adjudication receipt 3e2967ea); a2-a4 machine failures were WSL2 clock steps (systemd-timesyncd disabled by the owner, a5/a6 green); CI meta-review and windows-verify SUCCESS; sync WSL+Windows with backups; installed Step 0 smoke on Windows: invoices b"
+    },
+    {
+      "unitId": "ITD-PLAN-S9",
+      "status": "closed",
+      "openedAt": "2026-10-29",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-29: session 9 of the approved ITD change plan - task and adopt in one PR. /task is a thin router without the mandatory /test + /review floor for a one-file feature; adjudication only on the strict route. /adopt by default writes only a pointer to the installation and the discovered project commands (tests, lint, build); the .itd/ contracts, GOAL, App, broker and ruleset only on an explicit strict choice, consistent with the session 8 marker itd-route: strict; /adopt no longer calls /session-save unconditionally. Acceptance: adopting an empty repository creates only the pointer; a repeated adopt is idempotent; adopt with strict gives the previous full set; texts at most 500 lines. Owner decisions on the session 9 plan (2026-10-29): the discovered commands go into the pointer block and a re-run with the marker present changes nothing; the project hook offer moves to the strict route; /task Step 1a gives one report line instead of stopping on an /adopt question; a strict adoption whose marker would land beyond the first 8 KB refuses with WHY/FIX and writes nothing. The same PR carries the ITD-PLAN-S8 verified record (followup to closedFollowups), the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S8/decisions-after-candidate.md and its BACKLOG candidates, and the adopt and task parts of BACKLOG P2 'other skills name the old session memory format'. One independent review of the final candidate, convergence rule as in sessions 6-8. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-30T08:10:45Z",
+      "closureEvidence": "PR #379 squash-merged to main 7326af1 on 2026-10-30; tree 36730a06 = reviewed tree of 723f5e0 (base c4b12d0, diff 26c332dd): machine ITD-PLAN-S9-machine-a5 PASSED 8/8 (full fails:none, receipt 75761b17); review gpt-5.6-sol a4 BLOCKED with 3 medium and 0 high, ADJUDICATED by the owner (receipt 6fe8e54b, binding 2d7cacc9), the a2 and a3 high findings fixed in the diff before a4; CI meta-review and windows-verify SUCCESS; sync WSL+Windows with backups (host-inputs/ITD-PLAN-S9/backups); installed sm"
     }
   ]
 }
