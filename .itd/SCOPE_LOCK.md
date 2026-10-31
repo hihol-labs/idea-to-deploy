@@ -1,72 +1,49 @@
-# ITD-PLAN-S10: one review per candidate, the ITD-PLAN-S9 ledger record
+# REL-1.110.0: release of plan sessions 2 and 4-10, the ITD-PLAN-S10 ledger record
 
 ## Current Task
 
-- Session 10 of the ITD change plan approved by the owner on 2026-10-20 (ADR-016) with the amendment of 2026-10-30:
-  the review receipt of the final candidate is accepted by every consumer - the commit review cache, the DoD
-  security gate, the pre-push gate, `itd pr create` and the unit closure - when the reviewed tree and the diff hash
-  match; no separate `<unit>:general-review` round. Before the model review of a closure the producer runs a
-  machine provenance check (`git merge-base --is-ancestor`) and hands the reviewer the verified ancestry, so the
-  REL-1.109.1 false parent/child finding cannot recur. For ordinary projects the review is the native
-  `/code-review` in Claude Code or `/review` in Codex, without ITD mechanics; cross-review by a second model only
-  for strict candidates (the session 8 marker `itd-route: strict`). Every skill, reference, documentation and test
-  text of this session at most 500 lines.
-- Owner decisions 2026-10-30 (the session 10 plan): the claim id is the bare unit id and a suffixed receipt is not
-  accepted even as a legacy alias (receipts are short-lived, the recipes are fixed in this PR); the DoD security
-  gate accepts the same receipt when the unit's review policy requires the `security` impact class and a checker
-  ran, not a separate security receipt; the `cross-review-precommit.sh` reminder stays silent on the minimal route.
-- Owner decision 2026-10-30 (after machine a2): the producer edit moves the efficacy pin, which binds the bytes of
-  `itd_free_reviewer_producer.py`; the three semantic efficacy legs are re-minted live for the new producer and
-  archived as a new diagnostic folder - the efficacy archive travels with a producer edit (DECISIONS 2026-09-09).
-- Acceptance: one accepted candidate passes every gate without a second model call; a changed candidate requires a
-  new review; a strict candidate without security coverage stays blocked; a ledger close without a resolvable start
-  commit, or with a start commit outside its history, is UNVERIFIED before any model call; the skill tests green;
-  the full suite green.
-- The same PR carries (plan rule 5): the ITD-PLAN-S9 verified record and its followup move, the session 9 DECISIONS
-  of `.itd-memory/host-inputs/ITD-PLAN-S9/decisions-after-candidate.md`, the first lesson in the lesson format
-  (run, change, before/after) and the new BACKLOG items.
-- Start from merged main `7326af1`. WIP=1: ITD-PLAN-S9 is verified; this unit is the only open one. Criteria live in
-  `.itd/ACCEPTANCE_CONTRACT.json`.
+- Session 11 of the ITD change plan approved by the owner on 2026-10-20 (ADR-016) with the amendment of 2026-10-30:
+  minor release 1.110.0 ships plan sessions 2 and 4-10 (the `## [Unreleased]` section of `CHANGELOG.md`) as one
+  release. The criteria and their verification commands live only in `.itd/ACCEPTANCE_CONTRACT.json`
+  (REL-1.110.0-AC1..AC2); this file references them and does not restate them.
+- Start from merged main `2f862a1099cfedd27f20f24a90c1c6f537391af6` (session 10, PR #380). WIP=1: ITD-PLAN-S10 is
+  verified; this unit is the only open one.
+- Plan rule 5: the same PR carries the ITD-PLAN-S10 verified record (followup to `closedFollowups`), the DECISIONS of
+  `.itd-memory/host-inputs/ITD-PLAN-S10/decisions-after-candidate.md` with the lessons in the lesson format, and its
+  BACKLOG items.
+- Owner decisions 2026-10-31 (the session 11 plan): risk tier medium as for 1.107.0-1.109.2 - the release diff
+  changes no shipped code, the code of sessions 4-10 was reviewed in its own units; the first closure by the ADR-016
+  convention is timed and its time is the first journal entry, recorded in the closure signature in DECISIONS; the
+  closure commit rides the next program PR (plan rule 5); two owner confirmations - publication (gates registry,
+  push, PR, merge after green CI, tag and release) and rollout.
 
 ## Allowed Change Areas
 
-- `skills/review/scripts/itd_review_cache.py` (claim id, security coverage, record writer);
-  `skills/_shared/itd_free_reviewer_producer.py` (ledger-close provenance block and its prompt surfaces);
-  `hooks/cross-review-precommit.sh` (route marker).
-- `skills/review/SKILL.md`, a new `skills/review/references/strict.md`, `skills/cross-review/SKILL.md`,
-  `skills/task/references/strict.md`, `skills/adopt/references/strict.md` (the registration recipe line).
-- Tests: new `tests/verify_one_review_per_candidate.py` and `tests/verify_close_provenance.py`;
-  `tests/verification_loop_fixture.py`, `tests/verify_verification_loop.py`, `tests/verify_review_cache.py`,
-  `tests/verify_cross_review_precommit.py`, `tests/verify_free_reviewer_producer.py`,
-  `tests/verify_review_sentinel_diffbind.py`, `tests/verify_dod_gate.py`, `tests/verify_risk_score.py` and other
-  suites that read the moved text or mint review receipts; `tests/run-all.sh`; the CI steps in
-  `.github/workflows/meta-review.yml` and `windows-verify.yml`.
-- The efficacy evidence that binds the producer bytes: `benchmarks/independent-review-efficacy/history/route-debts/
-  diagnostic-141c105d/` (three newly minted signed legs of the final producer version of this unit; the signed
-  observations of the intermediate versions stay on the host, not in the tree), the append-only `manifest.json`, the `results/` views
-  refreshed from that archive, and the pinned snapshot map `HISTORY_PINNED_SNAPSHOTS` in
-  `tests/verify_independent_review_efficacy.py`. History is append-only: no existing snapshot is edited, re-dated or
-  re-signed.
-- `.itd/IMPACT_GRAPH.json`, regenerated by `tests/build_impact_graph.py` as the last step before each commit (the
-  new test suites attach to the map).
-- Docs: `docs/VERIFICATION_LOOP.md`, `docs/API_REVIEWER.md`, `docs/CI.md`, `docs/RELEASE_RUNBOOK.md`,
-  `docs/project-profiles.md`, the `/review` and `/cross-review` rows of `README.md` and `README.ru.md`,
-  `CHANGELOG.md` (`## [Unreleased]`).
-- Ledgers (plan rule 5): `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`, `.itd/ACCEPTANCE_CONTRACT.json`,
-  `.itd/DECISIONS.md`, `BACKLOG.md`, this file, `.itd-memory/continuity/itd-plan.md`,
-  `.itd-memory/host-inputs/ITD-PLAN-S10/`.
+- Version mirrors 1.110.0: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`,
+  `.codex-plugin/plugin.json`, `README.md`, `README.ru.md`, `docs/HARNESS_CONFORMANCE_REPORT.md`,
+  `docs/HARNESS_DOCS_STATE.json`, `docs/api-reviewer/RELEASE_CANDIDATE_CONTRACT.json`,
+  `docs/templates/github/itd-hygiene.yml`, `tests/verify_external_reviewer_release.py`.
+- `docs/HARNESS_DOCS_STATE.json`, `docs/QUALITY.json`: `reviewedAt` refresh.
+- `CHANGELOG.md`: the `## [Unreleased]` entries move under one `## [1.110.0]` section; Unreleased stays empty.
+- Live-model evidence: one new immutable run directory under `tests/fixtures/live-model-evidence/runs/` and
+  `latest.json`, recorded on the release methodology pin from a clean disposable snapshot; existing runs are never
+  modified. The generated `output/*.md` documents are a benchmark specimen judged by the snapshot oracle, not
+  shipped runtime code.
+- `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `BACKLOG.md`, this scope; `.itd/IMPACT_GRAPH.json` only as
+  regenerated by `tests/build_impact_graph.py`.
+- `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`: transitions through `itd_unit_log.py` only.
+- Git-ignored verification receipts, reports, host inputs and release notes.
 
 ## Forbidden Change Areas
 
-- The Verification Loop producer and validator semantics beyond the claim id: `skills/_shared/itd_verification_loop.py`
-  keeps its receipt format, freshness, attempt ledger and v2 approval authority (a legacy `:general-review` claim in
-  an old approval still validates; the route mints none).
-- `skills/_shared/WORKING_DEADLINE_POLICY.json`, `skills/_shared/VERIFICATION_LOOP_POLICY.json`, the trust policy,
-  the pre-push gate (`scripts/itd_pre_push.py`, `skills/_shared/itd_gate_control.py`), `scripts/itd.py`, the
-  dispatchers and the default hook registration of session 5.
-- The live model benchmark evidence (`tests/fixtures/live-model-evidence/`) and the skill, hook and agent texts it
-  pins (`verify_live_model_benchmark.py`); the efficacy corpus `benchmarks/independent-review-efficacy/cases.json`
-  and the existing efficacy snapshots.
-- The risk-tier derivation and the strict-route marker of session 8 (`hooks/`, `skills/bugfix`, `skills/test`,
-  `skills/refactor`, `skills/task/SKILL.md`, `skills/adopt/SKILL.md`, `skills/adopt/scripts/itd_adopt.py`).
-- Release files (`.claude-plugin/plugin.json`, `VERSION`): the release is session 11.
+- Skills, hooks, agents, scripts, runtime code and tests beyond the version strings above.
+- The efficacy archive and corpus, existing live-model runs, trust policy, hook registrations.
+- `HANDOFF.md` in the reviewed diff; hand-written unit statuses.
+- Push, PR, merge, tag, release, rollout and changes of the global configuration without the owner's explicit
+  confirmation of that stage.
+
+## Review Rule
+
+One opposite-GPT review of the final candidate (ADR-016 plan rule 4) after a PASSED machine receipt; its one
+receipt under the bare unit id is accepted by the commit cache, the pre-push gate, `itd pr create` and the
+closure. If the diff touches an area outside the allowed scope, pause and reclassify the task before continuing.

@@ -6382,6 +6382,51 @@
           "full"
         ]
       }
+    },
+    {
+      "id": "REL-1.110.0-AC1",
+      "unitId": "REL-1.110.0",
+      "status": "passed",
+      "criterion": "All release mirrors declare 1.110.0, CHANGELOG has one ## [1.110.0] section cut from Unreleased (sessions 2 and 4-10) with an empty Unreleased above it, reviewedAt of docs/HARNESS_DOCS_STATE.json and docs/QUALITY.json is the release date, CHANGELOG/DECISIONS/BACKLOG describe only what the code, tests and receipts show, and the impact map is fresh. Publication, release and rollout are later owner-confirmed stages, not implied here.",
+      "source": "Owner 2026-10-20 plan, session 11, the amendment of 2026-10-30 and ADR-016; owner 2026-10-31 session 11 task and plan; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "tests/verify_harness_docs_freshness.py exit 0 (reviewedAt 2026-10-31, pluginVersion 1.110.0, freshness mutations PASS) and tests/verify_external_reviewer_release.py PASSED (version 1.110.0, 14 criteria, 5 mutation guards) on the working tree of the candidate; tests/build_impact_graph.py --check FRESH (nodes 497, edges 1578); CHANGELOG ## [1.110.0] - 2026-10-31 holds the Unreleased entries of PR #371-#374 and #376-#380 plus a Fixed entry for #374, which changed skills/_shared/itd_review_evidence.py without one; Unreleased is empty. Full tests/run-all.sh on the working tree: 179 of 180 mirrored suites pass, the only red is verify_ledger_reconciliation (18 unattributed events from git-ignored local GOAL-*.json files, the same 18 as the session 10 working copy; green in an isolated checkout). The docs-freshness, release-mirrors, impact-graph and full legs of the committed-head machine receipt repeat these on the exact tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py && sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "reviewEvidence": {
+        "claim": "The release metadata is internally consistent and keeps Gate 1 docs freshness green.",
+        "impactClasses": [
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "docs-freshness",
+          "release-mirrors",
+          "impact-graph"
+        ]
+      }
+    },
+    {
+      "id": "REL-1.110.0-AC2",
+      "unitId": "REL-1.110.0",
+      "status": "passed",
+      "criterion": "A genuine fresh H4 live-model run from a clean disposable snapshot whose methodology pin equals the candidate's (the snapshot is the candidate without its own evidence files) passes the unchanged strict replay (tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30), and the exact committed candidate tree passes that replay and the full regression in an isolated checkout as legs of the committed-head machine receipt before review and publication; on native Windows the windows-verify set of the committed candidate has no red suite that is not red on clean main 2f862a1 under the same launcher (host-only reds are recorded, the CI windows-verify job stays the gate). The generated output/*.md documents of a run are a benchmark specimen judged by the snapshot oracle, not shipped runtime code. Publication and installed-host acceptance are later owner-confirmed stages.",
+      "source": "Owner 2026-10-20 plan, session 11, the amendment of 2026-10-30 and ADR-016; owner 2026-10-31 session 11 task and plan; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "H4 run 20261031T181107Z-dd882e65 from .itd-memory/verification-loop/REL-1.110.0-live-prepare.py h4-a1 on a disposable clean snapshot of the staged candidate (test commit 5bcd9ab, tree 89c8577a, without its own evidence files): runner exit 0 and strict replay 154 passed, 0 failed inside the snapshot before the copy; methodology pin sha256:6628c6dd; the prepare script hash-checked every copied file of the run directory (latest.json is copied without a hash check); the transcript and the output specimen were scanned before the commit - no secret pattern, 23 [REDACTED-HIGH-ENTROPY] markers of the scrubber. On the committed candidate the replay passes 154 passed, 0 failed (run record). Committed-head machine REL-1.110.0-machine-a1 on 21cfe51 (tree 6a54a064, base 2f862a1): PASSED, legs meta-review, docs-freshness, release-mirrors, impact-graph, state, live and full exit 0, the full leg DONE fails:none (receipt b76f2869); the final head differs from 21cfe51 only by records (this criterion and the wording of the unit goal) and gets its own machine receipt before review. Native Windows (Python 3.12, launcher /mnt/c/itd-src/s11-win.sh, the 49 python steps of .github/workflows/windows-verify.yml): candidate 21cfe51 - 41 exit 0 and 8 red; clean main 2f862a1 under the same launcher - the same 8 red with the same errors (a missing executable for the launcher: verify_strict_route, verify_task_adopt_route, verify_continuity, verify_operational_cold_start; no symlink privilege: verify_session_hygiene_quality; charmap encoding: verify_retro_scan, verify_routing; verify_adjudication_channel TypeError, red on clean main in session 10 too) - logs .itd-memory/host-inputs/REL-1.110.0/windows-base.txt and windows-cand-a1.txt; verify_external_reviewer_release, meta_review, verify_one_review_per_candidate 45/0 and verify_close_provenance 36/0 are green there. The CI windows-verify job (windows-latest) was green on main 2f862a1 and gates the PR.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The 1.110.0 candidate carries fresh live-model evidence bound to its methodology pin; its exact committed tree passes the replay and the full regression on WSL in an isolated checkout, and on native Windows the windows-verify set has no red beyond clean main under the same launcher.",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full",
+          "live"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6400,19 +6445,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S10",
+    "unitId": "REL-1.110.0",
     "status": "in_progress",
-    "openedAt": "2026-10-30",
+    "openedAt": "2026-10-31",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-30: session 10 of the approved ITD change plan - one review per candidate. The review receipt of the final candidate is accepted by every consumer (the commit review cache, the DoD security gate, the pre-push gate, itd pr create and the unit closure) when the reviewed tree and the diff hash match; no separate <unit>:general-review round. Before the model review of a closure the producer runs a machine provenance check (git merge-base --is-ancestor) so the REL-1.109.1 false parent/child finding cannot recur. For ordinary projects the review is the native /code-review in Claude Code or /review in Codex without ITD mechanics; cross-review by a second model only for strict candidates (marker itd-route: strict). Acceptance: one accepted candidate passes every gate without a second model call; a changed candidate requires a new review; a strict candidate without security coverage stays blocked; texts at most 500 lines. Owner decisions on the session 10 plan (2026-10-30): the bare unit id is the claim id and a suffixed receipt is not accepted even as a legacy alias; the DoD security gate accepts the same receipt by its coverage (reviewPolicy requires security and a checker ran); the cross-review-precommit reminder stays silent on the minimal route. The same PR carries the ITD-PLAN-S9 verified record (followup to closedFollowups), the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S9/decisions-after-candidate.md, the first lesson in the lesson format and its BACKLOG candidates (plan rule 5, amendment 2026-10-30). One independent review of the final candidate, convergence rule as in sessions 6-9. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+    "sourceRequest": "Owner 2026-10-31: session 11 of the approved ITD change plan - release 1.110.0 ships plan sessions 4-10 (and the session 2 records of CHANGELOG Unreleased) as one release: VERSION mirrors, .claude-plugin/plugin.json, CHANGELOG from Unreleased, release notes, tag and GitHub release; rollout on WSL and Windows for Claude Code and Codex (installed runtime ~/.local/share/itd/runtime/<version> and sync of the active installs) with native checks on both hosts; the closure by the session 2 convention - the first closure without a new model round, its time is the first journal entry. Acceptance: both CI green on the PR and on main; native checks green on both hosts; the closure fits the target of plan section 2 or the difference is recorded. Plan rule 5: the same PR carries the ITD-PLAN-S10 verified record, its DECISIONS (reviews, owner decisions, publication, lessons in the lesson format) and its BACKLOG items. Owner approved the session 11 plan on 2026-10-31 (\"Да, план\"): risk tier medium, the closure time recorded in the closure signature in DECISIONS, the closure commit rides the next program PR, two confirmations - publication and rollout.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "security",
         "host-parity",
         "repository-hygiene",
+        "generated-artifact-freshness",
         "compatibility"
       ],
       "minimumIndependentReviewers": 1,
@@ -7337,6 +7382,29 @@
       },
       "closedAt": "2026-10-30T08:10:45Z",
       "closureEvidence": "PR #379 squash-merged to main 7326af1 on 2026-10-30; tree 36730a06 = reviewed tree of 723f5e0 (base c4b12d0, diff 26c332dd): machine ITD-PLAN-S9-machine-a5 PASSED 8/8 (full fails:none, receipt 75761b17); review gpt-5.6-sol a4 BLOCKED with 3 medium and 0 high, ADJUDICATED by the owner (receipt 6fe8e54b, binding 2d7cacc9), the a2 and a3 high findings fixed in the diff before a4; CI meta-review and windows-verify SUCCESS; sync WSL+Windows with backups (host-inputs/ITD-PLAN-S9/backups); installed sm"
+    },
+    {
+      "unitId": "ITD-PLAN-S10",
+      "status": "closed",
+      "openedAt": "2026-10-30",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-30: session 10 of the approved ITD change plan - one review per candidate. The review receipt of the final candidate is accepted by every consumer (the commit review cache, the DoD security gate, the pre-push gate, itd pr create and the unit closure) when the reviewed tree and the diff hash match; no separate <unit>:general-review round. Before the model review of a closure the producer runs a machine provenance check (git merge-base --is-ancestor) so the REL-1.109.1 false parent/child finding cannot recur. For ordinary projects the review is the native /code-review in Claude Code or /review in Codex without ITD mechanics; cross-review by a second model only for strict candidates (marker itd-route: strict). Acceptance: one accepted candidate passes every gate without a second model call; a changed candidate requires a new review; a strict candidate without security coverage stays blocked; texts at most 500 lines. Owner decisions on the session 10 plan (2026-10-30): the bare unit id is the claim id and a suffixed receipt is not accepted even as a legacy alias; the DoD security gate accepts the same receipt by its coverage (reviewPolicy requires security and a checker ran); the cross-review-precommit reminder stays silent on the minimal route. The same PR carries the ITD-PLAN-S9 verified record (followup to closedFollowups), the DECISIONS of .itd-memory/host-inputs/ITD-PLAN-S9/decisions-after-candidate.md, the first lesson in the lesson format and its BACKLOG candidates (plan rule 5, amendment 2026-10-30). One independent review of the final candidate, convergence rule as in sessions 6-9. Push, PR, merge, sync and global configuration changes each on the owner's confirmation, with a backup.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-31T17:34:52Z",
+      "closureEvidence": "PR #380 squash-merged to main 2f862a1 on 2026-10-31; tree 118ef217 = reviewed tree of b0cf504 (base 7326af1, diff 5005495a): machine ITD-PLAN-S10-machine-a20 PASSED 12/12 incl. full (receipt 29e15b14); review gpt-5.6-sol a14 PASSED with 0 findings (adjudication receipt eff575dd, one receipt under the bare id); a1-a13 findings fixed in the diff before a14; CI meta-review and windows-verify SUCCESS on PR and main; sync WSL+Windows with backups (host-inputs/ITD-PLAN-S10/backups)"
     }
   ]
 }
