@@ -434,6 +434,33 @@
       "sourceGitBlobSha1": null,
       "classification": "diagnostic",
       "sizeBytes": 10999
+    },
+    {
+      "path": "diagnostic-141c105d/wsl.json",
+      "sha256": "0e1d8b9d0510bc8b20eb3318855257dc9c0088f33ef22ff950b9b0c0be0cbbbe",
+      "sourceProducerSha256": "141c105dae2c837715d227c52b90dd4f24c0c7c1da7b7a6e2f5e4ac42f722f9e",
+      "observedAt": "2026-10-31T15:44:03Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 10118
+    },
+    {
+      "path": "diagnostic-141c105d/u12-cross-vendor-wsl.json",
+      "sha256": "516e0e4f8f880cd8cf675cfeba0cf196c6eefcebab40e0c522f7c664cf8fcf06",
+      "sourceProducerSha256": "141c105dae2c837715d227c52b90dd4f24c0c7c1da7b7a6e2f5e4ac42f722f9e",
+      "observedAt": "2026-10-31T15:42:44Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 11803
+    },
+    {
+      "path": "diagnostic-141c105d/windows.json",
+      "sha256": "9dda0d7100ba0573773965eeff811e72ea6687b1fffe7fd245f57ae48a1c535a",
+      "sourceProducerSha256": "141c105dae2c837715d227c52b90dd4f24c0c7c1da7b7a6e2f5e4ac42f722f9e",
+      "observedAt": "2026-10-31T15:46:46Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 9743
     }
   ]
 }

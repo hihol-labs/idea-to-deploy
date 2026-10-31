@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """PreToolUse checkpoint reminder for the mandatory independent review.
 
-For a sensitive staged candidate, this hook reminds the orchestrator that
-`/review` and `/cross-review` must converge on
+For a sensitive staged candidate on the STRICT route, this hook reminds the
+orchestrator that `/review` and `/cross-review` must converge on
 `itd_free_reviewer_producer.py` before PR publication. The hook itself never
 egresses code, launches a reviewer, writes review evidence, or authorizes a
 commit/PR; exact-candidate Verification Loop adjudication owns enforcement.
 
-The reminder is always enabled for sensitive commits, including Agent Teams
-and linked worktrees, because it is read-only and has no credential surface.
+Plan session 10: the route is the project's choice. The reminder reads the
+same marker as Step 0 of the route skills (`itd-route: strict` or
+`itd-domain: data-sensitive` in the first 8 KB of CLAUDE.md, .claude/CLAUDE.md
+or AGENTS.md) and stays silent on the minimal route, where the project reviews
+with the host's native command and no ITD receipt exists.
+
+On the strict route the reminder is always enabled for sensitive commits,
+including Agent Teams and linked worktrees, because it is read-only and has no
+credential surface.
 Reads JSON on stdin: {"tool_name":"Bash","tool_input":{"command":"..."}}
 Any detector error returns zero without manufacturing review evidence.
 """
@@ -19,10 +26,50 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 
 GIT_COMMIT_RE = re.compile(r"(^|[ ;&|])git\s+commit(\s|$)")
+
+# --- route marker (the same window and pattern as Step 0 of the route skills)
+ROUTE_FILES = ("CLAUDE.md", ".claude/CLAUDE.md", "AGENTS.md")
+ROUTE_WINDOW = 8192
+ROUTE_MARKER_RE = re.compile(
+    r"^[ \t]*(?:itd-route:[ \t]*strict|itd-domain:[ \t]*data-sensitive)[ \t]*$"
+    r"|<!--[ \t]*itd:(?:strict|data-sensitive)[ \t]*-->",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def strict_route(root: str) -> bool:
+    """True when the project declares the strict route in its entry file.
+
+    Symlinks are followed, as `head -c 8192` in Step 0 of the route skills
+    follows them; the path is opened non-blocking and the opened descriptor
+    is checked with fstat, so anything that is not a regular file (a FIFO, a
+    device, a directory) - even one swapped in after a check - is skipped
+    without blocking the hook (reviews a2, a3). No marker means fail open.
+    """
+    for name in ROUTE_FILES:
+        path = os.path.join(root, name)
+        fd = None
+        try:
+            # Open without blocking and judge the OPENED descriptor: a FIFO
+            # swapped in after a path-based check (TOCTOU) can neither block
+            # the open nor be read as an entry file (review a3).
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                continue
+            head = os.read(fd, ROUTE_WINDOW)
+        except OSError:
+            continue
+        finally:
+            if fd is not None:
+                os.close(fd)
+        if ROUTE_MARKER_RE.search(head.decode("utf-8", "replace")):
+            return True
+    return False
 
 # --- sensitive-path signals (mirror check-dod-before-commit.sh) ---------------
 MIGRATION_RE = re.compile(r"(^|/)migrations?/|\.sql$|schema\.prisma$|(^|/)alembic/", re.I)
@@ -150,6 +197,8 @@ def main() -> int:
         return 0
     root = git(["rev-parse", "--show-toplevel"])
     if not root:
+        return 0
+    if not strict_route(root):
         return 0
 
     staged = git(["diff", "--cached", "--name-only"])

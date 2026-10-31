@@ -27,8 +27,10 @@ def _path(result: subprocess.CompletedProcess[str]) -> Path:
 
 def make_review_receipt(root: Path, *, unit_id: str, risk_tier: str,
                         kind: str = "general", command: str = "true") -> Path:
-    claim_id = f"{unit_id}:{kind}-review"
-    safe = claim_id.replace(":", "-")
+    # Plan session 10: one receipt per candidate, minted under the bare unit
+    # id for every review kind; ``kind`` only labels the fixture artifacts.
+    claim_id = unit_id
+    safe = f"{claim_id}-{kind}".replace(":", "-")
     base = root / ".itd-memory" / "verification-loop"
     prompt = base / "prompts" / f"{safe}.md"
     report = base / "reports" / f"{safe}.md"

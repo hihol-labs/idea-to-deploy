@@ -189,5 +189,7 @@ hard gate — the skill-hint hook still routes per prompt.
 - **Medium** (multi-file feature) → `/task` router + `/test` + `/review` + `/session-save`.
 - **Large** (new product / subsystem) → the full greenfield or brownfield chain above.
 
-Always-on regardless of size: the review gate before a multi-file commit, tests
-for new source, and a session checkpoint at meaningful state changes.
+Always-on regardless of size: a review of the final candidate (the host's
+native review on the minimal route; on the strict route one independent review
+whose single receipt every gate consumes), tests for new source, and a session
+checkpoint at meaningful state changes.

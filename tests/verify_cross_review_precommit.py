@@ -2,7 +2,10 @@
 """Behavioural unit test for the mandatory-review checkpoint reminder.
 
 The hook itself is a read-only reminder (always exit 0); it never mints review
-evidence. Sensitive commits always receive the canonical-route reminder.
+evidence. Sensitive commits on the strict route (the project marker
+`itd-route: strict` in the first 8 KB of the entry file) receive the
+canonical-route reminder; on the minimal route the hook stays silent (plan
+session 10).
 
 Each case spins up a throwaway git repo, stages synthetic files, and runs the
 hook with a JSON payload on stdin. PATH is stripped of reviewer CLIs so a
@@ -40,6 +43,13 @@ def make_repo():
     return d
 
 
+def mark_strict(repo, padding=0):
+    """Declare the strict route the way /adopt strict writes it."""
+    with open(os.path.join(repo, "CLAUDE.md"), "w") as f:
+        f.write("# Project\n" + ("x" * padding + "\n" if padding else "")
+                + "itd-route: strict\n")
+
+
 def stage(repo, path, content="x\n"):
     full = os.path.join(repo, path)
     os.makedirs(os.path.dirname(full) or repo, exist_ok=True)
@@ -68,7 +78,7 @@ def run_hook(repo, command="git commit -m x", env_overrides=None):
         env.update(env_overrides)
     p = subprocess.run(
         ["python3", HOOK], input=payload, cwd=repo,
-        capture_output=True, text=True, env=env,
+        capture_output=True, text=True, env=env, timeout=30,
     )
     shutil.rmtree(env["TMPDIR"], ignore_errors=True)
     acted = "canonical Sol -> Terra / Terra -> Sol" in (p.stdout or "")
@@ -77,11 +87,13 @@ def run_hook(repo, command="git commit -m x", env_overrides=None):
 
 # --- cases: builder(repo) -> (command, env_overrides, expected_action) --------
 def c_optin_env_migration(repo):
+    mark_strict(repo)
     stage(repo, "db/migrations/001_init.sql")
     return "git commit -m x", {"CROSS_REVIEW_EGRESS_OK": "1"}, REMIND
 
 
 def c_optin_marker_auth(repo):
+    mark_strict(repo)
     # marker file at repo root opts in (auditable, per-repo)
     open(os.path.join(repo, ".cross-review-egress-ok"), "w").close()
     stage(repo, "src/auth/login.py")
@@ -89,6 +101,7 @@ def c_optin_marker_auth(repo):
 
 
 def c_default_sensitive(repo):
+    mark_strict(repo)
     # no marker/env is needed: this is a local reminder, not egress
     stage(repo, "db/migrations/001_init.sql")
     return "git commit -m x", {}, REMIND
@@ -107,12 +120,14 @@ def c_non_commit(repo):
 
 
 def c_off_switch(repo):
+    mark_strict(repo)
     # a caller flag cannot suppress the mandatory-route checkpoint
     stage(repo, "db/migrations/001_init.sql")
     return "git commit -m x", {"ITD_CROSS_REVIEW": "0"}, REMIND
 
 
 def c_agent_teams_disabled(repo):
+    mark_strict(repo)
     # reminder is safe in multi-agent mode because it never sends the diff
     stage(repo, "db/migrations/001_init.sql")
     return ("git commit -m x",
@@ -120,6 +135,7 @@ def c_agent_teams_disabled(repo):
 
 
 def c_agent_teams_override(repo):
+    mark_strict(repo)
     # Agent Teams on, but explicit CROSS_REVIEW_ALLOW_AGENT_TEAMS=1 -> dispatch
     stage(repo, "db/migrations/001_init.sql")
     return ("git commit -m x",
@@ -130,18 +146,56 @@ def c_agent_teams_override(repo):
 
 
 def c_payments_path(repo):
+    mark_strict(repo)
     open(os.path.join(repo, ".cross-review-egress-ok"), "w").close()
     stage(repo, "app/billing/payment_service.ts")
     return "git commit -m x", {}, REMIND
 
 
 def c_amp_chain_commit(repo):
+    mark_strict(repo)
     # commit reached via && chain still triggers
     stage(repo, "prisma/schema.prisma")
     return "git add -A && git commit -m x", {"CROSS_REVIEW_EGRESS_OK": "1"}, REMIND
 
 
+def c_minimal_route_sensitive(repo):
+    # no marker: the project reviews with the host's native command (S10)
+    stage(repo, "db/migrations/001_init.sql")
+    return "git commit -m x", {}, SKIP
+
+
+def c_marker_beyond_window(repo):
+    # a marker past the first 8 KB is not a route declaration (same window as Step 0)
+    mark_strict(repo, padding=9000)
+    stage(repo, "src/auth/login.py")
+    return "git commit -m x", {}, SKIP
+
+
+def c_fifo_entry_path(repo):
+    # a FIFO planted at CLAUDE.md must not block the hook (review a2): it is
+    # not a regular file, so it is skipped before it is opened -> SKIP
+    if not hasattr(os, "mkfifo"):
+        stage(repo, "db/migrations/001_init.sql")
+        return "git commit -m x", {}, SKIP
+    os.mkfifo(os.path.join(repo, "CLAUDE.md"))
+    stage(repo, "db/migrations/001_init.sql")
+    return "git commit -m x", {}, SKIP
+
+
+def c_agents_md_marker(repo):
+    # Codex entry file declares the route the same way
+    with open(os.path.join(repo, "AGENTS.md"), "w") as f:
+        f.write("# Agents\n<!-- itd:strict -->\n")
+    stage(repo, "src/auth/login.py")
+    return "git commit -m x", {}, REMIND
+
+
 CASES = [
+    ("minimal route + migration -> SKIP", c_minimal_route_sensitive),
+    ("marker beyond 8 KB + auth -> SKIP", c_marker_beyond_window),
+    ("AGENTS.md comment marker + auth -> REMIND", c_agents_md_marker),
+    ("FIFO at CLAUDE.md + migration -> SKIP without hanging", c_fifo_entry_path),
     ("opt-in(env) + migration -> REMIND", c_optin_env_migration),
     ("opt-in(marker) + auth -> REMIND", c_optin_marker_auth),
     ("sensitive default -> REMIND", c_default_sensitive),

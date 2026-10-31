@@ -142,6 +142,10 @@ def ledger_close_fixture(
     shell(["git", "config", "user.name", "ITD Review Test"], root)
     shell(["git", "config", "user.email", "review@invalid"], root)
     shell(["git", "remote", "add", "origin", "https://github.com/hihol-labs/idea-to-deploy.git"], root)
+    # Plan session 10: a ledger-close scope names its start commit, which the
+    # producer resolves and relates before the model review.
+    shell(["git", "commit", "--allow-empty", "-qm", "seed"], root)
+    seed = shell(["git", "rev-parse", "HEAD"], root)
     (root / ".itd").mkdir()
     (root / ".itd-memory").mkdir()
     contract = root / LEDGER_CONTRACT_REL
@@ -156,8 +160,9 @@ def ledger_close_fixture(
                                         "status": "in_progress"}}),
             encoding="utf-8",
         )
-    (root / "scope.md").write_text("# Frozen scope\nLedger close only.\n",
-                                   encoding="utf-8")
+    (root / "scope.md").write_text(
+        f"# Frozen scope\nStart from merged main `{seed[:7]}`.\nLedger close only.\n",
+        encoding="utf-8")
     shell(["git", "add", "."], root)
     shell(["git", "commit", "-qm", "base"], root)
     parent = shell(["git", "rev-parse", "HEAD"], root)
@@ -1151,10 +1156,29 @@ def main() -> int:
                         in producer.review_prompt(ledger_packet),
                         f"the real closing prompt does not name the source ({label})",
                     )
+                    # Plan session 10: a real ledger close carries the
+                    # git-verified provenance block, rendered before the
+                    # inherited-coverage note on the flat prompt.
+                    provenance = ledger_packet.get("provenance")
+                    closing_prompt = producer.review_prompt(ledger_packet)
+                    check(
+                        isinstance(provenance, dict)
+                        and provenance.get("kind") == "itd-ledger-close-provenance"
+                        and provenance.get("parentCommit") == l_parent
+                        and provenance.get("baseIsAncestorOfParent") is True
+                        and "MACHINE-VERIFIED PROVENANCE" in closing_prompt
+                        and closing_prompt.index("MACHINE-VERIFIED PROVENANCE")
+                        < closing_prompt.index("closing commit: coverage inherited"),
+                        f"a real ledger close carries no verified provenance ({label})",
+                    )
                 else:
                     check(
                         observed is None,
                         f"a diff beyond the class inherited coverage ({label})",
+                    )
+                    check(
+                        "provenance" not in ledger_packet,
+                        f"an ordinary candidate carries a provenance block ({label})",
                     )
 
         nameless = coverage_packet("closed-unit-inherited")

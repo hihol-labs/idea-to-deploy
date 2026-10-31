@@ -6741,3 +6741,195 @@ The third fresh Terra review found that a primary already containing :general-re
   пишет. ITD-PLAN-S9 активирован с тиром high.
 - Ссылки: .itd-memory/events.jsonl evt-unit-1793297389, .itd/ACCEPTANCE_CONTRACT.json closedFollowups ITD-PLAN-S8,
   .itd/SCOPE_LOCK.md.
+
+## 2026-10-29 - сессия 9: кандидат 146ea95, обход гейта завершения, машина a1 FAILED на графе влияния
+- Коммит кандидата 146ea95 completion-gate остановил по устаревшему красному сигналу: первый прогон
+  `verify_task_adopt_route` (65/1) шел внутри одноразового heredoc, который правил CI-файлы, - повторить его нельзя
+  (assert на уже внесенной правке), а запись раннера `ITD_RUN_RECORD=1` (35997b9e, 70/0) его не вытеснила - вытеснение
+  ищет тот же оракул, а red-команда - heredoc. Осознанный обход `COMPLETION_BYPASS` с причиной в описании коммита;
+  тот же оракул зеленый на WSL и Windows. Наблюдение для BACKLOG: красный внутри heredoc с правкой файлов не
+  вытесняется ничем, кроме обхода.
+- Машина ITD-PLAN-S9-machine-a1 на 146ea95 (receipt 6c8791e0) - FAILED: ноги task-adopt-route, impact-graph и full
+  (fail-fast на `verify_verification_profiles`) - одна причина: `.itd/IMPACT_GRAPH.json` пересобран до последних
+  правок тестов (1535 ребер против 1536). В чистом клоне кандидата остальные 15 наборов ноги task-adopt-route зеленые.
+  Граф пересобран, кандидат дополнен (amend, не опубликован) -> 3c60ecf, дерево 1ccf529e; машина a2.
+- Пробный полный прогон рабочей копии (до правок): 6 красных наборов - 4 читали перенесенный в strict.md текст
+  (tool_trust_inventory, host_neutral_memory, gate_registry_profiles, hooks_autoinstall) - исправлены;
+  `verify_harness_demo_absorption.py` заморожен дайджестом в контракте - правка теста откатана, четыре стадии PIV-lite
+  названы в task SKILL.md; `verify_ledger_reconciliation` - известный BACKLOG P3 (git-ignored GOAL-файлы рабочей копии).
+- Живой бенчмарк пинит `skills/adopt/references/agents-md-template.md` (static: раннер пишет его в AGENTS.md проекта
+  как есть). Шаблон оставлен байт-в-байт строгим блоком Codex; минимальный указатель Codex - новый
+  `agents-md-pointer.md`; свежая strict-адоптация Codex берет запиненный блок и добавляет команды и строку маркера
+  перед концом блока. Пин и живые доказательства не сдвинулись (оракул: только `dirty-state digest` на грязном дереве).
+- Windows (нативный Python 3.12.10, Git Bash, копия C:\itd-src\s9-wt): verify_task_adopt_route 70/0, strict_route 65/0,
+  piv_lite, tier_source, tier_wording 523/0, contract_advisory, deployment_baseline, stall_fallback, tool_trust_inventory,
+  operational_continuation - зеленые; install_owned_tools, session_hygiene_quality (symlink 1314), host_neutral_memory
+  (6 failed), operational_cold_start краснеют так же на чистом c4b12d0 (C:\itd-src\s9-base) - окружение хоста, не S9.
+
+## 2026-10-29 - сессия 9: машина a2 PASSED, ревью a1 отказано producer-ом до запроса, кандидат b5adf88, машина a3
+- Машина ITD-PLAN-S9-machine-a2 на 3c60ecf (дерево 1ccf529e) - PASSED 8/8, полная нога DONE fails:none (receipt
+  3608109d).
+- Ревью gpt-5.6-sol a1 на 3c60ecf: producer отказал до запроса к модели - UNVERIFIED "ITD-PLAN-S9-AC1 is not passed"
+  (критерии стояли pending). Как в S8: критерии AC1-AC6 переведены в passed с доказательствами прогонов этой сессии
+  (AC6 - полная нога машины проверенной головы), кандидат дополнен -> b5adf88 (дерево 1d69a5c2), машина a3 с полной
+  ногой. Попытка ревью a1 файлов не оставила; следующая - a2.
+- Машина ITD-PLAN-S9-machine-a3 на b5adf88 (дерево 1d69a5c2) - PASSED 8/8, полная нога DONE fails:none (receipt
+  f46923ab). Ревью gpt-5.6-sol a2 (база c4b12d0, кандидат b5adf88, машина a3) запущено.
+
+## 2026-10-29 - сессия 9: ревью sol a2 на b5adf88 BLOCKED (2 high, 4 medium), ответ
+- Ревью gpt-5.6-sol a2 (база c4b12d0, кандидат b5adf88, машина a3 f46923ab) - BLOCKED, каждая находка в двух проходах
+  (reports/ITD-PLAN-S9-canonical-a2.json.negative-2wor6h_v/report.json). Все находки - из диффа сессии.
+- high: команда хелпера в adopt SKILL.md Step 1 была `--host claude` - на Codex писался бы CLAUDE.md. Ответ: `HOST`
+  выбирается в Step 1, команды плана и apply (и strict S1) - `--host "$HOST"`, примеры - `<entry>`.
+- high: хелпер писал файл входа на месте, следуя symlink (и висячему) - запись вне проекта при "userLevelWrites 0".
+  Ответ: файл входа-symlink или не обычный файл - отказ `path safety` (refuse-entry-not-regular-file) без записи;
+  в strict - то же для `.itd` и `.itd-memory` (symlink или не каталог). Поведение для AGENTS.md было и в main
+  (Codex-хелпер), исправлено здесь же, раз затронуто.
+- medium: `$PROJECT_ROOT` не задавался - Step 1 задает `PROJECT_ROOT="$(git rev-parse --show-toplevel)" || exit 1` и
+  предупреждает, что каждый вызов shell повторяет строки. medium: allowed-tools перечисляли префиксы Bash, команда
+  Step 0 (подоболочка) им не покрыта - `Bash` без префиксов, как у bugfix/test/refactor. medium: читались только
+  requirements.txt и -dev.txt - теперь любой `requirements*.txt`. medium: strict S1 п.3 велел копировать шаблоны
+  повторно - теперь "хелпер скопировал, не копировать и не перезаписывать".
+- Тесты: verify_task_adopt_route 77/0 (WSL), 74/0 на Windows (symlink-проверки без прав пропущены); мутанты 36/36
+  (+6 на находки). По правилу сходимости high из диффа сессии исправлен и выносится владельцу до раунда a3.
+- Кандидат 2b0000c (дерево aa7e72dd) с ответом на ревью a2; машина a4 запущена; ревью a3 - после решения владельца.
+- Машина ITD-PLAN-S9-machine-a4 на 2b0000c (дерево aa7e72dd) - PASSED 8/8, полная нога DONE fails:none (receipt 1bfacbb6); ревью a3 запущено цепочкой (решение владельца «Да, запускай a3»).
+
+## 2026-10-29 - сессия 9: ревью sol a3 на 2b0000c BLOCKED (2 high, 4 medium), ответ
+- Ревью gpt-5.6-sol a3 (база c4b12d0, кандидат 2b0000c, машина a4 1bfacbb6) - BLOCKED, каждая находка в двух проходах
+  (reports/ITD-PLAN-S9-canonical-a3.json.negative-qdu8kg7z/report.json). Находки a2 не повторились.
+- high: в strict проверялся только каталог `.itd-memory`, а не вложенные пути - висячий symlink на
+  `.itd-memory/STATE.json` или symlink `contracts/` уводил запись наружу (класс был и в main: Codex-хелпер). Ответ:
+  `strict_unsafe_paths` проверяет каждый путь назначения strict-записи (`.itd`, `.itd-memory`, `contracts`, четыре
+  файла состояния, контракт юнита) до любой записи; `--unit-id` - только простой идентификатор.
+- high: Step 0 `/task` не относил безопасность к строгим классам, а политика strict.md (читается после выбора) считала
+  security high-risk. Ответ: Step 0 называет security, access and secrets, external actions.
+- medium: Codex-примеры звали `python3` мимо `itd_py.sh` - теперь через лаунчер. medium: файл входа не в UTF-8 ронял
+  хелпер трейсбеком - теперь отказ `entry file` с WHY/FIX без записи. medium: strict S3 ссылался на несуществующий
+  "legacy pipeline described below" - теперь: предложить `/adopt strict`, иначе те же шаги без леджера и без метки
+  PIV-lite. medium: тест symlink `.itd-memory` сравнивал только имена - теперь содержимое целевого каталога файл за
+  файлом, плюс вложенные symlink.
+- Тесты: verify_task_adopt_route 84/0 (WSL), 79/0 Windows; мутанты 42/42 (+6 на находки a3). По правилу сходимости high
+  из диффа сессии исправлен и выносится владельцу до раунда a4.
+- Кандидат 723f5e0 (дерево 36730a06) с ответом на ревью a3; машина a5 запущена; ревью a4 - после решения владельца.
+- Машина ITD-PLAN-S9-machine-a5 на 723f5e0 (дерево 36730a06) - PASSED 8/8, полная нога DONE fails:none (receipt 75761b17); ревью a4 ждет решения владельца.
+- Владелец 2026-10-30: «Да, запускай a4» - ревью a4 на 723f5e0 по машине a5.
+
+## 2026-10-30 - сессия 9: ревью sol a4 на 723f5e0 BLOCKED (3 medium, без high) - сошлось
+- Ревью gpt-5.6-sol a4 (база c4b12d0, кандидат 723f5e0, дерево 36730a06, машина a5 75761b17) - BLOCKED, только medium,
+  каждая в двух проходах (reports/ITD-PLAN-S9-canonical-a4.json.negative-0ekt7y3u/report.json). Находки a2 и a3 не
+  повторились.
+- medium: AC6 ссылается на машину a2 (другое дерево) - запись в дереве не может назвать квитанцию своего же дерева;
+  точная полная нога - a5 на 36730a06, она передана ревью, ревьюер ее подтверждает; PR и verified S9 в сессии 10
+  называют a5. medium: scaffold_contracts возвращает unchanged при существующем .itd/ - поведение main (c4b12d0),
+  strict S1 это прямо говорит; BACKLOG. medium: snapshot теста учитывает только файлы - отказы в main() идут до любой
+  записи, descendant-кейс проверяет отсутствие .itd/; BACKLOG.
+- Подготовлено ADJUDICATED по ADR-007 (как S7 a2): checker full на тот же отчет (receipt a9855f48), черновик решений -
+  6 строк accepted-trade-off, привязка 2d7cacc91f5cc519...; adjudicate - после подтверждения владельца.
+- BACKLOG-кандидаты (в PR сессии 10): P3 - strict-адоптация дописывает недостающие шаблоны в существующий .itd/ (сейчас
+  unchanged, как в main); P3 - снимок в тестах отказов verify_task_adopt_route учитывает и каталоги.
+- Владелец 2026-10-30: «Да, ADJUDICATED» - adjudicate на машине a5: ADJUDICATED, receipt 6fe8e54b (дерево 36730a06), check пройден.
+
+## 2026-10-30 - сессия 9: публикация, шаг 1
+- Владелец «Да, шаг 1»: бэкап ~/.config/itd/gates.json.bak-s9-20261030; localReviewReceiptFile ->
+  ITD-PLAN-S9-a4-adjudicated.json, localReviewUnitId -> ITD-PLAN-S9, localReviewRiskTier high (без изменений);
+  `itd gate doctor --repository hihol-labs/idea-to-deploy` - LOCAL_REVIEWED (routeEvidence human-adjudication, drift []).
+- Шаг 2 (владелец «Да, шаг 2»): `itd pr create --maker-vendor anthropic --maker-model claude-opus-5-5 --maker-session
+  65ee52bf... --no-wait` -> PR #379 (draft, head 723f5e0, base c4b12d0), статус LOCAL_REVIEWED; заголовок и описание
+  (`verification-loop/ITD-PLAN-S9-pr-body.md`) - `gh pr edit`. PR привязан к сессии; CI 2 проверки в ожидании.
+- Шаг 3 (владелец «Да, ready и merge»): `gh pr ready 379`; CI 2/2 зеленые (meta-review, windows-verify),
+  mergeStateStatus CLEAN; squash merge с --match-head-commit 723f5e0 -> main 7326af1, родитель c4b12d0, дерево
+  36730a06 = проверенное (машина a5 75761b17, ревью a4 ADJUDICATED 6fe8e54b). Авто-merge GitHub не включался: у main нет
+  обязательных проверок, он смержил бы до windows-verify. Sync WSL и Windows - следующий шаг, по подтверждению.
+
+## 2026-10-30 - сессия 9: sync WSL и Windows (main 7326af1)
+- Владелец «Да, sync». WSL: бэкап settings.json, itd-disabled-hooks.txt и установленных skills/task, skills/adopt в
+  host-inputs/ITD-PLAN-S9/backups/wsl; --check rc 0 - дрейф ровно /adopt и /task; применение rc 0 (скиллы ~2, хуки 38,
+  агенты 10, шаблоны 41 без изменений, settings и блок CLAUDE.md up-to-date, байткод 67, 0 перекомпилировано); повторный
+  --check чистый; установленные task и adopt == main.
+- Windows (CLAUDE_HOME=/mnt/c/Users/Дмитрий/.claude): бэкап в .../backups/win; --check - тот же дрейф + известный chmod
+  TIER_EXEMPT.json; применение rc 0 (байткод 68); повторный --check - только chmod; установленные task и adopt == main.
+- Smoke установки: WSL `~/.claude/.../itd_adopt.py --host claude` на пустом репо с pyproject - только CLAUDE.md
+  (pytest, ruff check .); нативный Windows Python 3.12.10 из C:\Users\Дмитрий\.claude - только CLAUDE.md (npm test,
+  npm run build); Step 0 установленного Windows-/task через Git Bash: invoices-itd-route strict, buying minimal.
+
+## 2026-10-30 - после сессии 9: сравнение с Harness², поправка плана утверждена владельцем
+- Владелец попросил сравнить ITD с Harness² (arXiv 2610.14224, harness2.github.io, google-research/harness2; видео
+  V4Lk8Y4YuX8 прочитать не удалось - нет расшифровки, браузер блокирует external-write gate). Вывод: проверка результата
+  у ITD сильнее (тесты, машина на точном коммите, ревью другой моделью); не хватает уроков, подтвержденных прогоном,
+  и дешевой проверки изменений самой методологии.
+- Решение владельца 2026-10-30 «Утвердить план»: поправка FINAL-PLAN - S10 несет хвосты S9 и вводит формат урока
+  (запись без гейта); S13 делает замер пробой (протокол в docs/measurements/), журнал в формате уроков, решение по
+  14-16; S15 добавляет чистку устаревших ссылок и старого формата памяти; новая условная S16 - библиотека уроков
+  (`/retro` по урокам с подтверждением, `.itd/LESSONS.md`) только при повторяющихся классах дефектов. ADR-012 п.5 не
+  меняется. Не берем: автоперестройку обвязки на каждой задаче и LLM-судью как приемку.
+- Первый урок (S9): ревью a2-a4 находило ошибки путей в хелпере, пишущем в проект (symlink у файла входа, у
+  `.itd-memory` и вложенных путей) -> правка: общий модуль проверки всех путей до записи; до/после: 2 high a2 + 1 high a3
+  -> 0 high a4 (проверки verify_task_adopt_route [4]).
+
+## 2026-10-30 - урок S9 (формат урока по поправке плана 2026-10-30; только запись, без гейта)
+- Прогон, где проблема видна: ревью gpt-5.6-sol a2 и a3 сессии 9 -
+  `.itd-memory/verification-loop/reports/ITD-PLAN-S9-canonical-a2.json.negative-2wor6h_v/report.json` (high: хелпер
+  adopt писал файл входа по symlink, в том числе висячему) и `.../ITD-PLAN-S9-canonical-a3.json.negative-qdu8kg7z/report.json`
+  (high: в strict проверялся только каталог `.itd-memory`, вложенные symlink уводили запись наружу).
+- Правка: `skills/adopt/scripts/itd_adopt.py` - отказ `refuse-entry-not-regular-file` для файла входа и
+  `strict_unsafe_paths` для каждого пути назначения strict-записи (`.itd`, `.itd-memory`, `contracts`, файлы состояния,
+  контракт юнита) до любой записи; проверки `tests/verify_task_adopt_route.py` [4] (+12 мутантов).
+- До/после на той же задаче: a2 - 2 high, a3 - 1 high по путям; a4 на 723f5e0 - 0 high (3 medium, ADJUDICATED;
+  `.../ITD-PLAN-S9-canonical-a4.json.negative-0ekt7y3u/report.json`). Класс урока: скрипт, пишущий в проект, проверяет
+  все пути назначения одним модулем до первой записи.
+
+## 2026-10-30 - сессия 10: ITD-PLAN-S9 verified
+- По правилу плана 5 юнит ITD-PLAN-S9 записан verified писателем `itd_unit_log.py` (событие evt-unit-1793347845 2026-10-30T08:10:45Z: #379 -> 7326af1,
+  дерево 36730a06 = проверенное - машина a5 75761b17, ревью a4 ADJUDICATED 6fe8e54b, CI 2/2 SUCCESS, sync WSL+Windows);
+  его activeFollowup перенесен в closedFollowups с тем же доказательством, activeFollowup - пустая запись до активации
+  юнита сессии 10.
+- Ссылки: .itd-memory/events.jsonl evt-unit-1793347845, .itd/ACCEPTANCE_CONTRACT.json closedFollowups ITD-PLAN-S9.
+
+## 2026-10-30 - сессия 10: план согласован, ITD-PLAN-S10 активирован
+- План сессии 10 согласован владельцем 2026-10-30 («Да, план»): одна квитанция ревью финального кандидата под голым
+  id юнита принимается кэшем коммита, security-гейтом DoD, pre-push, `itd pr create` и закрытием юнита, пока
+  совпадают дерево и хеш диффа; раунда `<unit>:general-review` нет. Решения владельца: суффиксную квитанцию не
+  принимать даже как legacy-алиас (квитанции короткоживущие, рецепты регистрации правятся в этом же PR);
+  security-гейт открывается той же квитанцией по покрытию (политика ревью юнита требует класс `security` и checker
+  выполнялся), а не отдельной security-квитанцией; напоминание `cross-review-precommit.sh` на минимальном маршруте
+  молчит.
+- Разведка кода до плана: все потребители сходятся в `itd_verification_loop.validate_common` (точный unitId, тир,
+  весь контекст кандидата); второй раунд навязывал только claim id кэша (`review_claim_id` -> `<unit>:general-review`),
+  тогда как pre-push, `itd pr create` и харнесс цели требовали голый id. Проверка `merge-base --is-ancestor` в
+  `freeze_packet` была fail-closed и не доходила до ревьюера; ложная находка REL-1.109.1 сравнивала «Start from»
+  SCOPE_LOCK с SHA релиза из events.
+- ITD-PLAN-S10 активирован писателем `itd_unit_log.py` с тиром high (hooks, pre-push, механика ревью - строгий класс);
+  ветка `feat/plan-s10-one-review` от 7326af1. Приемка на самом кандидате S10: его квитанция под `ITD-PLAN-S10`
+  (голый id) идет в gates.json, pre-push и PR без раунда `ITD-PLAN-S10:general-review`.
+
+### 2026-10-31 - урок сессии 10: замороженный контекст ревью растет вместе с раундами
+
+- Где видно: ревью sol a8 на 8165113 - UNVERIFIED до вызова модели, «hierarchical unit prompt exceeds the reviewer
+  bound». Юнит иерархического промпта = до 80 KB диффа (maxRawDiffBytes брокера) + замороженный контекст
+  (инструкции, задача, scope, FROZEN_ACTIVE_ACCEPTANCE с текстами критериев и evidence, сводка машины); лимит
+  128 KiB. К восьмому раунду тексты evidence S10-критериев выросли до 21 KB (каждый ответ на ревью дописывал
+  историю), контекст - до ~54 KB, и юнит с полным диффом перестал помещаться.
+- Изменение: тексты критериев и evidence AC1-AC6 сжаты до фактов (без повторов истории раундов; история - в
+  `host-inputs/ITD-PLAN-S10/decisions-after-candidate.md` и в теле PR).
+- До/после: FROZEN_ACTIVE_ACCEPTANCE ~30 KB -> ~21 KB, контекст юнита ~54 KB -> ~45 KB; при 80 KB диффа юнит
+  ~125 KB < 128 KiB. Правило на будущее: evidence критерия - текущее состояние, не журнал; журнал - в записях
+  после кандидата.
+
+### 2026-10-31 - урок сессии 10: размер юнита определяет число раундов ревью
+
+- Где видно: ревью a1-a9 кандидата сессии 10 - дифф ~600 KB (четыре механизма: claim id кэша, security по
+  покрытию, провенанс закрытия, маршрут review/cross-review, плюс архив efficacy), ревью иерархическое по 7-8 юнитам
+  по 80 KB, по одной-пяти находкам за раунд, девять раундов; ревью a8 и a10 остановились на лимитах промпта
+  (128 KiB на юнит, 2 000 000 байт на сохраненный бандл) еще до вызова модели.
+- Изменение: кандидат отгружает только архив efficacy финальных байт продюсера (одна папка вместо девяти; наблюдения
+  промежуточных версий остаются на хосте); правило для плана - один механизм на PR.
+- До/после: дифф 598 KB -> ~335 KB, бандл промпта ~2.04 MB -> ~1.2 MB, юнитов 8 -> 5.
+
+### 2026-10-31 - урок сессии 10: пин efficacy на байты файла делает правку комментария равной правке семантики
+
+- Где видно: восемь перечеканок efficacy за сессию (по три живые ноги, ~20 минут каждая); две из них вызваны
+  правкой комментария и порядка проверок без изменения вердиктов (ответы на ревью a6, a9).
+- Изменение: записано; код пина не меняется в сессии 10 (вне scope). Кандидат - пин на нормализованный AST (без
+  комментариев и докстрингов) или на выделенный модуль провенанса (BACKLOG P2).
+- До/после: при пине на AST две из восьми перечеканок не понадобились бы (~40 минут живых ног).

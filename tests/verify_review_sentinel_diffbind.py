@@ -11,7 +11,18 @@ import tempfile
 import time
 from pathlib import Path
 
-from verification_loop_fixture import make_review_receipt
+import importlib.util
+
+# Loaded by path so the suite also runs under `python -I` (the machine legs of
+# the Verification Loop), where the script directory is not on sys.path.
+_FIXTURE_SPEC = importlib.util.spec_from_file_location(
+    "verification_loop_fixture",
+    Path(__file__).resolve().parent / "verification_loop_fixture.py")
+assert _FIXTURE_SPEC and _FIXTURE_SPEC.loader
+_fixture = importlib.util.module_from_spec(_FIXTURE_SPEC)
+sys.modules[_FIXTURE_SPEC.name] = _fixture
+_FIXTURE_SPEC.loader.exec_module(_fixture)
+make_review_receipt = _fixture.make_review_receipt
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -184,8 +195,13 @@ def main() -> int:
     skill_source = SKILL.read_text(encoding="utf-8")
     check("commit hook delegates to exact cache",
           "itd_review_cache.py" in hook_source and "cache_allows" in hook_source)
+    # Plan session 10: the recording step lives in the strict-route reference
+    # of /review; SKILL.md keeps the pointer to it.
+    strict_source = (SKILL.parent / "references" / "strict.md").read_text(encoding="utf-8")
     check("review skill records the exact verdict producer",
-          "itd_review_cache.py" in skill_source and "--verdict PASSED" in skill_source)
+          "itd_review_cache.py" in skill_source
+          and "itd_review_cache.py" in strict_source
+          and "--verdict PASSED" in strict_source)
 
     print(f"\nRESULT: {passed} passed, {failed} failed")
     return 1 if failed else 0

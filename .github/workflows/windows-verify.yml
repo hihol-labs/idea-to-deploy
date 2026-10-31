@@ -124,6 +124,10 @@ jobs:
         run: python tests/verify_strict_route.py
       - name: Task and adopt by the project route (thin router, adopt pointer, --strict full set) (plan session 9)
         run: python tests/verify_task_adopt_route.py
+      - name: One review per candidate (bare claim id, security by coverage, review route) (plan session 10)
+        run: python tests/verify_one_review_per_candidate.py
+      - name: Machine-verified provenance of a ledger close (plan session 10)
+        run: python tests/verify_close_provenance.py
       - name: run-all.sh vs workflows drift-guard (v1.79.1)
         run: python tests/verify_runall_drift.py
       - name: Token telemetry gate on legacy encoding (LPD003-4 consolidated)

@@ -987,6 +987,300 @@ def _closing_coverage_note(packet: dict[str, Any]) -> str:
     return CLOSING_COVERAGE_NOTE.format(unit_id=unit_id)
 
 
+# --- machine-verified provenance of a ledger-close candidate (plan session 10)
+#
+# REL-1.109.1 close review: the reviewer read "Start from merged main 582a093"
+# in the frozen scope and "v1.109.1 at 4993649" in the ledger diff, decided the
+# two commits were unrelated and blocked the close - 582a093 is the parent of
+# 4993649. The producer already ran `git merge-base --is-ancestor` for the
+# base/parent pair, but only fail-closed and never told the reviewer. Now every
+# commit a ledger close names is resolved and related by git before the model
+# is called, and the reviewer receives the verified relations as data.
+PROVENANCE_METHOD = (
+    "git rev-parse --verify <token>^{commit}; git merge-base --is-ancestor "
+    "<ancestor> <descendant>; git rev-parse <sha>^"
+)
+# Git object names are hexadecimal in either case; the token keeps its
+# spelling in the block and is resolved case-insensitively (review a13).
+PROVENANCE_HEX_RE = re.compile(r"(?<![0-9A-Za-z])[0-9A-Fa-f]{7,40}(?![0-9A-Za-z])")
+PROVENANCE_START_RE = re.compile(r"\bstart(?:s|ed|ing)?\s+from\b", re.IGNORECASE)
+MAX_PROVENANCE_COMMITS = 64
+MAX_PROVENANCE_TOKENS = 4096
+PROVENANCE_NOTE = (
+    "MACHINE-VERIFIED PROVENANCE\n"
+    "{block}\n"
+    "Every relation in that block was computed by git on the exact repository "
+    "(ancestry by `git merge-base --is-ancestor`, identity by `git rev-parse`). "
+    "Treat it as ground truth: do not infer parent/child or ancestry relations "
+    "between commits from ledger or scope text, and do not report such a "
+    "relation as a finding unless this block itself shows it. A token listed "
+    "under unresolved names no commit of this repository (a tree, a blob, a "
+    "receipt digest or a foreign id) and is not an ancestry defect; a token "
+    "listed under ambiguous matches more than one object of this repository, "
+    "which is a finding about the ledger text itself.\n"
+)
+PROVENANCE_FIELDS = frozenset({
+    "version", "kind", "method", "baseCommit", "parentCommit",
+    "baseIsAncestorOfParent", "scopeStart", "commits", "unresolved", "ambiguous",
+})
+PROVENANCE_START_FIELDS = frozenset({"mentionedAs", "sha", "ancestorOfParent"})
+PROVENANCE_COMMIT_FIELDS = frozenset({
+    "mentionedAs", "sha", "firstParent", "ancestorOfParent", "descendantOfScopeStart",
+})
+
+
+def _git_status(root: Path, *arguments: str) -> tuple[int, str]:
+    completed = run_bounded_process(
+        ["git", "-C", str(root), *arguments], timeout=30,
+    )
+    return completed.returncode, completed.stdout.decode("utf-8", "replace").strip()
+
+
+def _resolve_commit(root: Path, token: str) -> tuple[str, str | None]:
+    """Return ("resolved", sha), ("ambiguous", None) or ("unknown", None).
+
+    A failed commit lookup is classified by the objects that share the prefix:
+    more than one object is an ambiguity of the ledger text itself and is
+    reported as such, never folded into "no such commit" (review a4).
+    """
+    token = token.lower()  # git hex is case-insensitive; the caller keeps the spelling
+    code, out = _git_status(root, "rev-parse", "--verify", "--quiet", f"{token}^{{commit}}")
+    if code == 0 and SHA1_RE.fullmatch(out):
+        return "resolved", out
+    code, out = _git_status(root, "rev-parse", f"--disambiguate={token}")
+    matches = [line for line in out.splitlines() if SHA1_RE.fullmatch(line.strip())] if code == 0 else []
+    if len(matches) > 1:
+        return "ambiguous", None
+    return "unknown", None
+
+
+def _is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    code, _out = _git_status(root, "merge-base", "--is-ancestor", ancestor, descendant)
+    if code == 0:
+        return True
+    if code == 1:
+        return False
+    raise FreeReviewError("UNVERIFIED", "git could not establish commit ancestry")
+
+
+def _first_parent(root: Path, sha: str) -> str | None:
+    code, out = _git_status(root, "rev-parse", "--verify", "--quiet", f"{sha}^")
+    return out if code == 0 and SHA1_RE.fullmatch(out) else None
+
+
+def _closing_provenance(
+    root: Path, *, base: str, parent: str, scope_text: str, diff_text: str,
+) -> dict[str, Any]:
+    """Resolve and relate every commit a ledger close names, before any model.
+
+    Returns a closed block. The scope must name its start commit ("Start
+    from ... `<sha>`") and that commit must be an ancestor of the candidate
+    parent, or the candidate is UNVERIFIED here before any model call; every
+    other named commit is reported with its first parent and its relation to
+    the parent and to the scope start, never judged - a squash-merged branch
+    head is legitimately outside main's history.
+    """
+    # Added lines are the "+" lines INSIDE hunks (after a "@@" header); the
+    # "+++ b/path" file headers live before the first hunk of each file, so an
+    # added ledger line whose content begins with "++" is never mistaken for
+    # one (review a4).
+    mentioned: list[str] = []
+    in_hunk = False
+    for line in diff_text.splitlines():
+        if line.startswith("diff --git "):
+            in_hunk = False
+            continue
+        if line.startswith("@@"):
+            in_hunk = True
+            continue
+        if not (in_hunk and line.startswith("+")):
+            continue
+        for token in PROVENANCE_HEX_RE.findall(line):
+            if token not in mentioned:
+                mentioned.append(token)
+    # Two fail-closed bounds, neither a silent cut (reviews a2, a9, a11): a
+    # close naming more than MAX_PROVENANCE_TOKENS distinct hex-looking tokens
+    # is UNVERIFIED here, before the first git call of this function (a work
+    # bound on resolution); below it every distinct token is resolved before
+    # the related-commit cap, so decimal counters and dates can never crowd a
+    # real commit out of the block, and more than MAX_PROVENANCE_COMMITS
+    # related commits is UNVERIFIED, never silently shortened.
+    if len(mentioned) > MAX_PROVENANCE_TOKENS:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "ledger close names more hex tokens than the provenance block resolves",
+        )
+    # The ancestry proof is required: the start line is the first line of the
+    # scope that carries the directive AND a commit token - prose that merely
+    # says "start from" is skipped (review a11) - and the FIRST commit token
+    # of that line must resolve. A later incidental hash on the same line is
+    # never substituted for an unresolvable one.
+    start_line = next(
+        (line for line in scope_text.splitlines()
+         if PROVENANCE_START_RE.search(line) and PROVENANCE_HEX_RE.search(line)),
+        None,
+    )
+    if start_line is None:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "scope names no start commit for the ledger close (add a line "
+            "'Start from merged main `<sha>`' to the frozen scope)",
+        )
+    tokens = PROVENANCE_HEX_RE.findall(start_line)
+    start_status, resolved_start = _resolve_commit(root, tokens[0])
+    if resolved_start is None:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "scope start commit is ambiguous in this repository" if start_status == "ambiguous"
+            else "scope start commit cannot be resolved to a unique commit of this repository",
+        )
+    scope_start: dict[str, Any] = {
+        "mentionedAs": tokens[0],
+        "sha": resolved_start,
+        "ancestorOfParent": _is_ancestor(root, resolved_start, parent),
+    }
+    if not scope_start["ancestorOfParent"]:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "scope start commit is not an ancestor of the candidate parent",
+        )
+    commits: list[dict[str, Any]] = []
+    unresolved: list[str] = []
+    ambiguous: list[str] = []
+    for token in mentioned:
+        status, resolved = _resolve_commit(root, token)
+        if resolved is None:
+            if status == "ambiguous":
+                ambiguous.append(token)
+            else:
+                # Every unknown token is reported, digits-only ones included:
+                # a mistyped or foreign reference written in digits must not
+                # vanish from the block (review a13); the token bound above
+                # keeps the list finite and nothing is ever truncated.
+                unresolved.append(token)
+            continue
+        commits.append({
+            "mentionedAs": token,
+            "sha": resolved,
+            "firstParent": _first_parent(root, resolved),
+            "ancestorOfParent": _is_ancestor(root, resolved, parent),
+            "descendantOfScopeStart": _is_ancestor(root, scope_start["sha"], resolved),
+        })
+    if len(commits) > MAX_PROVENANCE_COMMITS:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "ledger close names more commits than the provenance block relates",
+        )
+    return {
+        "version": 1,
+        "kind": "itd-ledger-close-provenance",
+        "method": PROVENANCE_METHOD,
+        "baseCommit": base,
+        "parentCommit": parent,
+        "baseIsAncestorOfParent": _is_ancestor(root, base, parent),
+        "scopeStart": scope_start,
+        "commits": commits,
+        "unresolved": unresolved,
+        "ambiguous": ambiguous,
+    }
+
+
+def _validate_provenance_block(block: Any, candidate: Any) -> dict[str, Any]:
+    """Accept only a closed, well-typed block bound to THIS candidate.
+
+    The MACHINE-VERIFIED heading is a trust statement to the reviewer, so a
+    malformed or altered packet must fail closed instead of rendering
+    arbitrary data under it (review a4), and a block about another candidate
+    - base or parent differing from the packet's exact candidate - is refused
+    as well (review a5). The ancestry values themselves are re-derived with
+    git by ``validate_review_prompt_artifact(..., root=...)`` in the review
+    run that signs the prompt into the phase-one receipt.
+    """
+    def refuse(detail: str) -> FreeReviewError:
+        return FreeReviewError("UNVERIFIED", f"packet provenance block is malformed: {detail}")
+
+    if not isinstance(block, dict) or set(block) != PROVENANCE_FIELDS:
+        raise refuse("fields")
+    if block["version"] != 1 or block["kind"] != "itd-ledger-close-provenance" \
+            or block["method"] != PROVENANCE_METHOD:
+        raise refuse("identity")
+    for key in ("baseCommit", "parentCommit"):
+        if not isinstance(block[key], str) or not SHA1_RE.fullmatch(block[key]):
+            raise refuse(key)
+    if not isinstance(candidate, dict) or block["baseCommit"] != candidate.get("baseCommit") \
+            or block["parentCommit"] != candidate.get("parentCommit"):
+        raise refuse("candidate binding")
+    if block["baseIsAncestorOfParent"] is not True:
+        raise refuse("baseIsAncestorOfParent")
+    start = block["scopeStart"]
+    if (not isinstance(start, dict) or set(start) != PROVENANCE_START_FIELDS
+            or not isinstance(start["mentionedAs"], str) or not start["mentionedAs"]
+            or not isinstance(start["sha"], str) or not SHA1_RE.fullmatch(start["sha"])
+            or start["ancestorOfParent"] is not True):
+        raise refuse("scopeStart")
+    if not isinstance(block["commits"], list) or len(block["commits"]) > MAX_PROVENANCE_COMMITS:
+        raise refuse("commits")
+    for row in block["commits"]:
+        if (not isinstance(row, dict) or set(row) != PROVENANCE_COMMIT_FIELDS
+                or not isinstance(row["mentionedAs"], str) or not row["mentionedAs"]
+                or not isinstance(row["sha"], str) or not SHA1_RE.fullmatch(row["sha"])
+                or not (row["firstParent"] is None
+                        or (isinstance(row["firstParent"], str) and SHA1_RE.fullmatch(row["firstParent"])))
+                or not isinstance(row["ancestorOfParent"], bool)
+                or not isinstance(row["descendantOfScopeStart"], bool)):
+            raise refuse("commit row")
+    for key in ("unresolved", "ambiguous"):
+        value = block[key]
+        if (not isinstance(value, list) or len(value) > MAX_PROVENANCE_TOKENS
+                or any(not isinstance(item, str) or not item for item in value)):
+            raise refuse(key)
+    return block
+
+
+def _provenance_note(packet: dict[str, Any]) -> str:
+    """Render the verified ancestry wherever the packet reaches a reviewer."""
+    provenance = packet.get("provenance")
+    if provenance is None:
+        return ""
+    _require_inherited_coverage(packet)
+    block = _validate_provenance_block(provenance, packet.get("candidate"))
+    return PROVENANCE_NOTE.format(
+        block=json.dumps(block, ensure_ascii=False, sort_keys=True))
+
+
+def _require_inherited_coverage(packet: dict[str, Any]) -> None:
+    """A provenance block belongs only to a ledger close with inherited coverage.
+
+    Any other coverage - an active unit, or none - with a provenance block is
+    UNVERIFIED on every prompt surface (review a5).
+    """
+    coverage = packet.get("evidenceCoverage")
+    if not isinstance(coverage, dict) or coverage.get("coverageSource") != "closed-unit-inherited":
+        raise FreeReviewError(
+            "UNVERIFIED", "packet provenance without inherited closure coverage")
+
+
+def _recompute_provenance(root: Path, packet: dict[str, Any]) -> None:
+    """Re-derive the block from the packet's own scope and diff with git.
+
+    Equality with the packet's block is the authenticity proof of the
+    ancestry values; any difference is UNVERIFIED (review a5).
+    """
+    if "provenance" not in packet:
+        return
+    _require_inherited_coverage(packet)
+    candidate = packet.get("candidate") or {}
+    recomputed = _closing_provenance(
+        Path(root), base=str(candidate.get("baseCommit")),
+        parent=str(candidate.get("parentCommit")),
+        scope_text=str(packet.get("scope", {}).get("text", "")),
+        diff_text=str(packet.get("diff", "")),
+    )
+    if recomputed != packet["provenance"]:
+        raise FreeReviewError(
+            "UNVERIFIED", "packet provenance block differs from its git recomputation")
+
+
 def _transparent_review_representation(
     root: Path, base: str,
     staged_records: list[dict[str, Any]] | None = None,
@@ -1424,6 +1718,13 @@ def freeze_packet(
     }
     if evidence_coverage is not None:
         packet["evidenceCoverage"] = evidence_coverage
+        if evidence_coverage.get("coverageSource") == "closed-unit-inherited":
+            # Plan session 10: the machine relates the named commits before
+            # the model review of a closure, so ancestry is data, not a guess.
+            packet["provenance"] = _closing_provenance(
+                root, base=base, parent=parent,
+                scope_text=scope_text, diff_text=diff_text,
+            )
     return packet
 
 
@@ -1434,6 +1735,9 @@ def review_prompt(packet: dict[str, Any]) -> str:
     }
     if "evidenceCoverage" in packet:
         packet_fields.add("evidenceCoverage")
+    if "provenance" in packet:
+        _require_inherited_coverage(packet)
+        packet_fields.add("provenance")
     exact_dict(packet, packet_fields, "review packet")
     plan, _units = _hierarchical_units(packet)
     if plan is None:
@@ -1465,6 +1769,7 @@ def review_prompt(packet: dict[str, Any]) -> str:
         f"{json.dumps(packet['acceptance']['value'], ensure_ascii=False, sort_keys=True)}\n\n"
         "MACHINE EVIDENCE\n"
         f"{json.dumps(packet['machineEvidence'], ensure_ascii=False, sort_keys=True)}\n\n"
+        f"{_provenance_note(packet)}"
         f"{_closing_coverage_note(packet)}"
         "EVIDENCE COVERAGE\n"
         f"{json.dumps(packet.get('evidenceCoverage'), ensure_ascii=False, sort_keys=True)}\n\n"
@@ -1743,6 +2048,7 @@ def _unit_review_prompt(
         f"{json.dumps(_reviewer_acceptance(packet), ensure_ascii=False, sort_keys=True)}\n"
         "MACHINE_EVIDENCE_SUMMARY="
         f"{json.dumps(_reviewer_machine_evidence(packet), ensure_ascii=False, sort_keys=True)}\n"
+        f"{_provenance_note(packet)}"
         f"{_closing_coverage_note(packet)}"
         "EVIDENCE_COVERAGE="
         f"{json.dumps(coverage, ensure_ascii=False, sort_keys=True)}\n"
@@ -1820,6 +2126,7 @@ def _integration_review_prompt(
         f"FROZEN_SCOPE={packet['scope']['text']}\n"
         "FROZEN_ACTIVE_ACCEPTANCE="
         f"{json.dumps(_reviewer_acceptance(packet), ensure_ascii=False, sort_keys=True)}\n"
+        f"{_provenance_note(packet)}"
         f"{_closing_coverage_note(packet)}"
         "EVIDENCE_COVERAGE="
         f"{json.dumps(packet.get('evidenceCoverage'), ensure_ascii=False, sort_keys=True)}\n"
@@ -1882,9 +2189,31 @@ def _aggregate_hierarchical_report(
     return _aggregate_reports([*reports, integration])
 
 
+def _require_recomputed_provenance(
+    packet: dict[str, Any], root: Path | str | None,
+) -> None:
+    """A provenance-bearing packet is never signed without the repository.
+
+    The ancestry values are re-derived with git here, and a caller that
+    cannot supply the root is refused instead of trusted (reviews a6, a7).
+    Every receipt path - direct or quorum - passes through this step before
+    anything else about the packet is accepted.
+    """
+    if "provenance" not in packet:
+        return
+    if root is None:
+        raise FreeReviewError(
+            "UNVERIFIED",
+            "provenance-bearing packet needs the repository root for recomputation",
+        )
+    _recompute_provenance(Path(root), packet)
+
+
 def validate_review_prompt_artifact(
     packet: dict[str, Any], prompt: str, report: dict[str, Any],
+    root: Path | str | None = None,
 ) -> dict[str, Any]:
+    _require_recomputed_provenance(packet, root)
     plan, units = _hierarchical_units(packet)
     _report(report)
     if plan is None:
@@ -2793,6 +3122,7 @@ def quorum_prompt_artifact(
 def validate_quorum_prompt_artifact(
     packet: dict[str, Any], prompt: str, report: dict[str, Any],
     reviewers: list[dict[str, str]],
+    root: Path | str | None = None,
 ) -> dict[str, Any]:
     if (
         not isinstance(prompt, str)
@@ -2818,7 +3148,7 @@ def validate_quorum_prompt_artifact(
         row = exact_dict(raw, {"reviewer", "prompt", "report"}, "quorum review evidence")
         reviewer = _reviewer_identity(row["reviewer"])
         review_report = _report(row["report"])
-        validate_review_prompt_artifact(packet, row["prompt"], review_report)
+        validate_review_prompt_artifact(packet, row["prompt"], review_report, root=root)
         observed_reviewers.append(reviewer)
         reports.append(review_report)
     if observed_reviewers != reviewers or _aggregate_reports(reports) != report:
@@ -4416,8 +4746,12 @@ def phase_one_receipt(
     private_key: bytes, issued_at: str | None = None,
     reviewers: list[dict[str, str]] | None = None,
     prompt_ledger: dict[str, Any] | None = None,
+    root: Path | str | None = None,
 ) -> dict[str, Any]:
     target, candidate, bindings = _packet_bindings(packet)
+    # Before any branch on the reviewer mode: a provenance-bearing packet is
+    # recomputed with git or refused, whichever path signs it (review a7).
+    _require_recomputed_provenance(packet, root)
     maker_row = _identity(maker, "maker identity")
     reviewer_row = _reviewer_identity(reviewer)
     if not independent_identities(maker_row, reviewer_row):
@@ -4428,7 +4762,7 @@ def phase_one_receipt(
         raise FreeReviewError("UNVERIFIED", "reviewer isolation is not enforceable")
     reviewer_rows: list[dict[str, str]] | None = None
     if reviewers is None:
-        validate_review_prompt_artifact(packet, prompt, report)
+        validate_review_prompt_artifact(packet, prompt, report, root=root)
         clean_attempts = verify_attempt_ledger(attempts, reviewer_row["provider"])
         version = 2
     else:
@@ -4437,7 +4771,7 @@ def phase_one_receipt(
             raise FreeReviewError("UNVERIFIED", "primary reviewer differs from quorum")
         if any(not independent_identities(maker_row, value) for value in reviewer_rows):
             raise FreeReviewError("UNVERIFIED", "review quorum includes the maker")
-        validate_quorum_prompt_artifact(packet, prompt, report, reviewer_rows)
+        validate_quorum_prompt_artifact(packet, prompt, report, reviewer_rows, root=root)
         clean_attempts = verify_quorum_attempt_ledger(
             attempts, reviewer_rows, 2
         )
@@ -6230,7 +6564,8 @@ def main(argv: list[str] | None = None) -> int:
                            if minimum_reviewers > 1 else None),
                 prompt_ledger=(prompt_ledger.binding()
                                if minimum_reviewers == 1 else None),
-            )
+            
+                root=args.root)
             # Self-check before publication: the ledger on disk must verify
             # against the receipt just minted by the very function a later
             # verify-prompt-log run uses; otherwise nothing is emitted.

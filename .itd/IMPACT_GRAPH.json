@@ -70,6 +70,7 @@
     ],
     ".github/workflows/meta-review.yml": [
       "tests/verify_cross_platform_runtime.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operational_continuation.py",
       "tests/verify_runall_drift.py",
       "tests/verify_session_hygiene_quality.py",
@@ -80,6 +81,7 @@
     ".github/workflows/windows-verify.yml": [
       "tests/verify_cross_platform_runtime.py",
       "tests/verify_fable_snippets.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operational_continuation.py",
       "tests/verify_runall_drift.py",
       "tests/verify_snapshot.py",
@@ -101,6 +103,7 @@
       "tests/verify_installed_proof_head.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_machine_oracle_legs.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
@@ -121,6 +124,7 @@
       "tests/verify_efficiency_attribution.py",
       "tests/verify_goal_tools.py",
       "tests/verify_hook_tier_exit.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
@@ -138,6 +142,7 @@
     ],
     ".itd-memory/STATE.json": [
       "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_close_provenance.py",
       "tests/verify_closure_delta.py",
       "tests/verify_completion_policy_calibration.py",
       "tests/verify_free_reviewer_producer.py",
@@ -154,6 +159,7 @@
       "tests/verify_host_neutral_memory.py",
       "tests/verify_ledger_reconciliation.py",
       "tests/verify_memory_collision_deny.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_cold_start.py",
@@ -177,6 +183,7 @@
       "tests/verify_v147_fixes.py"
     ],
     ".itd-memory/events.jsonl": [
+      "tests/verify_close_provenance.py",
       "tests/verify_closure_delta.py",
       "tests/verify_completion_adversarial_corpus.py",
       "tests/verify_completion_gate.py",
@@ -203,12 +210,15 @@
     ],
     ".itd/ACCEPTANCE_CONTRACT.json": [
       "tests/verify_adjudication_channel.py",
+      "tests/verify_close_provenance.py",
       "tests/verify_closure_delta.py",
+      "tests/verify_dod_gate.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_goal_bounded_autonomy.py",
       "tests/verify_goal_tools.py",
       "tests/verify_installed_proof_head.py",
       "tests/verify_machine_oracle_legs.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_push_gate_adjudicated.py",
@@ -257,6 +267,7 @@
       "tests/verify_install_owned_tools.py",
       "tests/verify_installed_proof_head.py",
       "tests/verify_machine_oracle_legs.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_platform_tmp_and_new_hooks.py",
@@ -294,6 +305,7 @@
       "tests/verify_strict_completion_policy.py"
     ],
     "AGENTS.md": [
+      "tests/verify_cross_review_precommit.py",
       "tests/verify_global_routers.py",
       "tests/verify_host_adapters.py",
       "tests/verify_install_owned_tools.py",
@@ -458,11 +470,13 @@
     ],
     "docs/API_REVIEWER.md": [
       "tests/verify_external_reviewer_release.py",
-      "tests/verify_gate_registry_profiles.py"
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_one_review_per_candidate.py"
     ],
     "docs/CI.md": [
       "tests/verify_external_reviewer_release.py",
-      "tests/verify_gate_registry_profiles.py"
+      "tests/verify_gate_registry_profiles.py",
+      "tests/verify_one_review_per_candidate.py"
     ],
     "docs/CONTRACTS.md": [
       "tests/verify_tool_trust_inventory.py"
@@ -549,6 +563,7 @@
     "docs/VERIFICATION_LOOP.md": [
       "tests/verify_authority_check.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_stop_rule_closed_contract.py",
       "tests/verify_verification_loop.py"
     ],
@@ -619,6 +634,7 @@
       "tests/verify_operating_loops_release.py"
     ],
     "docs/examples/brownfield-piv/artifacts/machine.json": [
+      "tests/verify_close_provenance.py",
       "tests/verify_closure_delta.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_harness_demo_capture_schema.py",
@@ -879,6 +895,7 @@
       "tests/verify_harness_map_fixtures.py",
       "tests/verify_hook_selection.py",
       "tests/verify_itd_runtime_install.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_project_checks.py",
       "tests/verify_task_contract_advisory.py"
     ],
@@ -1037,7 +1054,8 @@
       "tests/verify_cross_review_precommit.py",
       "tests/verify_feature_ledger_fallbacks.py",
       "tests/verify_hook_selection.py",
-      "tests/verify_hook_tier_exit.py"
+      "tests/verify_hook_tier_exit.py",
+      "tests/verify_one_review_per_candidate.py"
     ],
     "hooks/execution-trace.sh": [
       "tests/verify_execution_trace_outcome.py",
@@ -1494,12 +1512,14 @@
     ],
     "skills/_shared/itd_free_reviewer_producer.py": [
       "tests/verify_blueprint_provenance_reviewer.py",
+      "tests/verify_close_provenance.py",
       "tests/verify_copilot_reviewer.py",
       "tests/verify_free_reviewer_producer.py",
       "tests/verify_independent_review_efficacy.py",
       "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle_legs.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_review_enumeration.py",
       "tests/verify_reviewer_independence_policy.py",
       "tests/verify_reviewer_model_compatibility.py",
@@ -1546,6 +1566,7 @@
       "tests/verify_install_owned_tools.py"
     ],
     "skills/_shared/itd_py.sh": [
+      "tests/verify_close_provenance.py",
       "tests/verify_closure_delta.py",
       "tests/verify_completion_false_red.py",
       "tests/verify_completion_supersede.py",
@@ -1560,6 +1581,7 @@
       "tests/verify_install_owned_tools.py",
       "tests/verify_machine_oracle.py",
       "tests/verify_no_bare_python3.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_otk_failed_attempt.py",
       "tests/verify_otk_host_tree.py",
@@ -1643,6 +1665,7 @@
       "tests/verify_itd_runtime_install.py",
       "tests/verify_machine_oracle_legs.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_otk_failed_attempt.py",
       "tests/verify_predeploy_independent_review.py",
@@ -1701,6 +1724,8 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_neutral_memory.py",
       "tests/verify_install_owned_tools.py",
+      "tests/verify_one_review_per_candidate.py",
+      "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_task_adopt_route.py",
       "tests/verify_tool_trust_inventory.py"
@@ -1735,12 +1760,14 @@
       "tests/verify_session_hygiene_quality.py"
     ],
     "skills/bugfix/SKILL.md": [
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops.py",
       "tests/verify_strict_route.py",
       "tests/verify_task_adopt_route.py"
     ],
     "skills/bugfix/references/strict.md": [
       "tests/verify_install_owned_tools.py",
+      "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_strict_route.py"
     ],
     "skills/caveman/SKILL.md": [
@@ -1748,6 +1775,7 @@
     ],
     "skills/cross-review/SKILL.md": [
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_review_autoping.py"
     ],
     "skills/deploy/SKILL.md": [
@@ -1781,6 +1809,7 @@
       "tests/verify_goal_tools.py",
       "tests/verify_goal_verify_failpath.py",
       "tests/verify_goal_verify_shell.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operational_cold_start.py",
       "tests/verify_operational_continuation.py",
       "tests/verify_otk_host_tree.py",
@@ -1837,6 +1866,7 @@
     ],
     "skills/refactor/references/strict.md": [
       "tests/verify_install_owned_tools.py",
+      "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_strict_route.py"
     ],
     "skills/refactor/references/worktree-isolation.md": [
@@ -1868,6 +1898,7 @@
       "tests/verify_itd_runtime_install.py",
       "tests/verify_live_model_benchmark.py",
       "tests/verify_mandatory_keyless_review.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_review_autoping.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_report_file.py",
@@ -1883,11 +1914,17 @@
       "tests/verify_itd_runtime_install.py",
       "tests/verify_review_cache.py"
     ],
+    "skills/review/references/strict.md": [
+      "tests/verify_install_owned_tools.py",
+      "tests/verify_one_review_per_candidate.py",
+      "tests/verify_review_sentinel_diffbind.py"
+    ],
     "skills/review/scripts/itd_review_cache.py": [
       "tests/verify_adjudication_channel.py",
       "tests/verify_blueprint_provenance_reviewer.py",
       "tests/verify_dod_gate.py",
       "tests/verify_itd_runtime_install.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
@@ -1926,7 +1963,9 @@
     ],
     "skills/task/references/strict.md": [
       "tests/verify_install_owned_tools.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_proportionality_benchmark.py",
+      "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_session_hygiene_quality.py",
       "tests/verify_task_adopt_route.py",
       "tests/verify_task_contract_advisory.py",
@@ -1953,6 +1992,7 @@
     "skills/test/references/strict.md": [
       "tests/verify_install_owned_tools.py",
       "tests/verify_refute_fleet.py",
+      "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_strict_route.py",
       "tests/verify_test_skill_rules.py"
     ],
@@ -2221,6 +2261,7 @@
       "tests/verify_installed_proof_head.py",
       "tests/verify_isolated_candidate_mirror.py",
       "tests/verify_machine_oracle.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_operational_continuation.py",
       "tests/verify_preflight_budget.py",
@@ -2253,6 +2294,7 @@
     ],
     "tests/verification_loop_fixture.py": [
       "tests/verify_dod_gate.py",
+      "tests/verify_one_review_per_candidate.py",
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py"
@@ -2273,6 +2315,9 @@
     "tests/verify_blind_protocol.py": [
       "tests/verify_route_debts.py",
       "tests/verify_stop_rule.py"
+    ],
+    "tests/verify_close_provenance.py": [
+      "tests/verify_one_review_per_candidate.py"
     ],
     "tests/verify_closure_delta.py": [
       "tests/verify_otk_failed_attempt.py"

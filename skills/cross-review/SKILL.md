@@ -31,6 +31,30 @@ second evidence authority and cannot be substituted with a local self-review.
 A plain "review this" or «проверь PR» normally enters through `/review`, but
 both skills converge on the same producer and evidence contract.
 
+## Route
+
+Cross-review by a second model is a strict-route step. Run the same Step 0
+as `/review`, `/bugfix` and `/task`; the command detects the project's marker,
+and `--strict` in the arguments or a strict task class selects the strict route
+as well:
+
+```bash
+( cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" && for f in CLAUDE.md .claude/CLAUDE.md AGENTS.md; do head -c 8192 "$f" 2>/dev/null; echo; done ) | grep -Eiq '^[[:space:]]*(itd-route:[[:space:]]*strict|itd-domain:[[:space:]]*data-sensitive)[[:space:]]*$|<!--[[:space:]]*itd:(strict|data-sensitive)[[:space:]]*-->' && echo strict || echo minimal
+```
+
+`minimal` (the command printed `minimal`, no `--strict`, no strict task class):
+the project reviews with the host's native command (`/code-review`
+in Claude Code, the built-in `/review` in Codex); there is no second-model
+gate, no receipt and no claim id. Say so in one line and stop. This is the
+project's route choice by its marker, not a caller bypass of the strict gate.
+
+`strict` (the command printed `strict`, or `--strict`, or a strict task class,
+whatever the command printed): continue below. The
+receipt this route mints is the one receipt of the candidate (`/review`
+`references/strict.md` S3): minted under the bare active unit id, consumed by
+the commit cache, the security gate, the pre-push gate, `itd pr create` and
+the unit closure; no `<unit>:general-review` round exists.
+
 ## Recommended model
 
 The orchestrator uses the active host model. The reviewer model is selected by
