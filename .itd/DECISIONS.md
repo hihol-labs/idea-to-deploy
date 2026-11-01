@@ -7080,3 +7080,181 @@ The third fresh Terra review found that a primary already containing :general-re
   - medium (evidence-accuracy, `.itd/ACCEPTANCE_CONTRACT.json` AC2): `reviewEvidence.claim` говорил «on both hosts».
     Ответ: claim называет WSL (полный набор в изолированном чекауте) и паритет нативного Windows с чистым main.
 - Ответ меняет только записи; новый кандидат -> машина a3 -> ревью a2 по решению владельца.
+
+## 2026-10-31 - сессия 11: машины a3-a4, ревью sol a2 PASSED, публикация v1.110.0
+- Решение владельца 2026-10-31 «Да, запускай a2» (после ответа на a1). Машина a3 на dafb6ca (дерево 6762cce4) -
+  FAILED только на host-guard полной ноги: параллельная сессия Claude дописала `MEMORY.md` хоста во время полной ноги
+  (сам набор DONE fails:none); снимок обновлен, машина a4 на том же дереве - PASSED 7/7 (receipt c4851aae).
+- Ревью gpt-5.6-sol a2 (база 2f862a1, кандидат dafb6ca, машина a4) - PASSED, 0 находок, 0 unverified; adjudication
+  `REL-1.110.0-canonical-a2-adjudication.json` (receiptSha256 ad5f7096..., checkerMode targeted) под голым id
+  REL-1.110.0.
+- Обход completion-gate: один аудируемый `COMPLETION_BYPASS` (первый коммит кандидата; строка в
+  `.itd-memory/completion-bypass.jsonl`) - единственный красный L2 был `verify_live_model_benchmark` «dirty-state digest
+  is pinned» на незакоммиченном дереве; тот же оракул на закоммиченном дереве - 154/0 с записью раннера; последующие
+  amend прошли гейт без обхода.
+- Решение владельца 2026-10-31 «Да, публикуй»: `~/.config/itd/gates.json` -> adjudication a2, юнит REL-1.110.0, тир
+  medium (бэкап `gates.json.bak-20261031T195405Z-before-s11`); `itd pr create` -> PR #381 (head dafb6ca,
+  LOCAL_REVIEWED), тело PR, ready; CI PR 2/2 SUCCESS; squash-merge по head -> main eb271ba (2026-10-31T20:19:15Z, дерево
+  6762cce4 = проверенное); релиз v1.110.0 на полном SHA eb271ba (published 20:19:39Z, не draft); CI main 2/2 SUCCESS.
+
+## 2026-10-31 - сессия 11: раскатка 1.110.0 на WSL и Windows, нативная приемка с расхождением оракула
+- Решение владельца 2026-10-31 «Да, раскатывай» (правка auth-схемы Codex в Windows-копии продюсера уходит в бэкап).
+- WSL: `.itd-memory/verification-loop/REL-1.110.0-wsl-rollout.py` (скрипт 1.109.2, адаптирован под S5/S6: допустимые
+  команды хуков - `*.sh` и `*.py` диспетчера, в бэкап и проверку - `hooks/claude-dispatch.json`, `hooks/__pycache__`,
+  `itd-bytecode.json`); бэкап `~/.local/share/itd/backups/REL-1.110.0-a1`; синк Claude (менялся только
+  `.claude-plugin/plugin.json`), исходник плагина Codex из архива релиза, `codex plugin add` -> кэш 1.110.0, `itd` и
+  pre-push -> runtime 1.110.0-6d693cfafe7069d3; git-конфиг до и после совпадает; `sync-to-active.sh --check` после -
+  без дрейфа; Codex: idea-to-deploy@personal 1.110.0 installed и enabled.
+- Windows: нативный клон `C:\itd-src\idea-to-deploy-1.110.0` (eb271ba, core.autocrlf=false), скрипт
+  `REL-1.110.0-windows-rollout.ps1`. Попытка 1 (Windows PowerShell 5.1) - отказ предпроверки до изменений: вывод
+  `git.exe` декодирован в OEM-кодировке, кириллический `core.hooksPath` не совпал. Попытка 2 (5.1 + UTF-8 вывода) -
+  синк Claude применен, postcheck чистый, затем шаг нормализации провенанса упал: 5.1 портит кавычки в многострочном
+  `python -c`; бэкап `C:\Users\Дмитрий\.codex\plugin-backups\REL-1.110.0-20261031T203023Z-250ba2a1` (в нем
+  `claude-before` с продюсером a204378d - правка auth сессии buying). Попытка 3 (pwsh 7.6.9) - все шаги, бэкап
+  `REL-1.110.0-20261031T203210Z-8de1ddfd`, runtime 1.110.0-6d693cfafe7069d3, кэш Codex 1.110.0; продюсер на Windows
+  теперь 141c105d (байты релиза).
+- Нативные проверки: канарейки REL-1.110.0-native-{Linux,Windows}-a1 из установленного runtime на чистом eb271ba -
+  обертки `itd`/pre-push и `core.hooksPath` приняты, машина `native` (`verify_route_debts.py --native-test-log`) PASSED
+  на обоих хостах; ревалидация записи хоста отказала на обоих: «Claude risk hook is not enabled with its native
+  command». Причина - оракул: `validate_adapter_activation` в `tests/verify_route_debts.py` ищет `risk-score.sh`,
+  прописанный прямо в `settings.json` (PostToolUse, matcher `*`), а с S6 хуки вызывает `claude-dispatch.py` по таблице
+  маршрутов и с S5 `risk-score` - опциональный хук, выключенный владельцем в `itd-disabled-hooks.txt`. CI этот
+  оракул не запускает. Вторая нога ОТК `verify_live_model_benchmark --require-evidence` на eb271ba - 154/0.
+  `INSTALLED.json` не собран (записи хостов не записаны).
+- Решение владельца 2026-10-31 «Да, с расхождением»: нативная приемка 1.110.0 засчитывается по нативным тестам
+  канареек, оберткам, `core.hooksPath`, активации Codex 1.110.0, синку без дрейфа и live-ноге; формальная ОТК
+  installed-proof остается красной до починки оракула (BACKLOG P1).
+
+### 2026-10-31 - урок сессии 11: оракул, который не запускает CI, отстает от раскладки установки
+
+- Где видно: канарейки REL-1.110.0-native-{Linux,Windows}-a1 - `native-*-a1/revalidation.stderr.log` «Claude risk hook is
+  not enabled with its native command»; S5 и S6 (хуки по умолчанию, диспетчер) прошли CI зелеными.
+- Изменение: BACKLOG P1 - перевести `validate_adapter_activation` на раскладку с диспетчером и выключенными
+  владельцем хуками; юнит, меняющий регистрацию хуков или установку, гоняет `verify_route_debts.py --installed-proof`
+  (или его шаблонный тест) в своей машине.
+- До/после: S5/S6 - зеленые; первый релиз после них - ОТК красная на обоих хостах.
+
+### 2026-10-31 - урок сессии 11: раскатку Windows запускать в pwsh 7
+
+- Где видно: `host-inputs/REL-1.110.0/windows-rollout-a1.out` (отказ предпроверки: OEM-декодирование вывода git.exe) и
+  `windows-rollout-a2.out` (`File "<string>", line 8` - кавычки в аргументе `python -c`).
+- Изменение: скрипт ставит `[Console]::OutputEncoding` UTF-8 и запускается `pwsh.exe` 7 (передача аргументов без
+  порчи кавычек).
+- До/после: под 5.1 - отказ и падение посередине; под pwsh 7.6.9 - все шаги с первого раза.
+
+### 2026-10-31 - урок сессии 11: параллельная сессия, пишущая память хоста, роняет полную ногу машины
+
+- Где видно: машина a3 на dafb6ca - full exit 1 при `DONE fails:none`: host-guard (`after-full: declared host memory
+  drifted`), `MEMORY.md` изменен в 19:19Z параллельной сессией.
+- Изменение: на время полной ноги машины другие сессии не пишут память проекта; снимок `HOST_MEMORY_INDEX.md`
+  обновляется непосредственно перед запуском.
+- До/после: a3 - FAILED на том же дереве; a4 - PASSED 7/7.
+
+### 2026-10-31 - урок сессии 11: оракул с пином чистого дерева не гонять в грязной рабочей копии
+
+- Где видно: `verify_live_model_benchmark --require-evidence` в рабочей копии с правками (17:3xZ) - 153/1 «dirty-state
+  digest is pinned»; красный без записи раннера не вытесняется и потребовал аудируемого обхода при первом коммите.
+- Изменение: этот оракул запускать только на закоммиченном чистом дереве (или в снимке H4), с `ITD_RUN_RECORD=1`.
+- До/после: один обход при первом коммите; после правила - коммиты без обхода.
+
+## 2026-10-31 - сессия 11: REL-1.110.0 закрыт по конвенции ADR-016 - подпись владельца (первое закрытие, журнал #1)
+- Подпись владельца в смысле ADR-007: «Да, подписываю» 2026-10-31T21:46Z после просмотра дельты закрытия.
+- Шаг 1: merge-коммит eb271ba2fbf62394cc241b337fa40146d32eaf71, дерево 6762cce483d3c53b04d44c0283b2271a74be82fa =
+  `candidate.reviewedTree` квитанции `.itd-memory/verification-loop/REL-1.110.0-canonical-a2-adjudication.json`
+  (outcome PASSED, receiptSha256 ad5f70964a7ab549de4dd6a36afceda1ff65822979acfbee67ca1a2988294e22).
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified REL-1.110.0` (evt-unit-1793482881); `git diff
+  --name-only eb271ba 9bc190b` - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`, `BACKLOG.md` - только Allowed Change Areas шаблона ledger-close;
+  `scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - «OK: validated 2 state file(s)», rc=0.
+- Просмотренный владельцем diff: `git diff eb271ba 9bc190b` (`.itd-memory/host-inputs/REL-1.110.0/closure-delta.diff`,
+  269 строк, sha256 d1926912...). Эта запись подписи дописывается в тот же коммит закрытия; ее путь - тот же
+  `.itd/DECISIONS.md`.
+- Журнал #1 (первое закрытие по конвенции): начало 2026-10-31T21:41:15Z (проверка дерева), подпись 21:46:43Z - 5.5 минуты,
+  включая ожидание владельца; новых модельных раундов 0, полного `tests/run-all.sh` 0. Цель раздела 2 плана («без новых
+  модельных ревью, не дольше 30 мин») достигнута. Для сравнения - REL-1.109.1: 94 минуты и 6 модельных сессий.
+  Расхождение приемки, не времени: формальная ОТК installed-proof красная из-за устаревшего оракула (BACKLOG P1),
+  нативная приемка засчитана решением владельца «Да, с расхождением».
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: план согласован, юнит активирован
+- Почему: BACKLOG P1 из нативных канареек REL-1.110.0 - `validate_adapter_activation` оракула ОТК требовал прямую
+  регистрацию `risk-score.sh` в `settings.json`, тогда как с S5 это опциональный хук (по умолчанию выключен у любого
+  пользователя), а с S6 хуки вызывает `claude-dispatch.py` по таблице маршрутов. Оракул вне зеркала
+  (`tests/OUT_OF_MIRROR.json`, mirror-runner) - ни run-all, ни CI его не гоняли.
+- Решение владельца 2026-11-01 («Да, план»): адаптер Claude активен, когда `claude-dispatch.py` зарегистрирован один раз
+  на каждое событие таблицы в нативной форме, а маршрутизированные пары равны парам `itd_dispatch.ROUTABLE`, которые
+  `hook_selected()` оставляет по спискам владельца; выключенный по умолчанию или владельцем `risk-score.sh` - не дефект.
+  Регрессия - новый модуль в run-all и в REGRESSIONS нативных канареек, CI не меняется; runtime и хуки не меняются
+  (замкнутый runtime из 50 файлов не включает `tests/`).
+- Отвергнуто: требовать, чтобы `risk-score.sh` всегда был включен (противоречит S5 и решению владельца в S3);
+  отдельный ledger-close PR для REL-1.110.0 (ADR-016 п.4.5) - записи закрытия едут в этом же коммите (правило 5).
+- Ход: юнит активирован писателем `itd_unit_log.py` (evt-unit-1793484865, тир medium); ветка
+  `fix/installed-proof-dispatch` от eb271ba с записями закрытия REL-1.110.0 (`git cherry-pick -n f40725f` - один коммит
+  на кандидат, pre-push принимает квитанцию на один коммит поверх main). Новая проверка на установке WSL - PASS
+  (Claude и Codex 1.110.0); `tests/verify_adapter_activation.py` 18/0; мутанты 14/14 убиты
+  (`host-inputs/INSTALLED-PROOF-DISPATCH-1/mutants-a1.log`).
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: машина a1 PASSED, ревью sol a1 BLOCKED (2 high), ответ
+- Кандидат 303cf2f: машина INSTALLED-PROOF-DISPATCH-1-machine-a1 - PASSED 8/8 (receipt 132ef9ec, full DONE fails:none);
+  нативный Windows на 303cf2f - `verify_adapter_activation` 17/0 при PYTHONUTF8=1 и 0, реальная установка - PASS.
+- Ревью gpt-5.6-sol a1 (база eb271ba) - BLOCKED (`reports/INSTALLED-PROOF-DISPATCH-1-canonical-a1.json.negative-*/report.json`):
+  - high: таблица маршрутов сравнивалась только по парам (скрипт, событие) - таблица с matcher, который никогда не
+    совпадает, проходила;
+  - high: регистрация диспетчера считалась только по команде - группа с чужим matcher или коротким timeout проходила.
+- Ответ: проверка требует равенства установки тому, что пишет синк релиза для списков владельца
+  (`sync_dispatch_install`: DESIRED_HOOKS синка -> hook_selected -> routing() с hard gates политики доверия): таблица
+  - строка в строку (скрипт, matcher, timeout, флаг hard-gate, порядок); на каждое событие с маршрутами ровно одна
+  группа с диспетчером, равная группе синка (matcher, timeout, нативная команда); диспетчер под событием без маршрутов
+  - отказ; чужие группы пользователя допустимы. Реальные установки WSL и Windows совпадают с синком. Тест 24/0 (+6
+  случаев), мутанты 18/18 (+4: сравнение строк таблицы, сравнение группы, лишнее событие, hard gates).
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: машина a2 PASSED, ревью sol a2 BLOCKED (1 high), ответ
+- Кандидат 99a23c1: машина a2 - PASSED 8/8 (receipt 1e293e10, full DONE fails:none); нативный Windows -
+  `verify_adapter_activation` 23/0 (PYTHONUTF8=1 и 0), реальная установка - PASS. Ревью a2 - по решению владельца
+  2026-11-01 «Да, запускай a2» (первый запуск отказал до модели: неверно набранный SHA, файлов попытки нет).
+- Ревью gpt-5.6-sol a2 (база eb271ba) - BLOCKED, одна high
+  (`reports/INSTALLED-PROOF-DISPATCH-1-canonical-a2.json.negative-*/report.json`): регистрация диспетчера узнавалась
+  только по точной строке команды - вторая группа, вызывающая тот же `claude-dispatch.py` другим интерпретатором или
+  оберткой, считалась чужой, и маршрутизированные хуки выполнялись бы дважды.
+- Ответ: любая команда, называющая файл хука ITD (`hooks/*.sh|*.py` релиза, с границей имени), обязана быть канонической
+  командой диспетчера - иначе отказ «outside the native dispatcher command»; команды без файлов ITD допустимы
+  (`/usr/local/bin/my-careful.sh` - да). Реальные установки WSL и Windows - PASS. Тест 27/0 (+3), мутанты 21/21 (+3).
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: машина a3 PASSED, ревью sol a3 BLOCKED (1 high), ответ
+- Кандидат 2c2b1d1: машина a3 - PASSED 8/8 (receipt eab29ca0, full DONE fails:none); нативный Windows -
+  `verify_adapter_activation` 26/0 (PYTHONUTF8=1 и 0), реальная установка - PASS. Ревью a3 - по решению владельца
+  2026-11-01 «Да, запускай a3».
+- Ревью gpt-5.6-sol a3 (база eb271ba) - BLOCKED, одна high (повторена дважды;
+  `reports/INSTALLED-PROOF-DISPATCH-1-canonical-a3.json.negative-*/report.json`): граница имени файла ITD перечисляла
+  только часть метасимволов shell - `$(~/.claude/hooks/careful.sh)` и `~/.claude/hooks/careful.sh>/tmp/out` запускали
+  хук ITD напрямую, но считались чужими.
+- Ответ: имя файла ITD засчитывается везде, где его не касается символ имени файла (`[A-Za-z0-9._-]`) - любой
+  метасимвол или край строки является границей; `my-careful.sh` и `careful.sh.bak` по-прежнему не путаются с
+  `careful.sh`. Реальные установки WSL и Windows - PASS. Тест 30/0 (+3: `$(...)`, перенаправление, обратные кавычки),
+  мутанты 23/23 (граница слева, справа, возврат к прежнему списку метасимволов).
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: машина a4 PASSED, ревью sol a4 BLOCKED (1 high, 2 medium), правило владельца
+- Кандидат 0f0d362: машина a4 - PASSED 8/8 (receipt 01fe177f, full DONE fails:none); нативный Windows -
+  `verify_adapter_activation` 29/0 (PYTHONUTF8=1 и 0), реальная установка - PASS. Ревью a4 - по решению владельца
+  2026-11-01 «Да, запускай a4».
+- Ревью gpt-5.6-sol a4 (база eb271ba) - BLOCKED (`reports/INSTALLED-PROOF-DISPATCH-1-canonical-a4.json.negative-*/report.json`):
+  high (дважды) - текстовое распознавание хуков ITD обходится написаниями shell (`careful'.'sh`, `careful\.sh`) и
+  регистром имени на Windows (`CLAUDE-DISPATCH.PY`); medium (дважды) - нет теста на подмену `itd_dispatch.py`; medium
+  (дважды) - нет тестов на симлинк вместо диспетчера, `itd_dispatch.py` и хука.
+- Решение владельца 2026-11-01 («Да, так»): раунды a2-a4 бьют в один класс - распознавание хуков ITD внутри
+  произвольной команды shell, полным оно быть не может. Правило: в маршрутизируемом событии ровно одна группа
+  диспетчера, которую пишет синк, и ничего больше - любая другая команда отказывается без разбора текста; свои хуки
+  владельца - в событиях без маршрутов ITD (там диспетчер не появляется и двойного запуска нет). Обе установки
+  владельца правилу соответствуют (в маршрутизируемых событиях только диспетчер, SessionStart context-mode - вне).
+- Ответ: текстовый поиск имен удален; правило регистрации - `registrations[event] == [группа синка]`; тест 38/0 (десять
+  лишних команд в PreToolUse, включая написания a4, - отказ; свои хуки в SessionStart, включая обфусцированное
+  написание, - да; `itd_dispatch.py` с другими байтами и симлинки вместо хука, диспетчера и `itd_dispatch.py` - отказ);
+  мутанты 18/18.
+
+### 2026-11-01 - урок: проверка «никто больше не вызывает X» по тексту shell-команды не сходится
+
+- Где видно: ревью a2, a3, a4 юнита INSTALLED-PROOF-DISPATCH-1 - каждый раунд находил новое написание вызова хука
+  ITD внутри «чужой» команды (другой интерпретатор; `$(...)` и `>`; кавычки, экранирование, регистр на Windows).
+- Изменение: вместо черного списка написаний - разрешающий список на уровне структуры: в маршрутизируемом событии
+  допустима только группа синка; свое - в других событиях.
+- До/после: три раунда по одной high на один механизм; после смены правила класс закрыт целиком (мутант «лишние группы
+  допустимы» убит, текстовых якорей больше нет).

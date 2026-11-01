@@ -43,6 +43,7 @@ REGRESSIONS = (
     "tests/verify_goal_tools.py",
     "tests/verify_goal_bounded_autonomy.py",
     "tests/verify_blind_protocol.py",
+    "tests/verify_adapter_activation.py",
 )
 HOST_METADATA = (
     "tests/verify_host_adapters.py",
@@ -218,18 +219,102 @@ def validate_adapter_row(row: object, base: Path) -> None:
         raise ValueError("active adapter path/source drift")
 
 
+def sync_dispatch_install(dispatch, selection, disabled: set, enabled: set) -> tuple[dict, dict]:
+    """The routing table and the dispatcher registration scripts/sync-to-active.sh writes for the owner hook lists:
+    its canonical DESIRED_HOOKS filtered by hook_selected() exactly as sync filters them, routed by routing() with the
+    hard gates of docs/HARNESS_TRUST_POLICY.json."""
+    sync_text = (ROOT / "scripts/sync-to-active.sh").read_text(encoding="utf-8")
+    found = re.search(r"DESIRED_HOOKS=\$\(cat <<'JSON'\n(.+?)\nJSON\n\)", sync_text, re.DOTALL)
+    if not found:
+        raise ValueError("the canonical hook registration of scripts/sync-to-active.sh is not found")
+    desired = json.loads(found.group(1))
+    for event in list(desired):
+        kept = []
+        for group in desired[event]:
+            group["hooks"] = [hook for hook in group["hooks"] if selection.hook_selected(
+                re.search(r"hooks/([^/\s\"]+)$", hook["command"]).group(1), disabled, enabled)]
+            if group["hooks"]:
+                kept.append(group)
+        desired[event] = kept
+    policy = json.loads((ROOT / "docs/HARNESS_TRUST_POLICY.json").read_text(encoding="utf-8"))
+    hard = {(gate["script"], gate["event"]) for gate in policy["hardGates"] if "script" in gate}
+    return dispatch.routing(desired, hard)
+
+
+def validate_claude_activation(home: Path, python: str, windows: bool) -> None:
+    """The Claude adapter is active in the layout of plan sessions 5-6 (INSTALLED-PROOF-DISPATCH-1).
+
+    The install equals what sync of this release writes for the owner lists (sync_dispatch_install): the routing table
+    hooks/claude-dispatch.json row for row - script, matcher, timeout and hard-gate flag (risk-score.sh, optional since
+    session 5, only when itd-enabled-hooks.txt names it and itd-disabled-hooks.txt does not); settings.json holds, for
+    every routed event, exactly the one dispatcher group sync writes and nothing else - matcher, timeout and the native
+    command form (Windows: the pinned interpreter with -X utf8) - and no dispatcher under any other event; the owner's
+    own hooks stay allowed only in events that route no ITD hook; the dispatcher and every routed hook are installed as
+    regular files with the release bytes.
+    """
+    claude = home / ".claude"
+    hooks_dir = claude / "hooks"
+    settings = object_file(claude / "settings.json")
+    if settings.get("disableAllHooks") is True:
+        raise ValueError("Claude hooks are disabled (disableAllHooks)")
+    dispatch = module("route_itd_dispatch", ROOT / "hooks/itd_dispatch.py")
+    selection = module("route_codex_dispatch", ROOT / "hooks/codex-dispatch.py")
+    table_path = hooks_dir / dispatch.TABLE_FILE
+    if table_path.is_symlink() or not table_path.is_file():
+        raise ValueError("Claude routing table is not installed")
+    table = object_file(table_path)
+    routed = dispatch.check_table(table)
+    disabled = selection.read_hook_list(claude / selection.DISABLED_HOOKS_FILE)
+    enabled = selection.read_hook_list(claude / selection.ENABLED_HOOKS_FILE)
+    expected_table, expected_registration = sync_dispatch_install(dispatch, selection, disabled, enabled)
+    expected = {(entry["script"], event) for event, entries in expected_table["hooks"].items() for entry in entries}
+    actual = {(entry["script"], event) for event, entries in routed.items() for entry in entries}
+    if actual != expected:
+        missing = ", ".join(f"{s}@{e}" for s, e in sorted(expected - actual)) or "-"
+        extra = ", ".join(f"{s}@{e}" for s, e in sorted(actual - expected)) or "-"
+        raise ValueError(f"Claude routing table differs from the owner hook selection: missing {missing}; "
+                         f"not selected {extra}")
+    if table != expected_table:
+        raise ValueError("Claude routing table differs from the table sync writes (matcher, timeout, hard-gate flag "
+                         "or order of a row)")
+    command = (dispatch.DISPATCHER_COMMAND if not windows
+               else f'"{python}" -X utf8 "{(hooks_dir / "claude-dispatch.py").as_posix()}"')
+    registrations = settings.get("hooks", {})
+    if not isinstance(registrations, dict):
+        raise ValueError("Claude settings hooks are not an object")
+    # Reviews a2-a4: recognising ITD hooks inside arbitrary shell text cannot be complete (quoting, escapes, case-folded
+    # Windows names, variables), and any extra command in a routed event may run a routed hook a second time. So a
+    # routed event holds exactly the one dispatcher group sync writes and nothing else (owner 2026-11-01); the owner's
+    # own hooks belong to events that route no ITD hook, where the dispatcher must not appear.
+    for event, groups in registrations.items():
+        if event in expected_registration:
+            continue
+        carrying = [group for group in (groups if isinstance(groups, list) else []) if isinstance(group, dict)
+                    and any(isinstance(hook, dict) and hook.get("command") == command
+                            for hook in (group.get("hooks") if isinstance(group.get("hooks"), list) else []))]
+        if carrying:
+            raise ValueError(f"Claude dispatcher is registered for {event}, which routes no hook")
+    for event, groups in expected_registration.items():
+        want = copy.deepcopy(groups[0])
+        want["hooks"][0]["command"] = command
+        present = registrations.get(event)
+        if present == [want]:
+            continue
+        if not isinstance(present, list) or not any(
+                isinstance(group, dict) and isinstance(group.get("hooks"), list)
+                and any(isinstance(hook, dict) and hook.get("command") == command for hook in group["hooks"])
+                for group in present):
+            raise ValueError(f"Claude dispatcher is not registered with its native command for {event}")
+        raise ValueError(f"Claude hooks of {event} are not exactly the one dispatcher group sync writes (another "
+                         f"matcher or timeout, a second dispatcher or another hook in a routed event)")
+    for script in sorted({script for script, _ in actual} | {"claude-dispatch.py", "itd_dispatch.py"}):
+        target = hooks_dir / script
+        if target.is_symlink() or not target.is_file() or sha(target) != sha(ROOT / "hooks" / script):
+            raise ValueError(f"Claude hook {script} is not installed with the release bytes")
+
+
 def validate_adapter_activation(release: str) -> None:
-    settings = object_file(Path.home() / ".claude/settings.json")
-    risk_command = "~/.claude/hooks/risk-score.sh"
-    if os.name == "nt":
-        risk_command = (f'"{Path(sys.executable).as_posix()}" -X utf8 '
-                        f'"{(Path.home() / ".claude/hooks/risk-score.sh").as_posix()}"')
-    expected_hook = {"type": "command", "command": risk_command, "timeout": 5}
-    enabled = [hook for row in settings.get("hooks", {}).get("PostToolUse", [])
-               if isinstance(row, dict) and row.get("matcher") == "*"
-               for hook in row.get("hooks", []) if hook == expected_hook]
-    if settings.get("disableAllHooks") is True or len(enabled) != 1:
-        raise ValueError("Claude risk hook is not enabled with its native command")
+    validate_claude_activation(Path.home(), Path(sys.executable).as_posix(), os.name == "nt")
     codex = (str(Path.home() / ".codex/plugins/.plugin-appserver/codex.exe") if os.name == "nt"
              else shutil.which("codex"))
     if not codex:

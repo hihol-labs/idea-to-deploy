@@ -8,6 +8,19 @@
 > пункты ниже не берутся в работу, пока не блокируют продуктовую задачу. Правка ITD - только по такому блокеру и
 > минимальная; новая проверка становится обязательной только после выигрыша на A/B-замере.
 
+## P1 - оракул ОТК installed-proof отстал от S5/S6: `validate_adapter_activation` ищет `risk-score.sh` в `settings.json` (2026-10-31, REL-1.110.0)
+
+`tests/verify_route_debts.py` `validate_adapter_activation` требует ровно одну запись PostToolUse с matcher `*` и
+командой `~/.claude/hooks/risk-score.sh` (на Windows - `python -X utf8 .../risk-score.sh`). С S6 хуки вызывает один
+`claude-dispatch.py` по таблице `hooks/claude-dispatch.json`, с S5 `risk-score` - опциональный хук, выключенный
+владельцем в `itd-disabled-hooks.txt`. Ревалидация записи хоста канарейки отказывает на любой установке после S5/S6
+(канарейки REL-1.110.0-native-{Linux,Windows}-a1: нативные тесты PASSED, ревалидация - «Claude risk hook is not enabled
+with its native command»), поэтому формальная ОТК `--installed-proof` релиза не может быть зеленой. Исправление:
+проверять регистрацию диспетчера на нужных событиях и маршрут хука в таблице с учетом выключенных владельцем хуков;
+регрессия на обе раскладки; юнит, меняющий регистрацию хуков или установку, гоняет этот оракул в машине. До починки
+нативная приемка релиза - по решению владельца с записанным расхождением (DECISIONS 2026-10-31).
+В работе: юнит INSTALLED-PROOF-DISPATCH-1 (2026-11-01); пункт закрывается записью его закрытия.
+
 ## P2 - пин efficacy на байты файла продюсера: правка комментария стоит трех живых ног (2026-10-31, ITD-PLAN-S10)
 
 `tests/verify_independent_review_efficacy.py` пинит архив к SHA-256 всего `skills/_shared/itd_free_reviewer_producer.py`;

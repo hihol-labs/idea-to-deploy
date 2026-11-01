@@ -516,6 +516,7 @@
       "tests/verify_registration_and_counts.py"
     ],
     "docs/HARNESS_TRUST_POLICY.json": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_bypass_friction.py",
       "tests/verify_external_write_gate.py",
@@ -523,7 +524,8 @@
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_itd_dispatch.py",
-      "tests/verify_registration_and_counts.py"
+      "tests/verify_registration_and_counts.py",
+      "tests/verify_route_debts.py"
     ],
     "docs/HOST_ADAPTER_CONTRACT.md": [
       "tests/verify_live_model_benchmark.py"
@@ -869,6 +871,7 @@
       "tests/verify_hook_tier_exit.py"
     ],
     "hooks/careful.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_table_completeness.py",
@@ -959,13 +962,16 @@
       "tests/verify_v147_fixes.py"
     ],
     "hooks/claude-dispatch.py": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_itd_dispatch.py",
+      "tests/verify_route_debts.py",
       "tests/verify_sync_manifest.py"
     ],
     "hooks/codex-dispatch.py": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_bypass_friction.py",
       "tests/verify_external_write_gate.py",
@@ -975,6 +981,7 @@
       "tests/verify_hooks_autoinstall.py",
       "tests/verify_host_adapters.py",
       "tests/verify_predeploy_independent_review.py",
+      "tests/verify_route_debts.py",
       "tests/verify_strict_completion_policy.py"
     ],
     "hooks/completion-gate.sh": [
@@ -1066,6 +1073,7 @@
       "tests/verify_host_adapters.py"
     ],
     "hooks/freeze.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_feature_ledger_fallbacks.py",
       "tests/verify_gate_taxonomy.py",
       "tests/verify_hook_depth.py",
@@ -1100,9 +1108,11 @@
       "tests/verify_predeploy_independent_review.py"
     ],
     "hooks/itd_dispatch.py": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_hook_selection.py",
-      "tests/verify_itd_dispatch.py"
+      "tests/verify_itd_dispatch.py",
+      "tests/verify_route_debts.py"
     ],
     "hooks/model-policy.sh": [
       "tests/verify_hook_selection.py",
@@ -1120,6 +1130,7 @@
       "tests/verify_review_autoping.py"
     ],
     "hooks/pii-egress-guard.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_external_write_gate.py",
@@ -1134,6 +1145,7 @@
       "tests/verify_pii_egress.py"
     ],
     "hooks/pre-flight-check.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_continuity.py",
       "tests/verify_fresh_session_resume.py",
@@ -1158,6 +1170,7 @@
       "tests/verify_verify_signal_and_watchdog.py"
     ],
     "hooks/risk-score.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_hooks_autoinstall.py",
@@ -1327,6 +1340,7 @@
       "tests/verify_stop_rule_closed_contract.py"
     ],
     "scripts/sync-to-active.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_continuity.py",
@@ -1342,6 +1356,7 @@
       "tests/verify_operating_loops_release.py",
       "tests/verify_registration_and_counts.py",
       "tests/verify_review_cache.py",
+      "tests/verify_route_debts.py",
       "tests/verify_sync_manifest.py",
       "tests/verify_targeted_regression.py"
     ],
@@ -2252,6 +2267,7 @@
       "tests/verify_stop_rule.py"
     ],
     "tests/run-all.sh": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_adjudication_channel_clock.py",
       "tests/verify_closure_delta.py",
       "tests/verify_completion_signal_classes.py",
@@ -2298,6 +2314,9 @@
       "tests/verify_review_cache.py",
       "tests/verify_review_sentinel_diffbind.py",
       "tests/verify_risk_score.py"
+    ],
+    "tests/verify_adapter_activation.py": [
+      "tests/verify_route_debts.py"
     ],
     "tests/verify_adjudication_channel.py": [
       "tests/verify_adjudication_channel_clock.py",
@@ -2507,6 +2526,7 @@
       "tests/verify_route_debts.py"
     ],
     "tests/verify_route_debts.py": [
+      "tests/verify_adapter_activation.py",
       "tests/verify_installed_proof_head.py",
       "tests/verify_stop_rule_closed_contract.py"
     ],
