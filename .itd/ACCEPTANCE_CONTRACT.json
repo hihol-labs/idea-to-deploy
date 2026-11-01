@@ -6427,6 +6427,45 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "INSTALLED-PROOF-DISPATCH-1-AC1",
+      "unitId": "INSTALLED-PROOF-DISPATCH-1",
+      "status": "passed",
+      "criterion": "tests/verify_route_debts.py validate_adapter_activation judges the Claude adapter by validate_claude_activation(home, python, windows): the install must equal what scripts/sync-to-active.sh of the release writes for the owner hook lists (sync_dispatch_install: its DESIRED_HOOKS filtered by codex-dispatch hook_selected() under itd-disabled-hooks.txt / itd-enabled-hooks.txt exactly as sync filters them, routed by itd_dispatch.routing() with the hard gates of docs/HARNESS_TRUST_POLICY.json). disableAllHooks fails; hooks/claude-dispatch.json is a regular file that passes check_table() and equals the expected table row for row - script, matcher, timeout, hard-gate flag and order (a pair mismatch names the missing and the unselected pairs; risk-score.sh, optional since plan session 5, is routed exactly when selected); settings.json holds, for every routed event, exactly the one dispatcher group sync writes and nothing else - matcher, timeout and the native command (POSIX ~/.claude/hooks/claude-dispatch.py, Windows the pinned interpreter with -X utf8 and the absolute path) - so no other command in a routed event, in any spelling, can run a routed hook or the dispatcher a second time (reviews a2-a4; owner 2026-11-01: the owner's own hooks belong to events that route no ITD hook), and no event that routes no hook carries the dispatcher; the dispatcher, itd_dispatch.py and every routed hook are installed regular files (not symlinks) with the release bytes; the Codex activation check is unchanged; no direct risk-score.sh registration is required.",
+      "source": "Owner 2026-11-01 INSTALLED-PROOF-DISPATCH-1 plan (BACKLOG P1 of REL-1.110.0).",
+      "evidence": "tests/verify_adapter_activation.py 38 passed, 0 failed on WSL (fixtures built from DESIRED_HOOKS of scripts/sync-to-active.sh, hook_selected() and itd_dispatch.routing()): accepted - default lists with risk-score.sh not routed, risk-score.sh and careful.sh disabled by the owner, risk-score.sh named in itd-enabled-hooks.txt (routed), the Windows wrapper form with the pinned interpreter, the owner's own hooks in SessionStart (an event that routes no ITD hook), an obfuscated spelling among them included; refused - a selected risk-score.sh missing ('missing risk-score.sh@PostToolUse'), a disabled careful.sh still routed, the pre-session-6 direct risk-score.sh registration, no table, another table kind (check_table), a table row with another matcher or timeout (review a1), the dispatcher group with another matcher or timeout (review a1), the dispatcher registered twice, the dispatcher under an event that routes no hook, a Windows wrapper judged as POSIX, disableAllHooks, ten extra commands in PreToolUse - a second dispatcher through python3, careful.sh directly, inside $(...), before a redirection, in backticks, careful'.'sh, careful\\.sh, CLAUDE-DISPATCH.PY, /usr/local/bin/my-careful.sh and /usr/local/bin/my-hook (reviews a2-a4: 'are not exactly the one dispatcher group'), an absent routed hook, pii-egress-guard.sh, claude-dispatch.py or itd_dispatch.py with other bytes and, on POSIX, each of them or the table as a symlink to the release bytes (review a4); validate_adapter_activation delegates to validate_claude_activation on the real home and names no risk-score.sh. Mutants 18/18 killed (.itd-memory/host-inputs/INSTALLED-PROOF-DISPATCH-1/mutants-a5.log), among them 'extra groups tolerated in a routed event', 'dispatcher tolerated in an unrouted event', 'hook symlinks accepted', 'table rows not compared' and 'hard gates ignored'. The real installs of 1.110.0 on WSL and native Windows equal what sync writes and pass.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adapter_activation.py",
+      "reviewEvidence": {
+        "claim": "The installed-proof oracle accepts the plan session 5-6 install and refuses every inactive or drifted Claude adapter.",
+        "impactClasses": [
+          "correctness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "adapter-activation"
+        ]
+      }
+    },
+    {
+      "id": "INSTALLED-PROOF-DISPATCH-1-AC2",
+      "unitId": "INSTALLED-PROOF-DISPATCH-1",
+      "status": "passed",
+      "criterion": "The regression module tests/verify_adapter_activation.py runs in tests/run-all.sh (CORE) and in the REGRESSIONS suites the native canaries execute, so the oracle cannot drift silently again; the new check accepts the real installed 1.110.0 Claude adapter on WSL and on native Windows; the full suite stays green; the installed runtime (its 50-file closure) and the hooks are unchanged, so the installed 1.110.0 stays valid for the post-merge native canaries.",
+      "source": "Owner 2026-11-01 INSTALLED-PROOF-DISPATCH-1 plan (BACKLOG P1 of REL-1.110.0).",
+      "evidence": "tests/run-all.sh CORE runs verify_adapter_activation and the REGRESSIONS tuple of tests/verify_route_debts.py names it (both checked by the module itself); tests/verify_runall_drift.py 135 passed, tests/verify_verification_profiles.py 109 passed (the impact graph rebuilt: nodes 498, edges 1593, suites attached 195, --check FRESH). The new check against the real installs of 1.110.0: WSL validate_claude_activation and validate_adapter_activation('1.110.0') PASS (dispatcher in the bare form, risk-score.sh disabled by the owner and not routed, Codex 1.110.0 enabled); native Windows (Python 3.12, the oracle loaded by path) PASS for both (the dispatcher in the python.exe -X utf8 form). Full tests/run-all.sh on the working tree after the 1800 s post-boot budget (start 2026-11-01T15:24:35Z): 180 of 181 mirrored suites pass; the only red is verify_ledger_reconciliation - the same 18 unattributed events of git-ignored local GOAL files as the REL-1.110.0 and session 10 working copies, green in an isolated checkout. Targeted: verify_hook_selection 47 passed, verify_itd_dispatch 116 passed, verify_installed_proof_head 14 passed, meta_review PASSED, verify_triggers exit 0, validate_state OK. The runtime closure (50 files, digest 6d693cfa) excludes tests/, so the installed 1.110.0 stays valid; the committed-head machine receipt and native Windows run of the committed candidate repeat these.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_adapter_activation.py && sh skills/_shared/itd_py.sh tests/verify_runall_drift.py",
+      "reviewEvidence": {
+        "claim": "The regression is wired where the drift was invisible, and the real installs on both hosts pass the new check.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "adapter-activation",
+          "full"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6445,20 +6484,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.0",
+    "unitId": "INSTALLED-PROOF-DISPATCH-1",
     "status": "in_progress",
-    "openedAt": "2026-10-31",
+    "openedAt": "2026-11-01",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-31: session 11 of the approved ITD change plan - release 1.110.0 ships plan sessions 4-10 (and the session 2 records of CHANGELOG Unreleased) as one release: VERSION mirrors, .claude-plugin/plugin.json, CHANGELOG from Unreleased, release notes, tag and GitHub release; rollout on WSL and Windows for Claude Code and Codex (installed runtime ~/.local/share/itd/runtime/<version> and sync of the active installs) with native checks on both hosts; the closure by the session 2 convention - the first closure without a new model round, its time is the first journal entry. Acceptance: both CI green on the PR and on main; native checks green on both hosts; the closure fits the target of plan section 2 or the difference is recorded. Plan rule 5: the same PR carries the ITD-PLAN-S10 verified record, its DECISIONS (reviews, owner decisions, publication, lessons in the lesson format) and its BACKLOG items. Owner approved the session 11 plan on 2026-10-31 (\"Да, план\"): risk tier medium, the closure time recorded in the closure signature in DECISIONS, the closure commit rides the next program PR, two confirmations - publication and rollout.",
+    "sourceRequest": "Owner 2026-10-31/11-01: fix BACKLOG P1 found by the REL-1.110.0 native canaries - tests/verify_route_debts.py validate_adapter_activation demanded hooks/risk-score.sh registered directly in settings.json (PostToolUse, matcher *), the layout before plan sessions 5-6; since session 5 risk-score.sh is an optional hook off by default and the owner disabled it, since session 6 one hooks/claude-dispatch.py per event runs the hooks through the routing table. The owner approved the plan on 2026-11-01 (\"Да, план\"): the adapter is active when the dispatcher is registered in its native form and the routing table follows the owner hook lists; a regression module in run-all and in the native canary suites, no CI change; tests only, the installed runtime and hooks do not change; the unit carries the REL-1.110.0 closure records (plan rule 5); after the merge the native canaries and the installed-proof OTK are repeated for the installed 1.110.0.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "host-parity",
-        "repository-hygiene",
-        "generated-artifact-freshness",
-        "compatibility"
+        "compatibility",
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
@@ -7405,6 +7443,29 @@
       },
       "closedAt": "2026-10-31T17:34:52Z",
       "closureEvidence": "PR #380 squash-merged to main 2f862a1 on 2026-10-31; tree 118ef217 = reviewed tree of b0cf504 (base 7326af1, diff 5005495a): machine ITD-PLAN-S10-machine-a20 PASSED 12/12 incl. full (receipt 29e15b14); review gpt-5.6-sol a14 PASSED with 0 findings (adjudication receipt eff575dd, one receipt under the bare id); a1-a13 findings fixed in the diff before a14; CI meta-review and windows-verify SUCCESS on PR and main; sync WSL+Windows with backups (host-inputs/ITD-PLAN-S10/backups)"
+    },
+    {
+      "unitId": "REL-1.110.0",
+      "status": "closed",
+      "openedAt": "2026-10-31",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-31: session 11 of the approved ITD change plan - release 1.110.0 ships plan sessions 4-10 (and the session 2 records of CHANGELOG Unreleased) as one release: VERSION mirrors, .claude-plugin/plugin.json, CHANGELOG from Unreleased, release notes, tag and GitHub release; rollout on WSL and Windows for Claude Code and Codex (installed runtime ~/.local/share/itd/runtime/<version> and sync of the active installs) with native checks on both hosts; the closure by the session 2 convention - the first closure without a new model round, its time is the first journal entry. Acceptance: both CI green on the PR and on main; native checks green on both hosts; the closure fits the target of plan section 2 or the difference is recorded. Plan rule 5: the same PR carries the ITD-PLAN-S10 verified record, its DECISIONS (reviews, owner decisions, publication, lessons in the lesson format) and its BACKLOG items. Owner approved the session 11 plan on 2026-10-31 (\"Да, план\"): risk tier medium, the closure time recorded in the closure signature in DECISIONS, the closure commit rides the next program PR, two confirmations - publication and rollout.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-10-31T21:41:21Z",
+      "closureEvidence": "PR #381 squash-merged to main eb271ba on 2026-10-31; tree 6762cce4 = reviewed tree of dafb6ca (base 2f862a1): machine REL-1.110.0-machine-a4 PASSED 7/7 (receipt c4851aae); review gpt-5.6-sol a2 PASSED, 0 findings (adjudication ad5f7096); CI meta-review and windows-verify SUCCESS on PR and main; release v1.110.0 on eb271ba; rollout WSL+Windows, runtime 1.110.0-6d693cfa, Codex 1.110.0; native canary tests PASSED on both hosts, installed-proof revalidation refused by a stale oracle check (owner: accept with the recorded discrepancy)"
     }
   ]
 }

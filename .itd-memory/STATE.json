@@ -37,10 +37,10 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL-1.110.0",
-    "goal": "Release 1.110.0 (ADR-016 plan session 11): ship plan sessions 2 and 4-10 (CHANGELOG Unreleased) as one minor release - every release mirror declares 1.110.0, CHANGELOG [1.110.0] is cut from Unreleased, reviewedAt of the harness docs state and the quality ledger is refreshed, fresh H4 live-model evidence carries the release methodology pin, the full suite is green on WSL and the windows-verify set on native Windows has no red beyond clean main 2f862a1 under the same launcher, one opposite-GPT review of the final candidate; carries the ITD-PLAN-S10 verified record, its DECISIONS, lessons and BACKLOG items (plan rule 5); publication, release v1.110.0, the WSL and Windows rollout for Claude Code and Codex with native checks and the first closure by the ADR-016 convention are owner-confirmed later stages.",
+    "id": "INSTALLED-PROOF-DISPATCH-1",
+    "goal": "INSTALLED-PROOF-DISPATCH-1 (BACKLOG P1, REL-1.110.0): the installed-proof oracle judges Claude adapter activation by the plan session 5-6 layout - settings.json registers hooks/claude-dispatch.py once per routed event in its native command form, the routing table hooks/claude-dispatch.json is valid and routes only installed hook files with the release bytes, and the routed set follows the owner hook lists (hook_selected): risk-score.sh is routed exactly when selected, a disabled hook is never routed; disableAllHooks fails; a regression module in run-all; tests only - the runtime and hooks do not change; carries the REL-1.110.0 closure records (plan rule 5).",
     "status": "in_progress",
-    "startedAt": "2026-10-31T17:45:11Z",
+    "startedAt": "2026-10-31T22:14:25Z",
     "ledger": "STATE",
     "riskTier": "medium"
   },
