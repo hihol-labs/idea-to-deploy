@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "INSTALLED-PROOF-DISPATCH-1",
     "goal": "INSTALLED-PROOF-DISPATCH-1 (BACKLOG P1, REL-1.110.0): the installed-proof oracle judges Claude adapter activation by the plan session 5-6 layout - settings.json registers hooks/claude-dispatch.py once per routed event in its native command form, the routing table hooks/claude-dispatch.json is valid and routes only installed hook files with the release bytes, and the routed set follows the owner hook lists (hook_selected): risk-score.sh is routed exactly when selected, a disabled hook is never routed; disableAllHooks fails; a regression module in run-all; tests only - the runtime and hooks do not change; carries the REL-1.110.0 closure records (plan rule 5).",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-10-31T22:14:25Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-11-01T19:57:54Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

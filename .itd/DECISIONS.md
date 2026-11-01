@@ -7258,3 +7258,58 @@ The third fresh Terra review found that a primary already containing :general-re
   допустима только группа синка; свое - в других событиях.
 - До/после: три раунда по одной high на один механизм; после смены правила класс закрыт целиком (мутант «лишние группы
   допустимы» убит, текстовых якорей больше нет).
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1: ревью a5 ADJUDICATED, публикация, ОТК 1.110.0 зеленая
+- Машина a5 на 9ca31a6 (дерево 9f43f813) - PASSED 8/8 (receipt 3271482f). Ревью gpt-5.6-sol a5 - BLOCKED с одной medium
+  (дважды): формулировка AC1 «ни одно событие без маршрутов не несет диспетчер» шире проверки, которая ловит только
+  нативную команду диспетчера. Решение владельца 2026-11-01 («Да, подтверждаю») по правилу сходимости программы
+  (DECISIONS 2026-10-23): ADJUDICATED - диспетчер в событии без маршрутов ничего не запускает (строки таблицы только
+  своего события), двойного запуска нет. Обещанное сужение формулировки, читать AC1 так: «в событии, которое не
+  маршрутизирует хуки ITD, не стоит нативная команда диспетчера; свои хуки владельца там не разбираются» (критерий
+  закрытого юнита не переписывается).
+- Публикация (владелец «Да, публикуй»): первая попытка `itd pr create` - UNVERIFIED до push: машина и адьюдикация
+  были выпущены циклом runtime 1.109.2 (`methodologyVersion` 1.109.2 в контексте кандидата), а гейты после раскатки -
+  на runtime 1.110.0. Машина a6 тем же набором ног на цикле 1.110.0 - PASSED 8/8 (receipt 6796952c); тот же отчет a5
+  перезаписан циклом 1.110.0 (без вызова модели), новая привязка f234e39c подтверждена владельцем, квитанция
+  `INSTALLED-PROOF-DISPATCH-1-a5-adjudicated-v1110.json` (receiptSha256 549b4e92). `gates.json` -> эта квитанция (бэкапы
+  `gates.json.bak-20261101T183709Z-before-ipd1` и `...-before-ipd1-v1110`); `itd gate doctor` - LOCAL_REVIEWED
+  (human-adjudication); `itd pr create` -> PR #382 (head 9ca31a6); CI 2/2 SUCCESS; squash-merge по head -> main
+  ec52318 (2026-11-01T19:14:33Z, дерево 9f43f813 = проверенное).
+- ОТК установленного 1.110.0: канарейки REL-1.110.0-native-{Linux,Windows}-a2 на 9ca31a6 (тот же родитель и дерево,
+  что у ec52318) - RECORDED (ревалидация записи хоста проходит исправленным оракулом); `INSTALLED.json` (sha256
+  104e8c5b); ОТК a2 на ec52318 - FAILED только на реплее Windows: клон `C:\itd-src\s11-wt` стоял на 9ca31a6, а оракул
+  сравнивает HEAD нативного чекаута с агрегатом; клон переведен на ec52318; ОТК a3 - PASSED (`verify_route_debts.py
+  --installed-proof` exit 0 «PASS installed WSL/Windows runtime and Claude/Codex adapter evidence»,
+  `verify_live_model_benchmark --require-evidence` 154/0). Расхождение нативной приемки 1.110.0 (DECISIONS 2026-10-31)
+  снято: третий пункт приемки сессии 11 выполнен без оговорки.
+
+### 2026-11-01 - урок: после раскатки релиза машина и ревью - на runtime этого релиза
+
+- Где видно: `itd pr create` для 9ca31a6 - UNVERIFIED «local adjudication is stale, foreign, or invalid»; квитанции a5
+  несли `methodologyVersion` 1.109.2 при установленном 1.110.0.
+- Изменение: скрипты машины и ревью берут цикл установленного runtime текущего релиза (после раскатки 1.110.0 -
+  `runtime/1.110.0-6d693cfa...`); перед публикацией - `itd gate doctor`.
+- До/после: одна лишняя машина (a6) и повторное подтверждение привязки; после перевода - LOCAL_REVIEWED с первого раза.
+
+### 2026-11-01 - урок: нативный клон для ОТК - на том же коммите, что агрегат
+
+- Где видно: `host-inputs/REL-1.110.0/installed-otk-a2.json` FAILED, реплей Windows «native source candidate differs from
+  the isolated staged candidate» (обернут в CLIXML PowerShell).
+- Изменение: после мержа перевести клон Windows, на который ссылается запись хоста, на HEAD, где запускается ОТК.
+- До/после: a2 - FAILED на реплее Windows; a3 на том же `INSTALLED.json` - PASSED.
+
+## 2026-11-01 - INSTALLED-PROOF-DISPATCH-1 закрыт по конвенции ADR-016 - подпись владельца (журнал #2)
+- Подпись владельца в смысле ADR-007: «Да, подписываю» 2026-11-01T20:03Z после просмотра дельты закрытия.
+- Шаг 1: merge-коммит ec52318c9abe2808c78ed72307c22dacf8093d5c, дерево 9f43f813fa3db3b9fcd4c6d11ea1fdd3d5890a4f =
+  `candidate.reviewedTree` квитанции `.itd-memory/verification-loop/INSTALLED-PROOF-DISPATCH-1-a5-adjudicated-v1110.json`
+  (outcome ADJUDICATED, receiptSha256 549b4e92970f1d8c574e638574554a161e975a22d0c3f87d2ba98ade5f5ebc6d). Исход
+  ADJUDICATED допустим: юнит STATE-леджера (шаг 2 конвенции), не GOAL.
+- Шаг 2: переход `itd_unit_log.py verified INSTALLED-PROOF-DISPATCH-1` (evt-unit-1793563074); `git diff --name-only
+  ec52318 e8e85de` - `.itd-memory/STATE.json`, `.itd-memory/events.jsonl`, `.itd/ACCEPTANCE_CONTRACT.json`,
+  `.itd/DECISIONS.md`, `.itd/SCOPE_LOCK.md`, `BACKLOG.md` - только Allowed Change Areas шаблона ledger-close;
+  `scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - «OK: validated 2 state file(s)», rc=0.
+- Просмотренный владельцем diff: `git diff ec52318 e8e85de` (`.itd-memory/host-inputs/INSTALLED-PROOF-DISPATCH-1/closure-delta.diff`,
+  213 строк, sha256 9b73149d...). Эта запись подписи дописывается в тот же коммит закрытия; ее путь - тот же
+  `.itd/DECISIONS.md`.
+- Журнал #2: начало 2026-11-01T19:57:45Z (проверка дерева), подпись 20:03:58Z - 6.2 минуты, включая ожидание
+  владельца; новых модельных раундов 0, полного `tests/run-all.sh` 0 - в цели раздела 2 плана (<= 30 мин).
