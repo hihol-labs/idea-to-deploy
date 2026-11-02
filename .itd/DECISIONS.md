@@ -7323,3 +7323,146 @@ Preserve the complete private record; API keys, unknown/partial fields and
 noncanonical issuers stay rejected. No installed cache is edited in place;
 the change ships as reviewed patch release1.110.1. The existing verified local
 INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
+
+## 2026-11-02 - сессия 12 плана ITD: аудит и очистка проектов, smoke нового проекта (без PR)
+
+- Отчет только на чтение - установленный `itd_projects_doctor.py` (1.110.0) через `s12_scan.py` (тот же `inspect` +
+  старый блок по содержимому, статус GOAL, `.codex/hooks.json`, worktree вне корней): WSL 72 проекта / 30 с
+  находками, Windows 201 / 194.
+- Очистка по решениям владельца 2026-11-01: ff Windows `site`/`portfolio-cases` (дубли хуков), указатель `codex-v1`
+  в 3 неотслеживаемых AGENTS.md, 47 неиспользуемых копий `.itd/*.py`, архив 2 устаревших GOAL, 26 одноразовых
+  каталогов `C:\itd-src` и клон `itd-release-v1.100.1` с worktree `itd-sri-01a177` (незаконченная работа - в бэкап).
+- Повтор: 0 находок вне списков владельца на обоих хостах (B strict invoices - без изменений по решению; C - свои
+  хуки и `/deploy` buying, замороженные эксперименты; D - GOAL репо методологии).
+- invoices: файлы семейства не менялись; `check_contract_drift.py` exit 0 (Windows `AI\invoices`, WSL
+  `invoices-perf`); реестр pre-push Windows и `core.hooksPath` на месте.
+- Smoke 4 сочетаний (`smoke/SMOKE.md`): Claude WSL и Windows - зеленые после `/login` владельца (правила, 64 скилла,
+  SessionStart / UserPromptSubmit / PreToolUse с `careful` / PostToolUse / Stop, каталог пуст). Codex WSL и Windows -
+  правила, скиллы и UserPromptSubmit работают, но гейты PreToolUse на shell не действуют (code-mode `exec`, с
+  2026-10-02 WSL / 2026-10-12 Windows, до старта программы) - отклонение, юнит P1 (корень уточнен позже: `ask` fail
+  open, CODEX-ASK-GATES-1).
+- Доверие хуков Codex по решению владельца 2026-11-02: сняты позиционные `enabled = false` и устаревшие ключи
+  (WSL 13, Windows 23 правки; бэкапы `~/.codex/config.toml.bak-s12-*`), владелец доверил записи в `/hooks`;
+  `itd_codex_hook_trust.py` - OK, exit 0 на обоих хостах.
+- WSL Claude CLI: `ECONNREFUSED` давал алиас владельца `claude` -> `~/start-claude.sh` с `HTTPS_PROXY=127.0.0.1:2080`
+  (порт не слушается); вход через `command claude`. Алиас не менялся.
+- Приемка: doctor без дрейфа - да; smoke - Claude 2/2 зеленые, Codex 2/2 с отклонением P1; invoices без изменений -
+  да.
+
+## 2026-11-02 - урок: doctor сверяет маркер, а не содержимое блока
+
+- Где видно: `scan-wsl.json` / `scan-win.json` - 25 + 45 AGENTS.md со старым полным блоком `codex-v1` (22 строки, без
+  ADR-012), которые установленный doctor не показал: у указателя `agents-md-pointer.md` та же метка `codex-v1`, а
+  `OLD_BLOCK_RE` ищет только `v1.20`; `/adopt` такой файл пропускает (`skip-marker-present`). Устаревшие GOAL и
+  worktree вне корня (`C:\tmp`, OneDrive, `.claude\worktrees`) doctor не видит вовсе.
+- Изменение (предложение, юнит): старый блок - по содержимому (нет текста указателя), stale GOAL, обход
+  `git worktree list` у найденных репо.
+- До/после: doctor 4 / 137 находок против 30 / 194 проектов с находками у сканера сессии.
+
+## 2026-11-02 - урок: гейты PreToolUse в Codex не видят shell в code-mode
+
+- Где видно: `smoke/out/codex-wsl-hook.jsonl`, `smoke-codex-win-hook.jsonl` - `git push --dry-run` в пустом
+  каталоге выполнен без EXTERNAL WRITE GATE на обоих хостах; прямой прогон `codex-dispatch.py --script
+  pii-egress-guard.sh` - `ask` для `tool_name=Bash`, тишина для `exec_command`; `codex_tool_history.py` - shell идет
+  через `custom_tool_call:exec` с 2026-10-02 (WSL) и 2026-10-12 (Windows), то есть до старта программы.
+  UserPromptSubmit (`pre-flight-check`) работает.
+- Изменение (предложение, юнит P1; уточнено 2026-11-02 - корень в `ask`, не в code-mode, см. CODEX-ASK-GATES-1): установить, вызывает ли Codex хук для вложенного `tools.exec_command` и с каким
+  `tool_name`; затем матчеры hooks.json и разбор payload в `codex-dispatch.py`; живая канарейка «гейт сработал» в
+  ОТК вместо статической проверки активации.
+- До/после: до - гейты Codex на shell молчат; после - тот же `git push --dry-run` дает EXTERNAL WRITE GATE.
+
+## 2026-11-02 - урок: ключи доверия Codex съезжают при каждой смене раскладки hooks.json
+
+- Где видно: `scripts/itd_codex_hook_trust.py` exit 1 на обоих хостах после раскатки 1.110.0: WSL - 11 записей ядра
+  untrusted (careful, completion-gate, state-guard, check-predeploy-gate, freeze, wip-gate, ...); оба хоста -
+  позиционный `enabled = false` на check-commit-completeness (3:0) и wip-gate (4:1), которых нет в off-списке.
+- Изменение (предложение): шаг раскатки релиза - `itd_codex_hook_trust.py` зеленый или явный список для `/hooks`;
+  отключение хуков только списком владельца, позиционные `enabled = false` снимаются.
+- До/после: в S5 тот же класс на WSL (группа pre_tool_use:4:*); повторился после 1.110.0. После
+  `codex_trust_fix.py` (снятие позиционных off и устаревших ключей) и `/hooks` владельца - exit 1 -> exit 0 на обоих
+  хостах; гейты на shell при этом не ожили (см. урок про code-mode).
+
+## 2026-11-02 - урок: перед удалением одноразовых копий - проверка незакоммиченной работы
+
+- Где видно: `C:\tmp\itd-sri-01a177` - staged юнит Codex U-ITD-SRI (7 файлов, 2026-10-27), нет в main и на origin;
+  `C:\itd-src\s6-final` - 15 файлов, не совпадающих ни с одной версией истории.
+- Изменение: перед удалением клона - `git status`, сверка хешей измененных файлов с историей, бэкап несовпавшего.
+- До/после: без проверки работа U-ITD-SRI была бы потеряна; сохранена в `scratchpad/itd-plan-s12/backup/`.
+
+## 2026-11-02 - CODEX-AUTH-METADATA-1 закрыт по конвенции ADR-016; ревью a8 ADJUDICATED
+
+- Почему: PR #383 слит, v1.110.1 выпущен и раскатан; запись закрытия едет в следующем PR (ADR-016 п.4.5). Закрытие
+  сессии AUTH в stash `itd-auth-codex-1102` (бэкап-патч `.itd-memory/auth-metadata/unstaged-closure-before-a8-adjudication.patch`)
+  писало статус `blocked` до решения по a8 и этим вытеснено; его записи SCOPE_LOCK, BACKLOG и фикстуры live-model
+  уже вошли в #383, запись DECISIONS «Complete Aboutyou ...» относится к продуктовой работе и в репо методологии не
+  переносится.
+- Решение по a8: находки a8 касаются вывода модели в архивированном живом бенчмарке (планы sample-проекта), а не
+  изменения auth; владелец 2026-11-02 принял исход ADJUDICATED по ADR-007, квитанция
+  `.itd-memory/verification-loop/authmeta-a8-adjudicated.json` (receiptSha256
+  10f53ba19465d150e4d0341b2ef3da091500af9d13a7b9aa55b3bb0216cf65a5, зависимости authmeta-a8-machine и
+  authmeta-a8-negative-checker). Дизайн-хвосты sample-проекта - в BACKLOG «Live blueprint sample».
+- Шаг 1 конвенции: merge-коммит 6ad2f9d, дерево ce9c1c455c5d747956c9f9c29295a165ee8aa545 = `candidate.reviewedTree`
+  квитанции a8; CI PR и main 2/2; релиз v1.110.1; раскатка WSL (runtime 1.110.1-d4a10a7fd2029969) и Windows,
+  ревьюер принимает новую схему auth на обоих, `verify_adapter_activation` 38/0 WSL, 34/0 Windows.
+- Шаг 2: переход `itd_unit_log.py verified CODEX-AUTH-METADATA-1` (20:48Z); activeFollowup перенесен в closedFollowups.
+  Порядок по конвенции (как в 1102aff): переход записан до подписи и входит в дельту, которую владелец просматривает
+  и подписывает; подпись (21:22Z) авторизует этот уже записанный переход, событие не претендует на более раннюю
+  авторизацию.
+- Подпись владельца в смысле ADR-007: «Да, подписываю» 2026-11-02T21:22:01Z после просмотра дельты закрытия
+  `.itd-memory/host-inputs/CODEX-ASK-GATES-1/auth-closure-delta.diff` (`git diff 6ad2f9d` по STATE, events,
+  ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG; 321 строка, sha256 b5b4ab9ff8fe4d44...); запись подписи дописана в тот же коммит.
+
+## 2026-11-02 - CODEX-ASK-GATES-1: в Codex `ask` -> `deny` с подтверждением строкой ITD-APPROVE (вариант A)
+
+- Почему: Codex PreToolUse не поддерживает `permissionDecision: "ask"` и выполняет вызов (fail open) - внешние записи
+  из Codex шли без гейта ITD (ноябрь, Windows: 14 `gh pr create/merge/comment`, 3 `git push`, 1 release/issue).
+- Решение (владелец 2026-11-02, вариант A из A/B/C): `hooks/codex-dispatch.py` превращает любой `ask` общего хука в
+  `deny` (exit 2) с хешем точного вызова (хук, инструмент, полный input, cwd) и строкой `ITD-APPROVE <hash>`; только
+  точная строка пользователя в UserPromptSubmit пишет одноразовое подтверждение на сессию (TTL 30 мин) в
+  `~/.claude/itd-codex-approvals/`; тот же вызов проходит один раз, повтор снова `deny`. `deny` и секреты не
+  подтверждаются; Claude сохраняет нативный `ask`. B (только fail-closed) ломал ~20 записей в месяц в buying и
+  invoices, C (предупреждение модели) - не гейт.
+- Ограничение: хранилище защищено только правами пользователя ОС - граница слабее нативного `ask` Claude.
+- Ревью a2 (gpt-5.6-sol, dcc05de) - BLOCKED, 4 уникальные находки (каждая дважды), все исправлены: high -
+  каталоги подтверждений по umask без проверки владельца/прав/ссылок (теперь 0700, запись принимается только из
+  настоящих каталога и файла владельца без записи для group/other); medium - после расхода подтверждения терялся
+  `additionalContext` (ветка `ask` его теперь сохраняет и отдает); medium x2 - тесты не варьировали `tool_name` и
+  не пробовали подтверждение без сессии (проверки [19]-[22]). Ревью a1 не дошло до модели: критерии были pending.
+- Ревью a4 (gpt-5.6-sol, d7afb33; a3 не дошла до модели - полный набор упал в первые 30 минут после перезагрузки
+  WSL, machine a4 на том же дереве PASSED 5/5) - BLOCKED, 5 уникальных находок, исправлены: high - подтверждение
+  можно выпустить поддельным UserPromptSubmit прямым вызовом диспетчера (guard: `deny` shell-вызовам с
+  `ITD-APPROVE`, хранилищем или ручным UserPromptSubmit для диспетчера и файловой записи в хранилище; остаточный
+  риск обхода транспорта процессом пользователя записан в доках); high - на Windows не проверялся владелец (проверка
+  owner SID через WinAPI, отказ на reparse point); medium - противоречие в HOST_ADAPTER_CONTRACT (исключение для
+  хоста без нативного `ask` описано явно); medium - хеш не различал отсутствующее и пустое поле (связываются только
+  присутствующие ключи); medium - тест symlink не доказывал отсутствие записи (проверки [22]-[25]).
+- Ревью a5 (5984fbb, machine a5 PASSED 5/5) - BLOCKED только по покрытию тестами, 2 уникальные находки, исправлены:
+  high - на Windows не было негативной проверки owner SID (теперь [22] на нативном Windows: системные файл и каталог
+  отвергаются, свой файл принимается); medium - не проверялась небезопасная сама запись (теперь [26]: запись с
+  записью для group/other и запись-symlink не засчитываются). Код диспетчера не менялся.
+- Ревью a7 (00a94a8; machine a6 упала в 30-минутном окне после перезагрузки WSL, a7 на том же дереве PASSED 5/5) -
+  BLOCKED, 1 находка high: guard пропускал файловую запись с `ITD-APPROVE` или поддельным UserPromptSubmit
+  (подготовленный скрипт). Исправлено: guard проверяет весь `tool_input` любого инструмента, включая содержимое
+  файла; цена - Codex не правит тексты с `ITD-APPROVE` (доки ITD), Claude правит.
+- Ревью a8 (96b7f61, machine a8 PASSED 5/5) - BLOCKED, 2 уникальные находки, исправлены: high - Windows принимал
+  владельца TokenOwner (у повышенного токена это группа Administrators) - теперь только TokenUser; повышенная сессия
+  подтверждений не получает. Негативный тест на группу Administrators на этом хосте невозможен (токен не повышен,
+  такой файл без повышения не создать); [22] проверяет SYSTEM и TrustedInstaller. medium - битая запись не
+  расходовалась и навсегда блокировала хеш - теперь удаляется до разбора ([27]).
+- Ревью a9 (5f22738, machine a9 PASSED 5/5) - BLOCKED, 3 уникальные находки, исправлены: high - для выключенного
+  хука диспетчер выходил раньше guard канала (guard теперь и в этой ветке, [28]); medium - CODEX_ADAPTER неточно
+  описывал Windows-проверку (отвергается любой владелец, кроме TokenUser); medium - строка model-policy в
+  HARNESS_ENGINEERING_MAP без поведения Codex.
+- Ревью a10-a12 (10196e0) без вердикта: поток событий OpenAI рвался (из WSL нет маршрута через VPN; a12 через
+  временный прокси на Windows, только хосты OpenAI). Ревью a13 через тот же прокси - BLOCKED, 3 находки по текстам,
+  исправлены: high - AC3 заявлял зеленый полный набор на Windows (сужен до доказанного: оракулы юнита зеленые,
+  windows-verify не хуже базы); medium - порядок перехода AUTH и подписи (пояснен выше); low - формулировка прав в
+  CHANGELOG.
+- Ревью a14 (d216b21, machine a14 PASSED 5/5) - BLOCKED, одна medium: строка `ITD-APPROVE` с CRLF не записывалась.
+  Владелец выбрал исправить (не ADJUDICATED): регэксп принимает `\r` перед концом строки, проверка [29].
+- Ревью a15 (f2c3c63) - только medium, ADJUDICATED владельцем (квитанция 4489d7c0...). PR #384 открыт; CI Gate 1
+  упал на пине живого бенчмарка (hooks/ в пине) - прогон перезаписан на финальном дереве. Ревью a16 (0b56e2b) -
+  BLOCKED, исправлены: high - одиночный суррогат во входе ронял `approval_hash` (UTF-8), для model-policy это fail
+  open (хеш теперь по ASCII-JSON, [31]); medium - регэксп принимал лишние пробелы (строгая грамматика, [30]).
+- Ссылки: `tests/verify_codex_ask_gates.py` (RED на 6ad2f9d: 13 FAIL + падение), docs/CODEX_ADAPTER.md,
+  docs/HOST_ADAPTER_CONTRACT.md, BACKLOG P1 CODEX-ASK-GATES-1.

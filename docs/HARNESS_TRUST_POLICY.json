@@ -63,6 +63,7 @@
       "script": "pii-egress-guard.sh",
       "event": "PreToolUse",
       "nativeApprovalDecision": "ask",
+      "codexApprovalDecision": "deny-until-ITD-APPROVE",
       "matcher": "*",
       "riskTier": "high",
       "decision": "deny",

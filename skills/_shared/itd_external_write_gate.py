@@ -4,7 +4,9 @@
 The engine is host-neutral: adapters pass a hook-shaped payload, while this
 module classifies the action and builds the canonical preview without storing
 approval state. The host-native PreToolUse `ask` decision is the trusted
-confirmation boundary. No arguments is a quiet no-op.
+confirmation boundary; on Codex, which has no native `ask`, the adapter
+denies and accepts only the user's `ITD-APPROVE <hash>` prompt line
+(hooks/codex-dispatch.py). No arguments is a quiet no-op.
 """
 from __future__ import annotations
 

@@ -39,9 +39,16 @@ External-write approval is computed by the shared
 `skills/_shared/itd_external_write_gate.py`, not by host prompts. Every adapter
 must route all PreToolUse traffic through `pii-egress-guard.sh`, preserve its
 native `ask`/`deny` decision, and supply `session_id`, exact tool name, and
-complete structured input. The host's approval UI is the only trusted grant:
-the methodology stores no local approval ledger, and a caller-controlled tool
-flag or file can never mint approval.
+complete structured input. On a host with a native `ask` (Claude Code) the
+host's approval UI is the only trusted grant: the methodology stores no local
+approval ledger there, and a caller-controlled tool flag or file can never mint
+approval. A host without a native `ask` (Codex) must not let an `ask` fail
+open: its adapter returns `deny` with an `ITD-APPROVE <hash>` answer and keeps
+the one exception to the rule above - a local, one-time, session-bound
+approval of that exact call, recorded only from the user's prompt transport.
+That ledger is protected by the OS user's file ownership and a guard that
+denies tool calls naming it, not by the host; a process with the user's rights
+that bypasses the hook transport can still write it (`docs/CODEX_ADAPTER.md`).
 The shared hash binds canonical tool name + exact targets + full payload;
 attachments remain inside that payload. Read-only actions are silent, while a
 missing session/target or changed action fails closed.
@@ -52,7 +59,8 @@ later duplicate tool call is a new external action, not reusable approval.
 
 Model/effort routing crosses the same PreToolUse adapter boundary through
 `model-policy.sh` for `Task|Agent`. Adapters must preserve both its
-`additionalContext` model hint and its native `ask` decision for an unsafe
+`additionalContext` model hint and its `ask` decision (on Codex, the deny
+with an `ITD-APPROVE <hash>` answer) for an unsafe
 explicit low-effort override. The automatic low route requires an active
 low/medium-risk `working_deadline` unit and a description prefixed
 `[itd:mechanical]`; protected roles and unknown/high risk are never silent.

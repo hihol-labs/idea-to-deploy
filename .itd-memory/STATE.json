@@ -37,15 +37,15 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "CODEX-AUTH-METADATA-1",
-    "goal": "Accept current Codex subscription metadata while preserving keyless-review safeguards",
+    "id": "CODEX-ASK-GATES-1",
+    "goal": "Codex never lets a shared-hook ask fail open: the adapter denies with the exact-call hash, the owner answers ITD-APPROVE <hash> in the chat, UserPromptSubmit records a one-time session-bound approval (TTL 30 min), the same exact call passes once; denies and secrets stay unapprovable; Claude keeps native ask (BACKLOG P1, variant A by the owner 2026-11-02)",
     "status": "in_progress",
-    "startedAt": "2026-11-02T12:24:30Z",
+    "startedAt": "2026-11-02T20:48:34Z",
     "ledger": "STATE",
     "riskTier": "high",
     "riskTierMatch": {
-      "class": "auth",
-      "match": "strict class 'auth' matched keyword 'auth' in SCOPE_LOCK"
+      "class": "secrets",
+      "match": "strict class 'secrets' matched keyword 'secrets' in goal"
     }
   },
   "gateResults": {

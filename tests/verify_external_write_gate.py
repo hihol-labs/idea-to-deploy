@@ -170,8 +170,9 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
           and digest in asked_reason and "WHY:" in asked_reason
           and "FIX:" in asked_reason, asked.stdout + asked.stderr)
     codex_asked = hook(state, send, codex=True)
-    check("Codex dispatcher preserves the same native ask decision",
-          codex_asked.returncode == 0 and decision(codex_asked)[0] == "ask",
+    check("Codex dispatcher turns the ask into a deny approvable by ITD-APPROVE",
+          codex_asked.returncode == 2 and decision(codex_asked)[0] == "deny"
+          and "ITD-APPROVE " in decision(codex_asked)[1],
           codex_asked.stdout + codex_asked.stderr)
 
     direct_approval = core(state, "approve", None, "--hash", digest, "--session",
@@ -234,7 +235,7 @@ with tempfile.TemporaryDirectory(prefix="external-write-gate-") as td:
           and any(item.get("key") == "repository_full_name"
                   and item.get("value") == "acme/demo"
                   for item in codex_write_preview.get("targets", []))
-          and decision(hook(state, codex_write, codex=True))[0] == "ask",
+          and decision(hook(state, codex_write, codex=True))[0] == "deny",
           json.dumps(codex_write_preview, ensure_ascii=False))
     local_mcp = payload("mcp__node_repl__js", {"code": "1 + 1"})
     local_mcp_result = hook(state, local_mcp, codex=True)
@@ -636,7 +637,8 @@ pii_gate = next((item for item in trust.get("hardGates", [])
                  if item.get("script") == HOOK.name), {})
 check("trust policy routes the existing hard gate across every tool",
       pii_gate.get("matcher") == "*"
-      and pii_gate.get("nativeApprovalDecision") == "ask")
+      and pii_gate.get("nativeApprovalDecision") == "ask"
+      and pii_gate.get("codexApprovalDecision") == "deny-until-ITD-APPROVE")
 for source in (
         ROOT / "hooks/hooks.json",
         ROOT / "skills/adopt/references/project-settings-template.json",
