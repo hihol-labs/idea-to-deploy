@@ -19,7 +19,8 @@ with its native command»), поэтому формальная ОТК `--instal
 проверять регистрацию диспетчера на нужных событиях и маршрут хука в таблице с учетом выключенных владельцем хуков;
 регрессия на обе раскладки; юнит, меняющий регистрацию хуков или установку, гоняет этот оракул в машине. До починки
 нативная приемка релиза - по решению владельца с записанным расхождением (DECISIONS 2026-10-31).
-В работе: юнит INSTALLED-PROOF-DISPATCH-1 (2026-11-01); пункт закрывается записью его закрытия.
+**Закрыто 2026-11-01** юнитом INSTALLED-PROOF-DISPATCH-1 (PR #382 -> ec52318): установка сверяется с тем, что пишет
+синк; ОТК установленного 1.110.0 (a3) - PASSED на обоих хостах.
 
 ## P2 - пин efficacy на байты файла продюсера: правка комментария стоит трех живых ног (2026-10-31, ITD-PLAN-S10)
 
@@ -4010,3 +4011,6 @@ which is the signal that made the blindness worth fixing rather than tolerating.
 каждой Bash-команде сессии, где в тексте встречался путь `.itd-memory/GOAL`.
 Детектор смотрит на упоминание пути, а не на запись. Цена - шум в контексте,
 не ложный блок.
+
+## Live blueprint sample: application design follow-up (outside auth repair)
+- The archived nginx CLI plans need a separate implementation/design pass for bounded IP/URL cardinality and line lengths, precise follow/rotation/framing behavior, terminal/CSV sanitization and distinct internal-error semantics. The current change ships no generated log-analyzer code. Preserve the observation; do not edit archived outputs or mistake snapshot H4 coverage for production certification. See tests/fixtures/live-model-evidence/README.md.

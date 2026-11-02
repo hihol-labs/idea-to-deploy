@@ -14,6 +14,18 @@ Its only transparent binary representation is the broker-defined `.jsonl.gz`
 contract: exact raw Git bytes remain candidate-bound while strict logical JSONL
 is reviewed. This does not enable generic binary review.
 
+The Codex subscription loader accepts two closed token records: the legacy
+four core fields, or those fields together with `login_owner_id` and
+`oauth_provenance`. The latter is a closed `{issuer, client_id}` object; its
+issuer must be exactly `https://auth.openai.com`, and owner/client identifiers
+must be nonblank bounded strings. Partial or unknown metadata, malformed core
+fields, non-ChatGPT mode and an API key remain `UNVERIFIED`.
+The loader copies the accepted auth file byte-for-byte into the private
+ephemeral home, preserving account and OAuth registration metadata; it does
+not rewrite the user's auth file or log credential values. Keep the issued
+client ID associated with its credentials, as described in
+[OpenAI's account and credential guidance](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
+
 ## Explicit paid operator use
 
 Stage the exact candidate, explicitly permit egress, and provide real

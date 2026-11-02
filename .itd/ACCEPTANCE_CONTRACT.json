@@ -6466,6 +6466,66 @@
           "full"
         ]
       }
+    },
+    {
+      "id": "CODEX-AUTH-METADATA-1-AC1",
+      "unitId": "CODEX-AUTH-METADATA-1",
+      "criterion": "Legacy and current subscription auth shapes pass and the complete raw current record survives private ephemeral-home copying.",
+      "source": "2026-11-02 approved compatibility repair",
+      "evidence": "Synthetic auth regression passed on WSL and native Windows351 checks/cp1251; metadata copying remains byte-exact. Real27-case signed diagnostic corpus verified100% critical/high/medium detection and0 false blocks. Host adapters and methodology rubric passed; quick suite passed. Frozen machine legs re-execute required checks.",
+      "verificationCommand": "declared machine legs",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Legacy and current subscription auth shapes pass and the complete raw current record survives private ephemeral-home copying.",
+        "impactClasses": [
+          "correctness",
+          "compatibility",
+          "security"
+        ],
+        "oracleIds": [
+          "auth"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-AUTH-METADATA-1-AC2",
+      "unitId": "CODEX-AUTH-METADATA-1",
+      "criterion": "Malformed, partial, oversized, unknown or noncanonical metadata and API-key auth remain fail-closed without credential disclosure.",
+      "source": "2026-11-02 approved compatibility repair",
+      "evidence": "Synthetic auth regression passed on WSL and native Windows351 checks/cp1251; metadata copying remains byte-exact. Real27-case signed diagnostic corpus verified100% critical/high/medium detection and0 false blocks. Host adapters and methodology rubric passed; quick suite passed. Frozen machine legs re-execute required checks.",
+      "verificationCommand": "declared machine legs",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Malformed, partial, oversized, unknown or noncanonical metadata and API-key auth remain fail-closed without credential disclosure.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "auth"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-AUTH-METADATA-1-AC3",
+      "unitId": "CODEX-AUTH-METADATA-1",
+      "criterion": "Native-host adapter checks, repository quick suite and methodology review remain green.",
+      "source": "2026-11-02 approved compatibility repair",
+      "evidence": "Synthetic auth regression passed on WSL and native Windows351 checks/cp1251; metadata copying remains byte-exact. Real27-case signed diagnostic corpus verified100% critical/high/medium detection and0 false blocks. Host adapters and methodology rubric passed; quick suite passed. Frozen machine legs re-execute required checks.",
+      "verificationCommand": "declared machine legs",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Native-host adapter checks, repository quick suite and methodology review remain green.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "adapters",
+          "quick",
+          "meta"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6484,18 +6544,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "INSTALLED-PROOF-DISPATCH-1",
+    "unitId": "CODEX-AUTH-METADATA-1",
     "status": "in_progress",
-    "openedAt": "2026-11-01",
+    "openedAt": "2026-11-02",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-10-31/11-01: fix BACKLOG P1 found by the REL-1.110.0 native canaries - tests/verify_route_debts.py validate_adapter_activation demanded hooks/risk-score.sh registered directly in settings.json (PostToolUse, matcher *), the layout before plan sessions 5-6; since session 5 risk-score.sh is an optional hook off by default and the owner disabled it, since session 6 one hooks/claude-dispatch.py per event runs the hooks through the routing table. The owner approved the plan on 2026-11-01 (\"Да, план\"): the adapter is active when the dispatcher is registered in its native form and the routing table follows the owner hook lists; a regression module in run-all and in the native canary suites, no CI change; tests only, the installed runtime and hooks do not change; the unit carries the REL-1.110.0 closure records (plan rule 5); after the merge the native canaries and the installed-proof OTK are repeated for the installed 1.110.0.",
+    "sourceRequest": "User explicitly approved ITD auth-format compatibility repair and continuation of the authorized Aboutyou release.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
-        "host-parity",
+        "security",
         "compatibility",
+        "host-parity",
         "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
@@ -7466,6 +7527,28 @@
       },
       "closedAt": "2026-10-31T21:41:21Z",
       "closureEvidence": "PR #381 squash-merged to main eb271ba on 2026-10-31; tree 6762cce4 = reviewed tree of dafb6ca (base 2f862a1): machine REL-1.110.0-machine-a4 PASSED 7/7 (receipt c4851aae); review gpt-5.6-sol a2 PASSED, 0 findings (adjudication ad5f7096); CI meta-review and windows-verify SUCCESS on PR and main; release v1.110.0 on eb271ba; rollout WSL+Windows, runtime 1.110.0-6d693cfa, Codex 1.110.0; native canary tests PASSED on both hosts, installed-proof revalidation refused by a stale oracle check (owner: accept with the recorded discrepancy)"
+    },
+    {
+      "unitId": "INSTALLED-PROOF-DISPATCH-1",
+      "status": "closed",
+      "openedAt": "2026-11-01",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-10-31/11-01: fix BACKLOG P1 found by the REL-1.110.0 native canaries - tests/verify_route_debts.py validate_adapter_activation demanded hooks/risk-score.sh registered directly in settings.json (PostToolUse, matcher *), the layout before plan sessions 5-6; since session 5 risk-score.sh is an optional hook off by default and the owner disabled it, since session 6 one hooks/claude-dispatch.py per event runs the hooks through the routing table. The owner approved the plan on 2026-11-01 (\"Да, план\"): the adapter is active when the dispatcher is registered in its native form and the routing table follows the owner hook lists; a regression module in run-all and in the native canary suites, no CI change; tests only, the installed runtime and hooks do not change; the unit carries the REL-1.110.0 closure records (plan rule 5); after the merge the native canaries and the installed-proof OTK are repeated for the installed 1.110.0.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "compatibility",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-01T19:57:54Z",
+      "closureEvidence": "PR #382 squash-merged to main ec52318 on 2026-11-01; tree 9f43f813 = reviewed tree of 9ca31a6 (base eb271ba): machine a6 PASSED 8/8 on the 1.110.0 runtime loop (6796952c); review sol a5 one medium ADJUDICATED by the owner (549b4e92); CI 2/2 SUCCESS; installed 1.110.0 OTK a3 on ec52318 PASSED: native canaries a2 on WSL and Windows, installed-proof exit 0, live 154/0"
     }
   ]
 }
