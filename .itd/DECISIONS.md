@@ -7313,3 +7313,13 @@ The third fresh Terra review found that a primary already containing :general-re
   `.itd/DECISIONS.md`.
 - Журнал #2: начало 2026-11-01T19:57:45Z (проверка дерева), подпись 20:03:58Z - 6.2 минуты, включая ожидание
   владельца; новых модельных раундов 0, полного `tests/run-all.sh` 0 - в цели раздела 2 плана (<= 30 мин).
+
+## 2026-11-02: current Codex subscription metadata stays private and closed
+
+Owner authorized the ITD compatibility repair and continuation of the Aboutyou
+release. Accept either the legacy core-token shape or the exact current pair
+of login-owner/OAuth metadata, with canonical OpenAI issuer and bounded strings.
+Preserve the complete private record; API keys, unknown/partial fields and
+noncanonical issuers stay rejected. No installed cache is edited in place;
+the change ships as reviewed patch release1.110.1. The existing verified local
+INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.

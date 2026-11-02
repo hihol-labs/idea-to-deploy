@@ -4231,6 +4231,7 @@ def _validate_subscription_auth(raw: bytes) -> None:
     token_fields = {
         fields["access"], fields["account"], fields["identity"], fields["refresh"]
     }
+    metadata_fields = {"login_owner_id", "oauth_provenance"}
     if (
         not isinstance(value, dict)
         or set(value) != required
@@ -4239,7 +4240,7 @@ def _validate_subscription_auth(raw: bytes) -> None:
         or not isinstance(value["last_refresh"], str)
         or not value["last_refresh"].strip()
         or not isinstance(tokens, dict)
-        or set(tokens) != token_fields
+        or set(tokens) not in (token_fields, token_fields | metadata_fields)
         or any(
             not isinstance(tokens[field], str)
             or not tokens[field]
@@ -4250,6 +4251,20 @@ def _validate_subscription_auth(raw: bytes) -> None:
         raise FreeReviewError(
             "UNVERIFIED", "free reviewer requires closed ChatGPT subscription auth"
         )
+    if metadata_fields <= set(tokens):
+        owner = tokens["login_owner_id"]
+        provenance = tokens["oauth_provenance"]
+        client = provenance.get("client_id") if isinstance(provenance, dict) else None
+        if (
+            not isinstance(owner, str) or not owner.strip() or len(owner) > 64 * 1024
+            or not isinstance(provenance, dict)
+            or set(provenance) != {"issuer", "client_id"}
+            or provenance["issuer"] != "https://auth.openai.com"
+            or not isinstance(client, str) or not client.strip() or len(client) > 64 * 1024
+        ):
+            raise FreeReviewError(
+                "UNVERIFIED", "free reviewer requires closed ChatGPT subscription auth"
+            )
 
 
 @contextlib.contextmanager

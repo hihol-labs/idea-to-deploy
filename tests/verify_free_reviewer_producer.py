@@ -3405,6 +3405,66 @@ def main() -> int:
             json.dumps(subscription_auth), encoding="utf-8"
         )
 
+        extended_auth = copy.deepcopy(subscription_auth)
+        extended_auth["tokens"].update({
+            "login_owner_id": "owner-fixture",
+            "oauth_provenance": {
+                "issuer": "https://auth.openai.com",
+                "client_id": "issued-client-fixture",
+            },
+        })
+        producer._validate_subscription_auth(json.dumps(extended_auth).encode("utf-8"))
+        check(True, "current Codex subscription metadata was rejected")
+        extended_raw = json.dumps(extended_auth).encode("utf-8")
+        (review_codex_home / "auth.json").write_bytes(extended_raw)
+        with producer.transport_home(hostile_env) as isolated_home:
+            extended_home = Path(isolated_home)
+            check((extended_home / "auth.json").read_bytes() == extended_raw,
+                  "subscription metadata was projected or stripped")
+        check(not extended_home.exists(), "current auth transport home survived review")
+        invalid_auth = []
+        for field in ("login_owner_id", "oauth_provenance"):
+            partial = copy.deepcopy(extended_auth)
+            del partial["tokens"][field]
+            invalid_auth.append(partial)
+        for owner in (None, False, 7, "", " ", "x" * (64 * 1024 + 1)):
+            malformed = copy.deepcopy(extended_auth)
+            malformed["tokens"]["login_owner_id"] = owner
+            invalid_auth.append(malformed)
+        for provenance in (None, [], {}, {"issuer": "https://auth.openai.com"},
+                           {"issuer": "https://auth.openai.com", "client_id": "c", "extra": "x"}):
+            malformed = copy.deepcopy(extended_auth)
+            malformed["tokens"]["oauth_provenance"] = provenance
+            invalid_auth.append(malformed)
+        for field, values in {
+            "issuer": [None, False, "", "http://auth.openai.com", "https://other.invalid", "https://auth.openai.com/"],
+            "client_id": [None, False, "", " ", "x" * (64 * 1024 + 1)],
+        }.items():
+            for value in values:
+                malformed = copy.deepcopy(extended_auth)
+                malformed["tokens"]["oauth_provenance"][field] = value
+                invalid_auth.append(malformed)
+        extra = copy.deepcopy(extended_auth)
+        extra["tokens"]["unexpected"] = "x"
+        invalid_auth.append(extra)
+        api_extended = copy.deepcopy(extended_auth)
+        api_extended.update({"auth_mode": "apikey", api_key_field: "x"})
+        invalid_auth.append(api_extended)
+        mixed_auth = copy.deepcopy(extended_auth)
+        mixed_auth[api_key_field] = "x"
+        invalid_auth.append(mixed_auth)
+        for field in token_fields:
+            malformed = copy.deepcopy(extended_auth)
+            malformed["tokens"][field] = ""
+            invalid_auth.append(malformed)
+        for malformed in invalid_auth:
+            try:
+                producer._validate_subscription_auth(json.dumps(malformed).encode("utf-8"))
+                raise AssertionError("malformed current subscription auth was accepted")
+            except producer.FreeReviewError as exc:
+                check(exc.status == "UNVERIFIED", "malformed auth failed open")
+        (review_codex_home / "auth.json").write_text(json.dumps(subscription_auth), encoding="utf-8")
+
         machine_value = json.loads(machine.read_text(encoding="utf-8"))
         for field in (
             "baseCommit", "reviewedTree", "diffHash",

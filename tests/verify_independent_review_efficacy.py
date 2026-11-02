@@ -43,6 +43,9 @@ HISTORY_BASELINE_COMMIT = "541081840d2f972e1b0c5aea16fa09a767f80b2c"
 # 0f156678f8b42f29561874d1435c9ef4d770c116.  It intentionally lives in the
 # verifier: a rewritten manifest must not be able to erase or replace history.
 HISTORY_PINNED_SNAPSHOTS = {
+    'diagnostic-0479b349-auth-metadata/u12-cross-vendor-wsl.json': '1668cf065bfce5b77b655af14baa2904f3030c7ae02d681f5d4014b1dcb0be3e',
+    'diagnostic-0479b349-auth-metadata/windows.json': '738c902b4bbbe406c7a6b94ba3857b19c246fd313c9cb3e93c8ae083d797c837',
+    'diagnostic-0479b349-auth-metadata/wsl.json': '6c3b0c94cde0ea471f70f87641a2293860966209ab21b15ec9931855c92660ac',
     "diagnostic-260950c6/wsl.json": "589149d3e8a3543ab5b565519740e391c565f79a8f460b3eb4bb7ea5d16ec359",
     "diagnostic-260950c6/windows.json": "45175ebb439ac9fde5ce69fe53cac81fc51dbc506ed1b3205aee0244b24f00dd",
     "diagnostic-260950c6/u12-cross-vendor-wsl.json": "b87d655f68085e02ed4e76d0bbe59741fe9653a1814d309f462952febe58d301",

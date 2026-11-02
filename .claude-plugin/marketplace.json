@@ -20,11 +20,13 @@
         "repo": "hihol-labs/idea-to-deploy"
       },
       "homepage": "https://github.com/hihol-labs/idea-to-deploy",
-      "version": "1.110.0",
+      "version": "1.110.1",
       "images": [
         "https://raw.githubusercontent.com/hihol-labs/idea-to-deploy/main/docs/demo.svg"
       ],
-      "tags": ["community-managed"],
+      "tags": [
+        "community-managed"
+      ],
       "keywords": [
         "claude-code",
         "methodology",

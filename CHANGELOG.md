@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.110.0 открыт; записи появляются по мере слияния юнитов.
 
+## [1.110.1] - 2026-11-02
+
+### Fixed - Codex subscription auth metadata
+
+- The keyless reviewer accepts the current closed Codex ChatGPT token format
+  with paired login-owner and OAuth provenance metadata, while preserving
+  legacy auth, API-key rejection and private byte-preserving transport.
+- Synthetic regressions cover valid private copying and malformed, partial,
+  unknown, oversized and foreign-issuer metadata.
+
 ## [1.110.0] - 2026-10-31
 
 > Релиз сессии 11 программы ADR-016: выпускает сессии 2 и 4-10 - PR #371 (`ITD-PLAN-S2`), #372 (`ITD-PLAN-S4`),
