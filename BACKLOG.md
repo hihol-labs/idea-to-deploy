@@ -4011,3 +4011,6 @@ which is the signal that made the blindness worth fixing rather than tolerating.
 каждой Bash-команде сессии, где в тексте встречался путь `.itd-memory/GOAL`.
 Детектор смотрит на упоминание пути, а не на запись. Цена - шум в контексте,
 не ложный блок.
+
+## Live blueprint sample: application design follow-up (outside auth repair)
+- The archived nginx CLI plans need a separate implementation/design pass for bounded IP/URL cardinality and line lengths, precise follow/rotation/framing behavior, terminal/CSV sanitization and distinct internal-error semantics. The current change ships no generated log-analyzer code. Preserve the observation; do not edit archived outputs or mistake snapshot H4 coverage for production certification. See tests/fixtures/live-model-evidence/README.md.
