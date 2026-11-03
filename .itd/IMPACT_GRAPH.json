@@ -974,6 +974,7 @@
       "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
       "tests/verify_bypass_friction.py",
+      "tests/verify_codex_ask_gates.py",
       "tests/verify_external_write_gate.py",
       "tests/verify_graduated_trust.py",
       "tests/verify_graph_study.py",
@@ -1115,6 +1116,7 @@
       "tests/verify_route_debts.py"
     ],
     "hooks/model-policy.sh": [
+      "tests/verify_codex_ask_gates.py",
       "tests/verify_hook_selection.py",
       "tests/verify_hook_tier_exit.py",
       "tests/verify_host_adapters.py",
@@ -1132,6 +1134,7 @@
     "hooks/pii-egress-guard.sh": [
       "tests/verify_adapter_activation.py",
       "tests/verify_all_hard_gate_host_parity.py",
+      "tests/verify_codex_ask_gates.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_external_write_gate.py",
       "tests/verify_graduated_trust.py",
@@ -1146,6 +1149,7 @@
     ],
     "hooks/pre-flight-check.sh": [
       "tests/verify_adapter_activation.py",
+      "tests/verify_codex_ask_gates.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_continuity.py",
       "tests/verify_fresh_session_resume.py",

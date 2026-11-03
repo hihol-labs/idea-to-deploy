@@ -79,20 +79,42 @@ WSL and native Windows.
 
 The outbound hard gate is registered for PreToolUse with matcher `.*`.
 Connector and shell payloads reach the host-neutral exact-approval engine
-through `codex-dispatch.py`; an approvable mutation returns native Codex `ask`
-with the complete preview and approval hash intact, while missing exact
-provenance/targets returns `deny`. No local approval record is trusted or
-stored. The Codex host binds confirmation to the exact pending invocation; a
-target, body, attachment, or session change creates a new prompt.
-Once the user accepts that native Codex prompt, Codex executes the same pending
-invocation without calling the methodology gate again. A later duplicate call
-is intentionally a new action (important for non-idempotent sends/comments),
-not a cached local approval.
+through `codex-dispatch.py`; missing exact provenance/targets and live secrets
+return `deny`. Codex PreToolUse does not support `permissionDecision: "ask"`
+and runs the call (fail open), so the adapter never forwards an `ask`
+(CODEX-ASK-GATES-1): it returns `deny` (exit 2) with the complete preview and
+the line `ITD-APPROVE <hash>`, where the hash binds the asking hook, the tool,
+its full input and the cwd (ASCII-escaped canonical JSON). The user answers
+with exactly that line in the chat - `ITD-APPROVE`, one space, 64 lowercase
+hex, nothing else on the line (an LF or CRLF line end is fine); the UserPromptSubmit transport records a one-time approval for the
+session under `~/.claude/itd-codex-approvals/` (TTL 30 minutes), and the same
+exact call passes once; the hooks' advisory `additionalContext` still reaches
+the model. A changed target, body, attachment, cwd or session gets a new hash
+(a missing field and an empty one differ); a replay is denied again; a `deny`
+is never approvable.
+
+The boundary is weaker than Claude's native prompt and is stated exactly:
+- a record counts only from a real directory and file (no symlink or junction)
+  owned by the OS user - on POSIX also not writable by group/other (the
+  directories are created 0700); on Windows the owner SID must be the user's
+  own SID (TokenUser); a record owned by any other SID - SYSTEM, TrustedInstaller
+  or a group such as Administrators - is refused, and the DACL inherited from
+  the profile is not inspected; a malformed record is spent, so the call can be approved
+  again;
+- the dispatcher records approvals only from a UserPromptSubmit payload, and
+  denies any tool call whose input names the channel - a shell command, a file
+  path or the content a file tool writes that mentions `ITD-APPROVE`, the
+  store, or a hand-made UserPromptSubmit for this dispatcher (so Codex cannot
+  edit text that mentions `ITD-APPROVE`, such as these docs);
+- that guard is a guardrail, not a boundary: a process with the user's rights
+  that bypasses the hook transport (an obfuscated command, another program)
+  can still write a record. Approval is bound to one exact call.
 
 The Codex hook bundle also routes `Task|Agent` through `model-policy.sh` via
 `codex-dispatch.py`. Codex must preserve the advisory context for a weaker model
-override and the native ASK returned for a low-effort override outside bounded
-low/medium mechanical `working_deadline` work. The adapter does not infer task
+override; the ASK returned for a low-effort override outside bounded
+low/medium mechanical `working_deadline` work becomes the same `deny` with an
+`ITD-APPROVE <hash>` answer. The adapter does not infer task
 semantics or remove evidence contours; the shared ledger and role frontmatter
 remain authoritative.
 

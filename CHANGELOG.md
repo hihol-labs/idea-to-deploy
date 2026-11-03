@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Цикл после 1.110.0 открыт; записи появляются по мере слияния юнитов.
 
+### Fixed - Codex gates no longer fail open on `ask` (CODEX-ASK-GATES-1)
+
+- Codex PreToolUse ignores `permissionDecision: "ask"` and runs the call, so
+  the external-write gate (`pii-egress-guard.sh`) and the low-effort route of
+  `model-policy.sh` let Codex push, comment and create PRs without
+  confirmation. The Codex adapter now turns every `ask` into a `deny` that
+  names the exact-call hash; the user answers `ITD-APPROVE <hash>` in the chat,
+  UserPromptSubmit records a one-time, session-bound approval (TTL 30 min),
+  and the same exact call passes once. Secrets and other denies stay
+  unapprovable; Claude Code keeps its native `ask`.
+- The approval store accepts a record only from a real directory and file of
+  the OS user (no symlink or junction; on POSIX the directories are created
+  0700 and the directory and record must be owned by the user with no
+  group/other write; on Windows the owner SID must be the user's); a tool call whose command, file path or written
+  content names the approval channel is denied.
+  Residual risk: a process with the user's rights that bypasses the hook
+  transport can still write a record.
+- `tests/verify_codex_ask_gates.py` (31 checks on POSIX, 30 on Windows; red on 1.110.1) in run-all.
+
 ## [1.110.1] - 2026-11-02
 
 ### Fixed - Codex subscription auth metadata

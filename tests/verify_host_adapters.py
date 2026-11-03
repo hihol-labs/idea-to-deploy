@@ -258,11 +258,14 @@ def main() -> int:
         try:
             direct_specific = json.loads(model_direct.stdout)["hookSpecificOutput"]
             codex_specific = json.loads(model_codex.stdout)["hookSpecificOutput"]
-            check(model_direct.returncode == model_codex.returncode == 0,
-                  "Claude/Codex model-policy exit status diverges", errors)
-            check(direct_specific == codex_specific
-                  and direct_specific.get("permissionDecision") == "ask",
-                  "Claude/Codex model-policy ASK payload diverges", errors)
+            check(model_direct.returncode == 0 and model_codex.returncode == 2,
+                  "Claude ask / Codex deny exit status diverges for model-policy", errors)
+            check(direct_specific.get("permissionDecision") == "ask"
+                  and codex_specific.get("permissionDecision") == "deny"
+                  and str(direct_specific.get("permissionDecisionReason"))
+                  in str(codex_specific.get("permissionDecisionReason"))
+                  and "ITD-APPROVE " in str(codex_specific.get("permissionDecisionReason")),
+                  "Codex model-policy ask is not a deny approvable by ITD-APPROVE", errors)
         except (json.JSONDecodeError, KeyError):
             errors.append("Claude/Codex model-policy parity returned invalid JSON")
 

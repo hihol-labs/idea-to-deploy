@@ -8,6 +8,46 @@
 > пункты ниже не берутся в работу, пока не блокируют продуктовую задачу. Правка ITD - только по такому блокеру и
 > минимальная; новая проверка становится обязательной только после выигрыша на A/B-замере.
 
+## P1 - CODEX-ASK-GATES-1: решение `ask` гейтов ITD в Codex пропускает вызов (fail open) (2026-11-02, ITD-PLAN-S12)
+
+В работе: юнит CODEX-ASK-GATES-1 (2026-11-02, вариант A владельца); пункт закрывается записью его закрытия.
+Хуки в Codex вызываются (трасса: `tool=Bash` для вложенного shell на 0.146, 0.157.1 и 0.166.0), но Codex PreToolUse
+не поддерживает `permissionDecision: "ask"` и выполняет вызов: `pii-egress-guard` (EXTERNAL WRITE GATE, PII) и
+низкий effort в `model-policy` в Codex бездействуют; `deny`/exit 2 работают. Цена: за ноябрь на Windows 14
+`gh pr create/merge/comment`, 3 `git push` и 1 release/issue прошли из Codex без гейта. Исправление (вариант A):
+адаптер Codex превращает `ask` в `deny` с хешем точного вызова, владелец отвечает `ITD-APPROVE <hash>`,
+UserPromptSubmit пишет одноразовое подтверждение на сессию (TTL 30 мин), тот же вызов проходит один раз. Отдельно,
+конфиг владельца: `careful` в Codex молчит без `CAREFUL_MODE=1`. Улики и план - `scratchpad/itd-p1-codex-gates/`.
+Прежняя формулировка S12 («гейты не видят shell code-mode `exec`») вытеснена: code-mode ни при чем.
+
+## P2 - DOCTOR-CONTENT-1: doctor сверяет маркер, а не содержимое блока (2026-11-02, ITD-PLAN-S12)
+
+Установленный `itd_projects_doctor.py` ищет старый блок по метке `v1.20`, а у указателя `codex-v1` та же метка, что у
+старого полного блока: 25 (WSL) + 45 (Windows) AGENTS.md со старым блоком невидимы, `/adopt` их пропускает.
+Устаревшие GOAL и worktree вне корней doctor не видит. Исправление: старый блок - по содержимому, stale GOAL, обход
+`git worktree list`, `--allow` для намеренных находок (buying: свои хуки и `/deploy`). До/после в S12: doctor 4 / 137
+находок против 30 / 194 проектов с находками у сканера сессии.
+
+## P2 - CODEX-TRUST-ROLLOUT-1: раскатка не проверяет доверие хуков Codex (2026-11-02, ITD-PLAN-S12)
+
+После раскатки 1.110.0 `itd_codex_hook_trust.py` - exit 1 на обоих хостах (WSL 11 записей ядра untrusted;
+позиционные `enabled = false` на check-commit-completeness и wip-gate). Шаг раскатки релиза: `itd_codex_hook_trust.py`
+зеленый или явный список для `/hooks`; отключение хуков - только списком владельца, позиционные `enabled = false`
+снимаются.
+
+## P3 - хвосты S12: U-ITD-SRI, worktree, Windows (2026-11-02, ITD-PLAN-S12)
+
+- U-ITD-SRI: решить судьбу незаконченного юнита Codex (бэкап `scratchpad/itd-plan-s12/backup/itd-sri/`).
+- worktree: пропавшие (WSL 7, Windows 2 -> `git worktree prune`), битые `inv-wt-t266/t355/t372`; около 145 worktree
+  buying и 60 invoices - решение владельцев продуктов.
+- Windows: `context-mode-cache-heal.mjs` зарегистрирован, файла нет (context-mode).
+
+## P3 - `itd_unit_log.py`: два перехода в одну секунду получают одинаковый id события (2026-11-02, CODEX-ASK-GATES-1)
+
+`verified` старого юнита и `activate` нового, вызванные одной командой подряд, записали оба события с id
+`evt-unit-<секунды>`; `scripts/validate_state.py` дубль не ловит. Обход в юните: переходы отдельными вызовами.
+Исправление: уникальный суффикс id (наносекунды или счетчик) и проверка уникальности id в валидаторе.
+
 ## P1 - оракул ОТК installed-proof отстал от S5/S6: `validate_adapter_activation` ищет `risk-score.sh` в `settings.json` (2026-10-31, REL-1.110.0)
 
 `tests/verify_route_debts.py` `validate_adapter_activation` требует ровно одну запись PostToolUse с matcher `*` и
@@ -64,6 +104,9 @@ machine-receipt на HEAD), либо ограничить strict-чтение о
 заблокированы strict-ветвью при тех же сигналах - различие в составе команды, причина не разобрана.
 
 ## P2 - продюсер отвергает auth.json новой схемы Codex (`login_owner_id`, `oauth_provenance`) (2026-10-31, ITD-PLAN-S10, Windows-нога efficacy)
+
+**Закрыто 2026-11-02** юнитом CODEX-AUTH-METADATA-1 (PR #383 -> 6ad2f9d, v1.110.1): продюсер принимает обе
+схемы; ревьюер с новой схемой auth проверен на WSL и Windows после раскатки.
 
 `itd_free_reviewer_producer._validate_subscription_auth` требует закрытое множество полей `tokens`
 (`access_token`, `account_id`, `id_token`, `refresh_token`); Codex на Windows после обновления логина 2026-10-31

@@ -6526,6 +6526,69 @@
           "meta"
         ]
       }
+    },
+    {
+      "id": "CODEX-ASK-GATES-1-AC1",
+      "unitId": "CODEX-ASK-GATES-1",
+      "criterion": "A shared-hook ask never fails open in Codex: codex-dispatch.py returns deny (exit 2) with the exact-call hash and the ITD-APPROVE answer; Claude keeps the native ask.",
+      "source": "BACKLOG P1 CODEX-ASK-GATES-1, variant A by the owner 2026-11-02",
+      "evidence": "tests/verify_codex_ask_gates.py: red on 6ad2f9d (13 FAIL + AttributeError), 31 passed / 0 failed on WSL and 30 / 0 on native Windows (the Windows owner-SID branch replaces the POSIX mode checks); external-write oracle 323/0 and host adapters PASS on both hosts; 24 of 24 dispatcher mutants killed (TTL, one-time, session binding, line anchor, event channel, ask pass-through, skipped-hook channel, tool and input binding, presence-blind hash, sessionless record, owner/mode check, record check, mode check, ask context, channel guard, file path and content guard, shell markers, forged-prompt marker, malformed record kept, guard skipped for a switched-off hook, CRLF line end rejected, UTF-8 hash of a lone surrogate, loose line grammar). The TokenOwner case (an Administrators-owned record of an elevated token) has no negative test on this non-elevated host; the code compares TokenUser only.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_ask_gates.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A shared-hook ask never fails open in Codex: codex-dispatch.py returns deny (exit 2) with the exact-call hash and the ITD-APPROVE answer; Claude keeps the native ask.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "codex-ask-gates",
+          "external-write",
+          "adapters"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-ASK-GATES-1-AC2",
+      "unitId": "CODEX-ASK-GATES-1",
+      "criterion": "Only an exact ITD-APPROVE <64 lowercase hex> line of a UserPromptSubmit payload records an approval; it is one-time, session-bound, expires after 30 minutes and binds hook, tool, full input and cwd (present keys only); a record counts only from a real directory and file owned by the OS user; a tool call naming the approval channel is denied; a deny and a live secret are never approvable.",
+      "source": "BACKLOG P1 CODEX-ASK-GATES-1, variant A by the owner 2026-11-02",
+      "evidence": "tests/verify_codex_ask_gates.py checks 6-31: mid-line, uppercase, tool-written and other-event lines do not approve; another session, another call, another tool and an expired record do not pass; the approved exact call passes once and the replay is denied; a prompt without session provenance records nothing; a group/other-writable or symlinked directory or record approves nothing (POSIX); on native Windows SYSTEM- and TrustedInstaller-owned files and directories fail the owner-SID check (TokenUser only) and an own file passes; missing and empty fields hash differently; shell calls, file paths and written file content (Write, apply_patch) naming ITD-APPROVE, the store or a forged UserPromptSubmit are denied, ordinary shell calls and file writes pass; a live secret stays denied. A malformed record is spent and the same call can be approved again. The channel guard also holds when the hook the dispatcher runs for is switched off. A CRLF-terminated ITD-APPROVE line approves the call. Extra spaces or a tab around or inside the line do not approve; a lone surrogate in the input is hashed and denied (model-policy and pii-egress-guard).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_ask_gates.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Only an exact ITD-APPROVE <64 lowercase hex> line of a UserPromptSubmit payload records an approval; it is one-time, session-bound, expires after 30 minutes and binds hook, tool, full input and cwd (present keys only); a record counts only from a real directory and file owned by the OS user; a tool call naming the approval channel is denied; a deny and a live secret are never approvable.",
+        "impactClasses": [
+          "security",
+          "correctness"
+        ],
+        "oracleIds": [
+          "codex-ask-gates"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-ASK-GATES-1-AC3",
+      "unitId": "CODEX-ASK-GATES-1",
+      "criterion": "The existing external-write and host-adapter oracles and the full suite stay green on WSL with the Codex deny semantics; on native Windows the unit's oracles (codex ask gates, external write, host adapters) are green and the windows-verify steps are no worse than on base 6ad2f9d in the same launcher.",
+      "source": "BACKLOG P1 CODEX-ASK-GATES-1, variant A by the owner 2026-11-02",
+      "evidence": "WSL bash tests/run-all.sh: fails none (182 of 196 suites; verify_independent_review_efficacy PASSED with the host keyring pin). Native Windows: 44/52 windows-verify steps plus the three unit oracles green; the 8 red steps fail identically on base 6ad2f9d in the same launcher (environment: charmap, symlink privilege, missing executables) - .itd-memory/host-inputs/CODEX-ASK-GATES-1/windows-a1.txt, windows-base.txt.",
+      "verificationCommand": "bash tests/run-all.sh",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The existing external-write and host-adapter oracles and the full suite stay green on WSL with the Codex deny semantics; on native Windows the unit's oracles (codex ask gates, external write, host adapters) are green and the windows-verify steps are no worse than on base 6ad2f9d in the same launcher.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "external-write",
+          "adapters",
+          "meta",
+          "regression"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6544,18 +6607,17 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "CODEX-AUTH-METADATA-1",
+    "unitId": "CODEX-ASK-GATES-1",
     "status": "in_progress",
     "openedAt": "2026-11-02",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "User explicitly approved ITD auth-format compatibility repair and continuation of the authorized Aboutyou release.",
+    "sourceRequest": "BACKLOG P1 2026-11-02: Codex PreToolUse ignores permissionDecision ask and runs the call (fail open), so pii-egress-guard (external writes, PII) and model-policy are inert in Codex. Owner chose variant A on 2026-11-02: ask -> deny with the exact-call hash, the owner answers ITD-APPROVE <hash> in the chat, UserPromptSubmit records a one-time approval, the same exact call passes once.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
         "security",
-        "compatibility",
         "host-parity",
         "repository-hygiene"
       ],
@@ -7549,6 +7611,29 @@
       },
       "closedAt": "2026-11-01T19:57:54Z",
       "closureEvidence": "PR #382 squash-merged to main ec52318 on 2026-11-01; tree 9f43f813 = reviewed tree of 9ca31a6 (base eb271ba): machine a6 PASSED 8/8 on the 1.110.0 runtime loop (6796952c); review sol a5 one medium ADJUDICATED by the owner (549b4e92); CI 2/2 SUCCESS; installed 1.110.0 OTK a3 on ec52318 PASSED: native canaries a2 on WSL and Windows, installed-proof exit 0, live 154/0"
+    },
+    {
+      "unitId": "CODEX-AUTH-METADATA-1",
+      "status": "closed",
+      "openedAt": "2026-11-02",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "User explicitly approved ITD auth-format compatibility repair and continuation of the authorized Aboutyou release.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "compatibility",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-02",
+      "closureEvidence": "PR #383 squash-merged to main 6ad2f9d; tree ce9c1c45 = reviewedTree of authmeta-a8-adjudicated.json (ADJUDICATED by the owner, receiptSha256 10f53ba19465d150e4d0341b2ef3da091500af9d13a7b9aa55b3bb0216cf65a5); CI 2/2; release v1.110.1; rollout WSL + Windows; closed by the ADR-016 closure convention in the CODEX-ASK-GATES-1 candidate."
     }
   ]
 }
