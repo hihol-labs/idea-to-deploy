@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> Цикл после 1.110.0 открыт; записи появляются по мере слияния юнитов.
+## [1.110.2] - 2026-11-04
 
 ### Fixed - Codex gates no longer fail open on `ask` (CODEX-ASK-GATES-1)
 

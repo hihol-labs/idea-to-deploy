@@ -7466,3 +7466,32 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   open (хеш теперь по ASCII-JSON, [31]); medium - регэксп принимал лишние пробелы (строгая грамматика, [30]).
 - Ссылки: `tests/verify_codex_ask_gates.py` (RED на 6ad2f9d: 13 FAIL + падение), docs/CODEX_ADAPTER.md,
   docs/HOST_ADAPTER_CONTRACT.md, BACKLOG P1 CODEX-ASK-GATES-1.
+- Ревью a17 (e4e9633) без вердикта: обрыв транспорта к OpenAI. Ревью a18 на том же дереве (машина a17 PASSED 5/5)
+  через временный прокси - PASSED без находок: квитанция
+  `.itd-memory/verification-loop/CODEX-ASK-GATES-1-canonical-a18-adjudication.json`, receiptSha256
+  9f1f49855b8288115746212b71de2c05714340ed5e461dbc39d6d06f31a06d56, reviewedTree d59853dc. Квитанция a15 ADJUDICATED
+  (f2c3c63) вытеснена; ее две medium-находки (формулировка о сессии в хеше, POSIX-операции через дескриптор) - в
+  BACKLOG P3.
+- Публикация (подтверждения владельца «Да, push и PR», «Да, обновить PR», «Да, слить»): PR #384 обновлен через
+  `itd pr create` до e4e9633, CI PR 2/2, squash-merge -> main 4357885 2026-11-03, CI main 2/2. Windows
+  windows-verify кандидата 44/52 - те же 8 красных шагов, что на базе 6ad2f9d (окружение хоста).
+
+## 2026-11-04 - закрытие CODEX-ASK-GATES-1 по конвенции ADR-016 в кандидате REL-1.110.2
+
+- Шаг 1: merge-коммит 4357885e1594e634b2bdd08c2bb55deef7eee5e6, дерево d59853dc5398ea11fb18219b76edb613301e859f =
+  `candidate.reviewedTree` квитанции a18 (PASSED, receiptSha256 9f1f4985...); CI PR и main 2/2.
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified CODEX-ASK-GATES-1` (2026-11-03T22:32:29Z), затем
+  отдельным вызовом `activate REL-1.110.2` (22:32:36Z, medium); activeFollowup перенесен в closedFollowups;
+  `scripts/validate_state.py .itd-memory/STATE.json` - OK. Релиз и раскатка - юнит REL-1.110.2.
+- Шаг 3: подпись владельца 2026-11-04T11:11Z («Подписываю, публикуй») под просмотренной дельтой закрытия
+  `git diff 4357885 ad9ef17` по STATE, events, ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG (214 строк, файл
+  `.itd-memory/host-inputs/REL-1.110.2/codex-ask-gates-closure-delta.diff`, sha256
+  25ad03a718bfa6e72cf3e32e10bc59c7da9a437882354e5d9c45ab4e80d5f805); merge 4357885, дерево d59853dc, квитанция a18
+  9f1f4985.... Эта строка - единственное изменение дельты после подписи. Та же реплика - подтверждение публикации
+  REL-1.110.2 (push, PR, merge после зеленого CI, тег и релиз).
+
+## 2026-11-04 - REL-1.110.2: патч-релиз CODEX-ASK-GATES-1
+
+- Владелец 2026-11-04 («Да, релиз»): 1.110.2 выпускает CODEX-ASK-GATES-1; risk tier medium (дифф релиза не меняет
+  поставляемый код); два подтверждения - публикация и раскатка. reviewedAt доков не меняется (как в 1.110.1, окно
+  свежести 2026-10-31 + 30 дней).
