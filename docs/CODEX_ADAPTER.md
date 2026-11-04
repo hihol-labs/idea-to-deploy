@@ -35,6 +35,28 @@ tool traffic rather than only in adapter tests.
 
 Install or enable the repository as a Codex plugin through the normal Codex
 plugin UI. On first use, inspect and trust its command hooks with `/hooks`.
+
+Codex 0.166+ binds that trust to the hook declaration and to a fingerprint of
+the whole plugin contents (`trusted_content_hash`). Every plugin update - each
+Idea to Deploy release - changes the fingerprint, so Codex marks all entries
+"modified since last trusted" and skips them silently until the user trusts
+them again: start `codex` and choose "Trust all and continue" (or `/hooks`,
+then `t`). On Windows start `codex --no-daemon`: an older shared app-server
+daemon (0.157.1 on the owner's host) shows the hooks as trusted and writes the
+trust without the content fingerprint, which 0.166 then ignores.
+`python3 scripts/itd_codex_hook_trust.py` asks Codex itself (`codex
+app-server`, `hooks/list`) and names every entry whose trustStatus is not
+"trusted"; without a Codex executable it reports the content trust as
+unverified, never as OK.
+
+On Windows Codex runs a hook as `<session shell> -Command <commandWindows>`.
+PowerShell turns a native exit 2 into 1, and Codex blocks a PreToolUse call
+only on exit 2 (or exit 0 with a JSON deny) - any other exit is a non-blocking
+hook failure and the call runs. Every `commandWindows` therefore ends with
+`; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }`, so a
+dispatcher deny stays exit 2 in both PowerShell 7 and Windows PowerShell 5.1,
+and a `py` that cannot start is a hook failure (exit 1) instead of a silent
+`exit $null` = 0 (`tests/verify_codex_ask_gates.py` [32], [33]).
 Plugin hooks are intentionally bundled; `/adopt` does not duplicate them into
 the target repository when the plugin is active.
 

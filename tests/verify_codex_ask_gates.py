@@ -15,6 +15,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -378,8 +379,55 @@ def main() -> int:
         check("[25] the guard leaves ordinary shell calls and file writes alone",
               passes(dispatch(env, PII, tool_call("git status"))) and passes(dispatch(env, PII, doc_edit)))
 
+    windows_launch_check(push)
     print(f"\n{passed} passed, {failed} failed")
     return 1 if failed else 0
+
+
+def windows_launch_check(push: dict) -> None:
+    """[32]/[33] Codex 0.166 runs a Windows hook as `<session shell> -Command <commandWindows>` (CODEX-HOOKS-0166-1).
+
+    PowerShell turns a native exit 2 into 1 unless the command passes $LASTEXITCODE on, and Codex blocks a
+    PreToolUse call only on exit 2 (or exit 0 with a JSON deny): any other exit is a non-blocking hook failure
+    and the call runs. The registered command must keep the dispatcher's deny exit 2 in both PowerShells.
+    """
+    if os.name != "nt":
+        check("[32] a Windows PowerShell launch keeps the deny exit 2 (not applicable: not native Windows)", True)
+        check("[33] a Windows hook whose py cannot start fails (not applicable: not native Windows)", True)
+        return
+    # A Codex session shell on Windows is PowerShell 7 or Windows PowerShell 5.1: both must be proven, none skipped.
+    shells = [shutil.which("pwsh"), shutil.which("powershell"), shutil.which("py")]
+    if not all(shells):
+        check("[32] PowerShell 7 (pwsh), Windows PowerShell (powershell) and py are all present on Windows", False,
+              repr(shells))
+        return
+    shells = shells[:2]
+    groups = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+    line = next(hook["commandWindows"] for group in groups for hook in group["hooks"]
+                if f"--script {PII}" in hook["commandWindows"])
+    legacy = line.removesuffix("; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }")
+    results = []
+    no_py = []
+    with tempfile.TemporaryDirectory(prefix="itd-codex-win-") as raw:
+        env = env_for(Path(raw) / "home", Path(raw) / "state")
+        (Path(raw) / "home").mkdir()
+        (Path(raw) / "state").mkdir()
+        for shell in shells:
+            for command, want in ((line, 2), (legacy, 1)):
+                proc = subprocess.run([shell, "-NoProfile", "-Command", command], input=json.dumps(push),
+                                      cwd=str(ROOT), capture_output=True, text=True, encoding="utf-8",
+                                      errors="replace", env=env, timeout=120)
+                results.append((Path(shell).name, want, proc.returncode, "ITD-APPROVE " in proc.stdout + proc.stderr))
+            # py cannot start (not on PATH): the hook must fail (non-zero), never exit 0 as a silent success
+            proc = subprocess.run([shell, "-NoProfile", "-Command", line], input=json.dumps(push), cwd=str(ROOT),
+                                  capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                  env=dict(env, PATH=str(Path(shell).parent)), timeout=120)
+            no_py.append((Path(shell).name, proc.returncode))
+    check("[33] a Windows hook whose py cannot start fails (exit 1), never a silent exit 0",
+          all(rc == 1 for _, rc in no_py), repr(no_py))
+    check("[32] a Windows PowerShell launch of the registered command keeps the deny exit 2 "
+          "(without the $LASTEXITCODE pass-through the same launch exits 1 and Codex runs the call)",
+          all(rc == want and approve for _, want, rc, approve in results), repr(results))
 
 
 if __name__ == "__main__":

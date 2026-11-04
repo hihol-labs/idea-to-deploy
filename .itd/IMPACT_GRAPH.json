@@ -1098,6 +1098,7 @@
       "tests/verify_platform_tmp_and_new_hooks.py"
     ],
     "hooks/hooks.json": [
+      "tests/verify_codex_ask_gates.py",
       "tests/verify_codex_hook_trust.py",
       "tests/verify_completion_signals_powershell.py",
       "tests/verify_cost_gate.py",
@@ -1418,6 +1419,7 @@
     ],
     "services/review_broker/server.py": [
       "tests/verify_api_reviewer.py",
+      "tests/verify_codex_hook_trust.py",
       "tests/verify_external_reviewer_release.py",
       "tests/verify_review_broker_server.py"
     ],

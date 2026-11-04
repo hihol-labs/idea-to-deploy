@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Codex 0.166 gates on Windows and after every plugin update (CODEX-HOOKS-0166-1)
+
+- On Windows Codex runs a hook as `<session shell> -Command <commandWindows>`
+  and PowerShell turns the dispatcher's deny exit 2 into 1, which Codex treats
+  as a non-blocking hook failure: every ITD deny gate in Codex on Windows let
+  the call run. Each `commandWindows` (plugin `hooks/hooks.json` and the
+  repository-local template) now passes the exit code on
+  (`; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }`), and
+  a `py` that cannot start fails the hook instead of exiting 0; checked by a
+  real PowerShell 7 and 5.1 launch on Windows.
+- Codex 0.166 binds hook trust to a fingerprint of the whole plugin contents,
+  so after every plugin update all ITD hooks are "modified" and skipped
+  silently. `scripts/itd_codex_hook_trust.py` used to read only `trusted_hash`
+  and reported a false OK; it now asks Codex itself (`codex app-server`,
+  `hooks/list`) for each entry's trustStatus, and without a Codex executable
+  reports the content trust as unverified. The release runbook requires the
+  owner's re-trust (Windows: `codex --no-daemon`) and a live `ITD-APPROVE`
+  canary on both hosts.
+
 ## [1.110.2] - 2026-11-04
 
 ### Fixed - Codex gates no longer fail open on `ask` (CODEX-ASK-GATES-1)
