@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.110.3] - 2026-11-04
+
 ### Fixed - Codex 0.166 gates on Windows and after every plugin update (CODEX-HOOKS-0166-1)
 
 - On Windows Codex runs a hook as `<session shell> -Command <commandWindows>`

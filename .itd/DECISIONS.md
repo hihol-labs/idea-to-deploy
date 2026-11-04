@@ -7558,3 +7558,29 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   { exit 1 }` rc 1 в pwsh 7 и PowerShell 5.1; проверка [33]; (2) `hooks/list` спрашивался с `cwds` = Codex home -
   теперь `--cwd` (по умолчанию текущий каталог), фейковый сервер отвергает иной cwd; (3) тест срока допускал +12 с -
   теперь срок + измеренный запуск + 2 с; (4) «ничего не пишет» проверяется после всех путей отчета.
+- Машина a9 (7cd159c) PASSED 9/9 (596d2c0c...). Ревью a8 (gpt-5.6-sol) - PASSED без находок: квитанция
+  `.itd-memory/verification-loop/CODEX-HOOKS-0166-1-canonical-a8-adjudication.json`, receiptSha256
+  c1882281d3f7978bec12162cf8f15906c6da95303cb11f6efa5b32ef0dd2463d, reviewedTree 1b4a6821.
+- Публикация (подтверждение владельца «Да, публикуй»): PR #386 через `itd pr create`, CI PR 2/2, squash-merge ->
+  main 4cc23e5 2026-11-04 (дерево 1b4a6821), CI main 2/2.
+
+## 2026-11-04 - закрытие CODEX-HOOKS-0166-1 по конвенции ADR-016 в кандидате REL-1.110.3
+
+- Шаг 1: merge-коммит 4cc23e5ac8b41266353f8dba060fa946c5d421f6, дерево 1b4a682163c2775875edeb9df23fd80a4ad5220c =
+  `candidate.reviewedTree` квитанции a8 (PASSED, receiptSha256 c1882281...); CI PR и main 2/2.
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified CODEX-HOOKS-0166-1` (2026-11-04T18:39:53Z), затем
+  отдельным вызовом `activate REL-1.110.3` (18:39:56Z, medium); activeFollowup перенесен в closedFollowups;
+  `scripts/validate_state.py .itd-memory/STATE.json` - OK. Релиз, раскатка и живая канарейка - юнит REL-1.110.3.
+- Шаг 3: подпись владельца 2026-11-04T19:45Z («Подписываю, публикуй») под просмотренной дельтой закрытия
+  `git diff 4cc23e5 e407a56` по STATE, events, ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG (184 строки, файл
+  `.itd-memory/host-inputs/REL-1.110.3/codex-hooks-0166-closure-delta.diff`, sha256
+  cf9e8267e18ec63a26616b9a672a3ec49ea4f619048f3e1f49db723f75ad2fe3); merge 4cc23e5, дерево 1b4a6821, квитанция a8
+  c1882281.... Эта строка - единственное изменение дельты после подписи. Та же реплика - подтверждение публикации
+  REL-1.110.3 (push, PR, merge после зеленого CI, тег и релиз).
+
+## 2026-11-04 - REL-1.110.3: патч-релиз CODEX-HOOKS-0166-1
+
+- Владелец 2026-11-04 («Да, релиз 1.110.3»): 1.110.3 выпускает CODEX-HOOKS-0166-1; risk tier medium (дифф релиза не
+  меняет поставляемый код); два подтверждения - публикация и раскатка. Раскатка по шагу 7a runbook: переодобрение
+  хуков владельцем на обоих хостах (Windows - `codex --no-daemon`), `itd_codex_hook_trust.py` exit 0, живая канарейка
+  ITD-APPROVE на WSL и Windows. reviewedAt доков не меняется (окно свежести 2026-10-31 + 30 дней).

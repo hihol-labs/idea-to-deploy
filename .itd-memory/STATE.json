@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "CODEX-HOOKS-0166-1",
-    "goal": "ITD gates in Codex 0.166 never fail open silently: a Windows hook passes the dispatcher's exit code through pwsh -Command (deny exit 2 stays 2); the Codex hook trust check reads Codex's own hooks/list trustStatus (content fingerprint) instead of trusted_hash only and never reports a false OK; the rollout requires the owner's /hooks re-trust (Windows: codex --no-daemon) and a live ITD-APPROVE canary on both hosts",
+    "id": "REL-1.110.3",
+    "goal": "Patch release 1.110.3 ships CODEX-HOOKS-0166-1 (PR #386): version mirrors, CHANGELOG, live evidence on the release pin, tag and GitHub release, rollout on WSL and Windows with the owner's Codex hook re-trust (Windows: codex --no-daemon), itd_codex_hook_trust.py exit 0 and a live ITD-APPROVE canary on both hosts (runbook 7a); each external stage on owner confirmation",
     "status": "in_progress",
-    "startedAt": "2026-11-04T15:11:45Z",
+    "startedAt": "2026-11-04T18:39:56Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",
