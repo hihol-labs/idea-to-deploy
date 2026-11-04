@@ -57,6 +57,13 @@ hook failure and the call runs. Every `commandWindows` therefore ends with
 dispatcher deny stays exit 2 in both PowerShell 7 and Windows PowerShell 5.1,
 and a `py` that cannot start is a hook failure (exit 1) instead of a silent
 `exit $null` = 0 (`tests/verify_codex_ask_gates.py` [32], [33]).
+
+Codex 0.166 also re-checks that content fingerprint before every hook run and
+counts it inside the hook's `timeout`. On the owner's Windows host 11 parallel
+PreToolUse hooks took 4.2-5.07 s each, so a 5 s timeout made the gate a race:
+a timed-out hook is a non-blocking failure and the call runs. Every Codex hook
+registration therefore allows at least 30 s (`tests/verify_host_adapters.py`);
+the Claude Code registrations in `scripts/sync-to-active.sh` are unchanged.
 Plugin hooks are intentionally bundled; `/adopt` does not duplicate them into
 the target repository when the plugin is active.
 
