@@ -59,6 +59,14 @@ def main() -> int:
                     f"hook Windows command does not use PowerShell environment syntax: {windows_command}",
                     errors,
                 )
+                # Codex 0.166 runs a Windows hook as `pwsh -Command <commandWindows>`; pwsh turns a native exit 2 (deny)
+                # into 1, which Codex treats as a non-blocking hook failure - the call runs (CODEX-HOOKS-0166-1).
+                # When py itself cannot start, $LASTEXITCODE stays unset and `exit $null` would be a silent 0.
+                check(
+                    windows_command.endswith("; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }"),
+                    f"hook Windows command does not pass the dispatcher exit code through pwsh: {windows_command}",
+                    errors,
+                )
                 marker = "--script "
                 if marker in command:
                     script = command.split(marker, 1)[1].split()[0].strip('"')

@@ -6634,6 +6634,66 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "CODEX-HOOKS-0166-1-AC1",
+      "unitId": "CODEX-HOOKS-0166-1",
+      "criterion": "A Windows Codex hook keeps the dispatcher's exit code: every commandWindows of hooks/hooks.json and of the repository-local template ends with `; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }`, so a deny stays exit 2 through PowerShell 7 and 5.1 -Command and a py that cannot start is a hook failure (exit 1), never exit 0.",
+      "source": "Owner 2026-11-04; Codex rust-v0.166.0 codex-rs/hooks/src/events/pre_tool_use.rs (only exit 2 or exit 0 + JSON deny blocks).",
+      "evidence": "tests/verify_codex_ask_gates.py [32] on native Windows (Python 3.12, PowerShell 7 and 5.1): with the a4d705f hooks.json FAIL - both PowerShells return 1 for the dispatcher's deny exit 2 ([('pwsh.EXE', 2, 1, True), ('powershell.EXE', 2, 1, True)]); with the unit's hooks.json 32 passed / 0 failed ([33]: without py on PATH the hook exits 1 in both PowerShells; the previous `; exit $LASTEXITCODE` form exited 0 there - h0166-nopy-probe), and [32] fails on Windows unless pwsh, powershell and py are all present; on WSL [32] is not applicable and the oracle is 32 / 0. tests/verify_host_adapters.py red on the old form (36 commandWindows without the pass-through), PASS after (27 shared hook registrations, all 10 hard gates) on WSL and Windows. Source: Codex rust-v0.166.0 events/pre_tool_use.rs blocks only on exit 2 or exit 0 + JSON deny. The live codex exec canary on Windows needs the released plugin (next release rollout, runbook 7a).",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_ask_gates.py && sh skills/_shared/itd_py.sh tests/verify_host_adapters.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A Windows Codex hook deny is never turned into a non-blocking failure by PowerShell.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "codex-ask-gates",
+          "adapters"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-HOOKS-0166-1-AC2",
+      "unitId": "CODEX-HOOKS-0166-1",
+      "criterion": "scripts/itd_codex_hook_trust.py never reports a false OK: it asks Codex itself (codex app-server, hooks/list) for each entry's trustStatus and names every entry that is not trusted; without a Codex executable the content trust is unverified (exit 1); an app-server error or no answer within the overall --timeout is unreadable input (exit 2); it writes nothing.",
+      "source": "Owner 2026-11-04; Codex rust-v0.166.0 codex-rs/hooks/src/engine/discovery.rs and plugin_trust.rs.",
+      "evidence": "tests/verify_codex_hook_trust.py with a fake Codex app-server: 37 passed / 0 failed on WSL and on native Windows (hooks/list is asked for the --cwd project; no path writes; a non-finite or non-positive --timeout is a usage error, exit 2; an app-server that only chatters hits the overall --timeout deadline, exit 2; an extra or duplicate non-trusted entry of the plugin is named, never folded into OK); against the a4d705f script 11 / 17 - among them the false OK without a Codex executable. Live, read-only: WSL with Codex CLI 0.166.0 and Windows with codex on PATH (npm shim) both report 'OK: every entry is trusted (Codex hooks/list)' exit 0 after the owner's re-trust; before it the same hooks/list reported 36/36 modified while the old script said OK.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_codex_hook_trust.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The Codex hook trust report reflects the trust Codex 0.166 acts on.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "codex-hook-trust"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-HOOKS-0166-1-AC3",
+      "unitId": "CODEX-HOOKS-0166-1",
+      "criterion": "The release runbook makes the owner's re-trust (Windows: codex --no-daemon), a green trust report and a live ITD-APPROVE canary on both hosts part of rollout acceptance; CODEX_ADAPTER, the adoption reference, CHANGELOG and BACKLOG describe only what the code and tests show; the full suite is green.",
+      "source": "Owner 2026-11-04; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "docs/RELEASE_RUNBOOK.md step 7a, docs/CODEX_ADAPTER.md (Enable and trust), skills/adopt/references/codex-adoption.md, CHANGELOG Unreleased and BACKLOG P1/P3 describe the two root causes and the fix as the tests show. Full suite: the full-suite leg of the committed-head machine receipt; native Windows windows-verify of the candidate: the same 8 host-environment reds as the REL-1.110.2 candidate (adjudication_channel, continuity, operational_cold_start, retro_scan, routing, session_hygiene_quality, strict_route, task_adopt_route), no new red; live-model evidence re-recorded on the clean committed candidate (run 20261104T172431Z-15d18438 on the final hooks.json; the earlier run 20261104T134934Z-11bf35c6 of this candidate was removed before publication, strict replay 154 / 0).",
+      "verificationCommand": "bash tests/run-all.sh",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Rollout acceptance cannot pass with silent Codex gates again.",
+        "impactClasses": [
+          "repository-hygiene",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "full-suite"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6652,20 +6712,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.2",
+    "unitId": "CODEX-HOOKS-0166-1",
     "status": "in_progress",
     "openedAt": "2026-11-04",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-04 (\"Да, релиз\"): patch release 1.110.2 ships CODEX-ASK-GATES-1 (PR #384, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.2] cut from Unreleased, live-model evidence re-recorded on the release pin (.claude-plugin and .codex-plugin are in it), tag and GitHub release; rollout on WSL and Windows with the Codex hook trust check and a live ITD-APPROVE canary. The same PR carries the CODEX-ASK-GATES-1 closure by the ADR-016 closure convention. Each external stage - publication (push, PR, merge, tag, release) and rollout - only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-04 (\"Юнит-расследование P1\", \"Да, исправляй\"): the REL-1.110.2 live canary showed ITD gates silent in Codex CLI 0.166.0. Root causes: (1) Codex 0.166 binds plugin hook trust to a fingerprint of the whole plugin contents, so every release leaves all ITD hooks 'modified' and skipped, while itd_codex_hook_trust.py checked trusted_hash only and reported a false OK; (2) on Windows Codex runs a hook as `pwsh -Command <commandWindows>`, which turns the dispatcher's deny exit 2 into 1, a non-blocking failure, so every ITD deny gate in Codex on Windows let the call run.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "security",
         "host-parity",
-        "repository-hygiene",
-        "generated-artifact-freshness",
-        "compatibility"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
@@ -7702,6 +7761,30 @@
       },
       "closedAt": "2026-11-04",
       "closureEvidence": "PR #384 squash-merged to main 4357885; tree d59853dc = candidate.reviewedTree of CODEX-ASK-GATES-1-canonical-a18-adjudication.json (gpt-5.6-sol PASSED, receiptSha256 9f1f49855b8288115746212b71de2c05714340ed5e461dbc39d6d06f31a06d56, machine a17 PASSED); CI PR and main 2/2; closed by the ADR-016 closure convention in the REL-1.110.2 candidate; release and rollout are REL-1.110.2."
+    },
+    {
+      "unitId": "REL-1.110.2",
+      "status": "closed",
+      "openedAt": "2026-11-04",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-04 (\"Да, релиз\"): patch release 1.110.2 ships CODEX-ASK-GATES-1 (PR #384, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.2] cut from Unreleased, live-model evidence re-recorded on the release pin (.claude-plugin and .codex-plugin are in it), tag and GitHub release; rollout on WSL and Windows with the Codex hook trust check and a live ITD-APPROVE canary. The same PR carries the CODEX-ASK-GATES-1 closure by the ADR-016 closure convention. Each external stage - publication (push, PR, merge, tag, release) and rollout - only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-04",
+      "outcome": "blocked",
+      "closureEvidence": "Closed blocked (itd_unit_log.py close --outcome blocked, 2026-11-04). Published: PR #385 squash-merged to main a4d705f (tree 83cddcde = reviewedTree of REL-1.110.2-canonical-a3, gpt-5.6-sol PASSED 0 findings, machine a4 PASSED 7/7), tag and GitHub release v1.110.2 on a4d705f, CI PR and main 2/2. Rolled out on WSL and Windows (runtime 1.110.2-5579229bd1df17f9). Acceptance: the live Codex ITD-APPROVE canary PASSED on WSL after the owner re-trusted the hooks; on Windows it stayed red - root causes and fix in CODEX-HOOKS-0166-1."
     }
   ]
 }
