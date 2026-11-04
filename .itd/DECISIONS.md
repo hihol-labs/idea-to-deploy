@@ -7584,3 +7584,30 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   меняет поставляемый код); два подтверждения - публикация и раскатка. Раскатка по шагу 7a runbook: переодобрение
   хуков владельцем на обоих хостах (Windows - `codex --no-daemon`), `itd_codex_hook_trust.py` exit 0, живая канарейка
   ITD-APPROVE на WSL и Windows. reviewedAt доков не меняется (окно свежести 2026-10-31 + 30 дней).
+
+## 2026-11-04 - REL-1.110.3 закрыт `blocked`: релиз выпущен и раскатан, канарейка на Windows гонится с таймаутом
+
+- Публикация (подпись владельца и «Подписываю, публикуй»): PR #387 -> main 40a7972 (дерево 9fb1aa18 = reviewedTree
+  REL-1.110.3-canonical-a3, gpt-5.6-sol PASSED 0 находок, машина a3 PASSED 7/7; ревью a1 - BLOCKED на скопированном
+  критерии AC2 с базой 4357885, исправлено; a2 PASSED до строки подписи), тег и GitHub-релиз v1.110.3, CI PR и main 2/2.
+- Раскатка («Да, раскатать»): WSL runtime 1.110.3-b00920cd562da267 (бэкап REL-1.110.3-a1), Windows (бэкап
+  REL-1.110.3-20261104T204117Z-cf1d357c). До переодобрения новый отчет доверия - 36/36 `modified` на обоих хостах (старый
+  дал бы OK); после переодобрения владельцем (WSL `codex`, Windows `codex --no-daemon`) - exit 0 на обоих.
+- Канарейка: WSL PASSED (deny -> ITD-APPROVE один раз -> повтор deny). Windows: `codex exec` пропустил `git push
+  --dry-run`; ход через `codex app-server` с уведомлениями hook/started и hook/completed: 11 PreToolUse-хуков по
+  4.2-5.07 с, `pii-egress-guard` `blocked` за 4889 мс, два хука "hook timed out after 5s". Владелец: «Да, юнит P1».
+
+## 2026-11-04 - CODEX-HOOK-TIMEOUT-1: таймаут хуков Codex не меньше 30 с
+
+- Корень: Codex 0.166 (`codex-rs/hooks/src/engine/command_runner.rs`, rust-v0.166.0) перед каждым запуском хука
+  плагина заново хеширует все содержимое плагина (`trust.verify()`) внутри `timeout(handler.timeout_sec)`; на Windows
+  пакет 1956 файлов / 26 МБ плюс старт pwsh дают ~4-5 с на хук при 11 параллельных. Таймаут = `Failed`, вызов идет.
+  Замер Codex `hooks/list` на Windows: 4.3 с один, 6.3 с при восьми параллельных (со стартом app-server).
+- Решение: все регистрации хуков Codex (оба реестра) - не меньше 30 с (32 регистрации по 5 и 10 с подняты до 30;
+  150, 90 и 900 без изменений). Диспетчер и его внутренние сроки (3 с на скрипт) не меняются - на Windows он отвечает
+  за 0.57 с. Регистрации Claude Code не меняются. Задержка ~5 с на вызов в Codex на Windows остается - BACKLOG P2
+  (урезанный пакет плагина для Codex).
+- Red/green: `verify_host_adapters` красный на 40a7972 (32 регистрации ниже 30 с), зеленый после. Живое доказательство -
+  раскатка следующего релиза, шаг 7a: 3 хода канарейки на Windows, каждый с трассой app-server без `hook timed out`.
+- Машина a1 (f0c5def) PASSED 8/8 (ac2cf670...). Ревью a1 - BLOCKED, одна high (дважды): runbook требовал трассу
+  app-server только в одном из трех ходов на Windows - теперь трасса и ноль таймаутов в каждом из трех.

@@ -67,6 +67,13 @@ def main() -> int:
                     f"hook Windows command does not pass the dispatcher exit code through pwsh: {windows_command}",
                     errors,
                 )
+                # Codex 0.166 runs its per-hook plugin content-hash trust check inside the hook timeout; on Windows
+                # 11 parallel PreToolUse hooks took 4.2-5.07 s each and a 5 s timeout let calls run (CODEX-HOOK-TIMEOUT-1).
+                check(
+                    int(hook.get("timeout") or 0) >= 30,
+                    f"Codex hook timeout below 30 s (Codex counts its trust check inside it): {command}",
+                    errors,
+                )
                 marker = "--script "
                 if marker in command:
                     script = command.split(marker, 1)[1].split()[0].strip('"')

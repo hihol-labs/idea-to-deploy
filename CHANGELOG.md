@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Codex gates on Windows no longer race their own timeout (CODEX-HOOK-TIMEOUT-1)
+
+- Codex 0.166 re-checks the plugin content fingerprint before every hook run
+  and counts it inside the hook timeout. On Windows 11 parallel PreToolUse
+  hooks took 4.2-5.07 s each, so with a 5 s timeout the external-write gate
+  blocked in one run and timed out (letting the call run) in another. Every
+  Codex hook registration (plugin `hooks/hooks.json` and the repository-local
+  template) now allows at least 30 s; the release runbook requires 3 Windows
+  canary turns, each traced through the app-server with no timed-out hook.
+
 ## [1.110.3] - 2026-11-04
 
 ### Fixed - Codex 0.166 gates on Windows and after every plugin update (CODEX-HOOKS-0166-1)

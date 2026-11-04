@@ -8,25 +8,25 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script session-open-diagnostic.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script session-open-diagnostic.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pre-flight-check.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script pre-flight-check.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script context-aware.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script context-aware.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script graph-route.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script graph-route.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }
@@ -39,7 +39,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cost-tracker.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cost-tracker.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -50,7 +50,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script model-policy.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script model-policy.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -61,13 +61,13 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script execution-trace.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script execution-trace.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script pii-egress-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script pii-egress-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -78,7 +78,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-commit-completeness.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-commit-completeness.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
@@ -90,19 +90,19 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cross-review-precommit.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cross-review-precommit.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script context-budget.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script context-budget.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script careful.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script careful.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
@@ -114,7 +114,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
@@ -131,25 +131,25 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script check-skill-completeness.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script check-skill-completeness.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script wip-gate.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script wip-gate.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script freeze.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script freeze.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -166,7 +166,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }
@@ -179,7 +179,7 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -190,31 +190,31 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script execution-trace.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script execution-trace.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script cost-tracker.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script cost-tracker.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script risk-score.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script risk-score.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script stuck-detection.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script stuck-detection.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       },
@@ -225,13 +225,13 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script completion-signals.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script completion-signals.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script state-guard.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script state-guard.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }
@@ -243,19 +243,19 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script handoff-readiness.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script handoff-readiness.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script completion-stop.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script completion-stop.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }
@@ -267,19 +267,19 @@
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script narration-final.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script narration-final.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script verdict-contract.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script verdict-contract.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 10
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"{{ITD_ROOT}}/hooks/codex-dispatch.py\" --script crash-recovery.sh",
             "commandWindows": "py -3 \"{{ITD_ROOT_WINDOWS}}\\hooks\\codex-dispatch.py\" --script crash-recovery.sh; if ($LASTEXITCODE -is [int]) { exit $LASTEXITCODE } else { exit 1 }",
-            "timeout": 5
+            "timeout": 30
           }
         ]
       }

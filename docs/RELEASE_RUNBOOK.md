@@ -89,7 +89,12 @@
      (спрашивает `hooks/list` самого Codex; без Codex - «unverified», не OK);
    - живая канарейка в одноразовом репо с локальным bare-remote:
      `codex exec` получает deny на `git push --dry-run` с `ITD-APPROVE <hash>`,
-     после строки владельца тот же вызов проходит один раз, повтор снова deny.
+     после строки владельца тот же вызов проходит один раз, повтор снова deny;
+   - на Windows сверх этого 3 отдельных хода с тем же `git push --dry-run`
+     через `codex app-server` с уведомлениями `hook/completed`, и в КАЖДОМ:
+     ни одного `hook timed out`, external-write gate - `blocked`
+     (CODEX-HOOK-TIMEOUT-1: Codex считает проверку доверия внутри таймаута
+     хука; один удачный ход гонку не исключает).
 
 ## Команда релизного ОТК на одном чистом чекауте (INSTALLED-PROOF-HEAD-1)
 

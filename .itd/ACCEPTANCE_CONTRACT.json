@@ -6739,6 +6739,46 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "CODEX-HOOK-TIMEOUT-1-AC1",
+      "unitId": "CODEX-HOOK-TIMEOUT-1",
+      "criterion": "Every Codex hook registration - plugin hooks/hooks.json and the repository-local template - allows at least 30 s (larger registrations unchanged), each hard-gate registration still exceeds its dispatcher deadline, and the Claude Code registrations are untouched.",
+      "source": "Owner 2026-11-04; Codex rust-v0.166.0 hooks/src/engine/command_runner.rs (trust.verify inside timeout(handler.timeout_sec)).",
+      "evidence": "tests/verify_host_adapters.py red on 40a7972 (32 registrations below 30 s, e.g. narration-final.sh, crash-recovery.sh), PASS after (27 shared hook registrations, all 10 hard gates); tests/verify_graduated_trust.py 19/0 (hard-gate timeout above the dispatcher deadline), verify_completion_signals_powershell 21/0, verify_hook_selection 47/0, verify_codex_ask_gates 33/0 (WSL), verify_cost_gate 11/11; scripts/sync-to-active.sh unchanged. The live Windows proof needs the released plugin: runbook step 7a requires 3 Windows canary turns, each traced through the app-server.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_host_adapters.py && sh skills/_shared/itd_py.sh tests/verify_graduated_trust.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A Codex hook on Windows is not cut off by a timeout that Codex's own trust check consumes.",
+        "impactClasses": [
+          "correctness",
+          "security",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "adapters",
+          "graduated-trust"
+        ]
+      }
+    },
+    {
+      "id": "CODEX-HOOK-TIMEOUT-1-AC2",
+      "unitId": "CODEX-HOOK-TIMEOUT-1",
+      "criterion": "CODEX_ADAPTER, the release runbook (7a: 3 Windows canary turns, each traced through the app-server, no timed-out hook in any), CHANGELOG and BACKLOG describe only what the code and traces show; the full suite is green and native Windows windows-verify has no red beyond clean main 40a7972.",
+      "source": "Owner 2026-11-04; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "docs/CODEX_ADAPTER.md (Enable and trust), docs/RELEASE_RUNBOOK.md step 7a (3 Windows canary turns, each traced through the app-server, no timed-out hook in any), CHANGELOG Unreleased and BACKLOG P1/P2 state the trace numbers and the fix as the tests show. Full suite: the full-suite leg of the committed-head machine receipt. Native Windows (Python 3.12, windows-verify step list plus the unit oracles incl. host adapters and graduated trust): candidate fb90c87 45 / 53 green; the 8 reds (adjudication_channel, continuity, operational_cold_start, retro_scan, routing, session_hygiene_quality, strict_route, task_adopt_route) are red on clean main 40a7972 under the same launcher too; no new red. Live-model evidence re-recorded on the clean committed candidate (run 20261104T213424Z-9528fafc).",
+      "verificationCommand": "bash tests/run-all.sh",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "Rollout acceptance proves the Windows gate across repeated runs, not one lucky run.",
+        "impactClasses": [
+          "repository-hygiene",
+          "host-parity"
+        ],
+        "oracleIds": [
+          "full-suite"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6757,20 +6797,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.3",
+    "unitId": "CODEX-HOOK-TIMEOUT-1",
     "status": "in_progress",
     "openedAt": "2026-11-04",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-04 (\"Да, релиз 1.110.3\"): patch release 1.110.3 ships CODEX-HOOKS-0166-1 (PR #386, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.3] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a - the owner's Codex hook re-trust (Windows: codex --no-daemon), itd_codex_hook_trust.py exit 0 and a live ITD-APPROVE canary on both hosts. The same PR carries the CODEX-HOOKS-0166-1 closure by the ADR-016 closure convention. Each external stage - publication and rollout - only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-04 (\"Да, юнит P1\"): after the 1.110.3 rollout and re-trust the Windows live canary still let `git push --dry-run` run. An app-server trace showed 11 parallel PreToolUse hooks at 4.2-5.07 s each - Codex 0.166 counts its per-hook plugin content-hash trust check inside the hook timeout - with pii-egress-guard blocked at 4889 ms once and two hooks timed out at 5 s; a timed-out hook is a non-blocking failure and the call runs.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "security",
         "host-parity",
-        "repository-hygiene",
-        "generated-artifact-freshness",
-        "compatibility"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
@@ -7853,6 +7892,30 @@
       },
       "closedAt": "2026-11-04",
       "closureEvidence": "PR #386 squash-merged to main 4cc23e5; tree 1b4a6821 = candidate.reviewedTree of CODEX-HOOKS-0166-1-canonical-a8-adjudication.json (gpt-5.6-sol PASSED, 0 findings, receiptSha256 c1882281d3f7978bec12162cf8f15906c6da95303cb11f6efa5b32ef0dd2463d, machine a9 PASSED 9/9); CI PR and main 2/2; closed by the ADR-016 closure convention in the REL-1.110.3 candidate; release, rollout and the live Codex canary are REL-1.110.3."
+    },
+    {
+      "unitId": "REL-1.110.3",
+      "status": "closed",
+      "openedAt": "2026-11-04",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-04 (\"Да, релиз 1.110.3\"): patch release 1.110.3 ships CODEX-HOOKS-0166-1 (PR #386, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.3] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a - the owner's Codex hook re-trust (Windows: codex --no-daemon), itd_codex_hook_trust.py exit 0 and a live ITD-APPROVE canary on both hosts. The same PR carries the CODEX-HOOKS-0166-1 closure by the ADR-016 closure convention. Each external stage - publication and rollout - only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-04",
+      "outcome": "blocked",
+      "closureEvidence": "Closed blocked (itd_unit_log.py close --outcome blocked, 2026-11-04). Published: PR #387 squash-merged to main 40a7972 (tree 9fb1aa18 = reviewedTree of REL-1.110.3-canonical-a3, gpt-5.6-sol PASSED 0 findings, machine a3 PASSED 7/7), tag and GitHub release v1.110.3, CI PR and main 2/2. Rolled out on WSL (runtime 1.110.3-b00920cd562da267) and Windows; the owner re-trusted the hooks, itd_codex_hook_trust.py exit 0 on both hosts. Live canary: WSL PASSED; Windows red - the external-write gate races the 5 s hook timeout (app-server trace: blocked at 4889 ms once, two hooks timed out); fix in CODEX-HOOK-TIMEOUT-1."
     }
   ]
 }
