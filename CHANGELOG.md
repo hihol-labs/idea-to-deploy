@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.110.5] - 2026-11-05
+
 ### Changed - the independent reviewer of a Claude maker is gpt-6.1-sol (REVIEWER-61SOL-1)
 
 - The mandatory opposite-GPT reviewer for an Anthropic (Claude) maker now

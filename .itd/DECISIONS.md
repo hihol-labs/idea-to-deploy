@@ -7686,3 +7686,37 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   маршрут; (2) внешний маршрут сохраняет прежнее правило `allowSameModelForMedium` (свежая сессия той же модели -
   рекомендательно и только при medium), поэтому «модель никогда не ревьюит себя» сужено до обязательного маршрута
   подписки и до high/unknown риска API (CHANGELOG, SCOPE_LOCK, доки, контракт). Ужесточение medium-правила - вне юнита.
+- Машина a4 (f5c58a8) PASSED 12/12 (36bc2ec3...). Ревью a12 (gpt-5.6-sol; номера a9-a11 не использовались -
+  цикл повторов начат с a12) - PASSED без находок: квитанция `.itd-memory/verification-loop/REVIEWER-61SOL-1-canonical-a12-adjudication.json`,
+  receiptSha256 5b58368d4f95cdc0823375b39f1f6698e71f7c562117a974d97094addf02eff4, reviewedTree 09a6315b.
+- Публикация (подтверждение владельца «Да, публикуй»): PR #390 через `itd pr create`, CI PR 2/2, squash-merge ->
+  main 09a2917 2026-11-05 (дерево 09a6315b), CI main 2/2 (windows-verify перезапущен после отмены раннером по 10 мин).
+
+## 2026-11-05 - закрытие REVIEWER-61SOL-1 по конвенции ADR-016 в кандидате REL-1.110.5
+
+- Шаг 1: merge-коммит 09a29170f852dc7b02b423ef59bf6a06697f7762, дерево 09a6315bfb764ccccb59dfbdaa34be76930c51c3 =
+  `candidate.reviewedTree` квитанции a12 (PASSED, receiptSha256 5b58368d...); CI PR и main 2/2.
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified REVIEWER-61SOL-1` (2026-11-05T16:47:20Z), затем
+  отдельным вызовом `activate REL-1.110.5` (16:47:22Z, medium); activeFollowup перенесен в closedFollowups;
+  `scripts/validate_state.py .itd-memory/STATE.json` - OK. Релиз и раскатка - REL-1.110.5.
+- Шаг 3: подпись владельца 2026-11-05T18:37Z («Подписываю, публикуй») под просмотренной дельтой закрытия
+  `git diff 09a2917 4554114` по STATE, events, ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG (178 строк, файл
+  `.itd-memory/host-inputs/REL-1.110.5/reviewer-61sol-closure-delta.diff`, sha256
+  a6fa98a4ceb2456d3967d3498f4adbc800b3891390ac61378860b33ced7d214b); merge 09a2917, дерево 09a6315b, квитанция a12
+  5b58368d.... Эта строка - единственное изменение дельты после подписи. Та же реплика - подтверждение публикации
+  REL-1.110.5 (push, PR, merge после зеленого CI, тег и релиз).
+
+## 2026-11-05 - REL-1.110.5: патч-релиз REVIEWER-61SOL-1
+
+- Владелец 2026-11-05 («Да, релиз 1.110.5»): 1.110.5 выпускает REVIEWER-61SOL-1; risk tier medium (дифф релиза не
+  меняет поставляемый код); публикация и раскатка - по отдельному подтверждению; раскатка по шагу 7a. Ревью самого
+  релиза идет на gpt-5.6-sol (установленный runtime 1.110.4); после раскатки 1.110.5 обязательный ревьюер мейкера
+  Claude - gpt-6.1-sol. reviewedAt доков не меняется (окно свежести 2026-10-31 + 30 дней).
+- Машина a1 (df1c4c2) PASSED 7/7 (e71f1b38...). Ревью a1-a2 без вердикта (обрыв потока событий OpenAI); a3 - BLOCKED,
+  одна low (дважды): source критериев REL-1.110.5 называл дату разрешения 2026-11-04 из шаблона прошлых релизов -
+  исправлено на 2026-11-05 («Да, релиз 1.110.5»).
+- Машина a2 (fb5d658) PASSED 7/7 (655eaef5...). Ревью a6 - BLOCKED, одна high (дважды): AC2 ссылался на прогон Windows
+  промежуточного коммита a11cd78, а позже менялся `.itd/ACCEPTANCE_CONTRACT.json`, который читают
+  `verify_verification_loop` и `meta_review` из списка windows-verify. Теперь прогон Windows идет на точном финальном
+  коммите (после строки подписи), и его лог - объявленный `--input` машинной квитанции, привязанный к проверяемому
+  дереву.

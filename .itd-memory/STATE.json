@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REVIEWER-61SOL-1",
-    "goal": "The mandatory opposite-GPT reviewer for an Anthropic maker defaults to gpt-6.1-sol (owner 2026-11-04): the producer accepts gpt-6.1-sol as a reviewer, keeps gpt-5.6-terra as the degraded standby used only without a verdict, keeps gpt-5.6-sol valid by explicit choice, and never lets a model review its own output (a gpt-6.1-sol maker is reviewed by gpt-5.6-terra); tests, the efficacy archive re-minted on the new producer bytes and the reviewer docs follow",
+    "id": "REL-1.110.5",
+    "goal": "Patch release 1.110.5 ships REVIEWER-61SOL-1 (PR #390): version mirrors, CHANGELOG, live evidence on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); after the rollout the mandatory reviewer of a Claude maker is gpt-6.1-sol; each external stage on owner confirmation",
     "status": "in_progress",
-    "startedAt": "2026-11-05T11:15:33Z",
+    "startedAt": "2026-11-05T16:47:22Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",
