@@ -163,8 +163,8 @@ metadata. Missing high/unknown model separation remains `UNVERIFIED`.
 For PR preparation, `/review` and `/cross-review` use the same
 `itd_free_reviewer_producer.py` route: `Sol -> Terra` and `Terra -> Sol`. Codex
 also routes approved `gpt-6.1-sol` and `gpt-6-astra` makers to `gpt-5.6-terra`,
-preserving their actual model identities. These are maker-only compatibility
-entries, not additional reviewer or standby models. Codex
+preserving their actual model identities. For a Claude maker the default
+reviewer is `gpt-6.1-sol` with the `gpt-5.6-terra` standby (REVIEWER-61SOL-1). Codex
 starts exactly one fresh opposite OpenAI model/session. Anthropic, GitHub
 Copilot and other adapters are not automatic fallbacks. There is no caller bypass and no provider API key in
 the default route. WSL uses WSL-native transports/auth; native Windows uses

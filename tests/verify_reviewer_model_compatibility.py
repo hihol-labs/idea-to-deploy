@@ -42,10 +42,14 @@ class CompatibilityTests(unittest.TestCase):
         for model in ("gpt-6.1-sol", "gpt-5.6-sol", "gpt-6-astra"):
             with self.subTest(model=model), self.assertRaises(p.FreeReviewError):
                 p.require_opposite_openai_model(maker, {**reviewer, "model": model})
+        # REVIEWER-61SOL-1: gpt-6.1-sol reviews an Anthropic maker, and its degraded standby is gpt-5.6-terra
+        p.require_opposite_openai_model({**maker, "provider": "anthropic-subscription", "model": "claude-opus-5"}, {**reviewer, "model": "gpt-6.1-sol"})
+        p._reviewer_identity({**reviewer, "transportExecutableSha256": "a" * 64, "degradedFrom": "gpt-6.1-sol"})
+        for origin in ("gpt-6-astra", "gpt-5.6-terra"):
+            with self.subTest(origin=origin), self.assertRaises(p.FreeReviewError):
+                p._reviewer_identity({**reviewer, "transportExecutableSha256": "a" * 64, "degradedFrom": origin})
         with self.assertRaises(p.FreeReviewError):
-            p.require_opposite_openai_model({**maker, "provider": "anthropic-subscription", "model": "claude-opus-5"}, {**reviewer, "model": "gpt-6.1-sol"})
-        with self.assertRaises(p.FreeReviewError):
-            p._reviewer_identity({**reviewer, "transportExecutableSha256": "a" * 64, "degradedFrom": "gpt-6.1-sol"})
+            p.require_opposite_openai_model({**maker, "provider": "anthropic-subscription", "model": "claude-opus-5"}, {**reviewer, "model": "gpt-6-astra"})
 
     def test_existing_pairs(self):
         for maker, reviewer in (("gpt-5.6-sol", "gpt-5.6-terra"), ("gpt-5.6-terra", "gpt-5.6-sol")):
@@ -59,12 +63,32 @@ class CompatibilityTests(unittest.TestCase):
                     p.select_openai_reviewer_model(maker, configured)
                 self.assertEqual(caught.exception.status, status)
 
-    def test_anthropic_route_stays_closed(self):
-        for configured in ("gpt-5.6-sol", "gpt-5.6-terra"):
+    def test_anthropic_route_reviewer_set(self):
+        # REVIEWER-61SOL-1 (owner 2026-11-04): gpt-6.1-sol joins the cross-vendor reviewers; astra stays out
+        for configured in ("gpt-6.1-sol", "gpt-5.6-sol", "gpt-5.6-terra"):
             self.assertEqual(p.select_openai_reviewer_model("claude-opus-5", configured, maker_provider="anthropic-subscription"), configured)
-        with self.assertRaises(p.FreeReviewError) as caught:
-            p.select_openai_reviewer_model("claude-opus-5", "gpt-6.1-sol", maker_provider="anthropic-subscription")
-        self.assertEqual(caught.exception.status, "UNVERIFIED")
+        for configured in ("gpt-6-astra", "unknown"):
+            with self.subTest(configured=configured), self.assertRaises(p.FreeReviewError) as caught:
+                p.select_openai_reviewer_model("claude-opus-5", configured, maker_provider="anthropic-subscription")
+            self.assertEqual(caught.exception.status, "UNVERIFIED")
+
+    def test_anthropic_route_standby(self):
+        # the degraded standby of each cross-vendor reviewer is a different supported model
+        for current, standby in (("gpt-6.1-sol", "gpt-5.6-terra"), ("gpt-5.6-sol", "gpt-5.6-terra"), ("gpt-5.6-terra", "gpt-5.6-sol")):
+            with self.subTest(current=current):
+                self.assertEqual(standby, p.alternate_openai_reviewer_model("claude-opus-5", current, maker_provider="anthropic-subscription"))
+        self.assertEqual("", p.alternate_openai_reviewer_model("claude-opus-5", "gpt-6-astra", maker_provider="anthropic-subscription"))
+
+    def test_default_reviewer_is_61_sol(self):
+        sub = next(a for a in p.parser()._actions if a.__class__.__name__ == "_SubParsersAction")
+        self.assertIsNone(sub.choices["review"].get_default("reviewer_model"))
+        # no --reviewer-model: an Anthropic maker gets gpt-6.1-sol, an OpenAI maker its forced opposite model
+        self.assertEqual("gpt-6.1-sol", p.default_reviewer_model("claude-opus-5", None, maker_provider="anthropic-subscription"))
+        self.assertEqual("gpt-6.1-sol", p.select_openai_reviewer_model("claude-opus-5", p.default_reviewer_model("claude-opus-5", None, maker_provider="anthropic-subscription"), maker_provider="anthropic-subscription"))
+        for maker, reviewer in (("gpt-5.6-sol", "gpt-5.6-terra"), ("gpt-5.6-terra", "gpt-5.6-sol"), ("gpt-6.1-sol", "gpt-5.6-terra")):
+            with self.subTest(maker=maker):
+                self.assertEqual(reviewer, p.select_openai_reviewer_model(maker, p.default_reviewer_model(maker, None, maker_provider="openai-codex"), maker_provider="openai-codex"))
+        self.assertEqual("gpt-5.6-sol", p.default_reviewer_model("claude-opus-5", "gpt-5.6-sol", maker_provider="anthropic-subscription"))
 
 if __name__ == "__main__":
     unittest.main()

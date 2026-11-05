@@ -38,7 +38,7 @@ export OPENAI_API_KEY=...
 sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py review \
   --root . \
   --maker-vendor openai \
-  --maker-model gpt-5.6-sol \
+  --maker-model gpt-6.1-sol \
   --maker-session '<host session id>' \
   --risk high \
   --mode local

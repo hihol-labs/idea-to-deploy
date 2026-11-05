@@ -723,13 +723,13 @@ def main() -> int:
         and classification["firstMatchOrder"][-1] == "unknownMaker"
         and classification["consumerOverrideAllowed"] is False
         and classification["rules"]["solMaker"]
-        == {"vendorEquals": "openai", "modelEquals": "gpt-5.6-sol"},
+        == {"vendorEquals": "openai", "modelEquals": "gpt-6.1-sol"},
         "maker provenance maps to routes deterministically",
     )
     reviewers = policy["routing"]["reviewers"]
     constraints = policy["routing"]["selectionConstraints"]
     check(
-        reviewers["openai-responses"]["model"] == "gpt-5.6-sol"
+        reviewers["openai-responses"]["model"] == "gpt-6.1-sol"
         and reviewers["openai-responses-terra"]["model"] == "gpt-5.6-terra"
         and all(row["modelPin"] == "exact" for row in reviewers.values())
         and all(

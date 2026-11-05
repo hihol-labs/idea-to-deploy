@@ -6824,6 +6824,66 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "REVIEWER-61SOL-1-AC1",
+      "unitId": "REVIEWER-61SOL-1",
+      "criterion": "The producer accepts gpt-6.1-sol as the cross-vendor reviewer of an Anthropic maker and selects it when no reviewer is given; its degraded standby is gpt-5.6-terra and a degraded receipt must name the declared standby of its origin; gpt-5.6-sol stays valid by explicit choice; an OpenAI maker without --reviewer-model keeps its forced opposite model (gpt-6.1-sol and gpt-5.6-sol -> gpt-5.6-terra, gpt-5.6-terra -> gpt-5.6-sol); gpt-6-astra is never a reviewer.",
+      "source": "Owner 2026-11-04 and 2026-11-05; skills/_shared/itd_free_reviewer_producer.py.",
+      "evidence": "tests/verify_reviewer_model_compatibility.py red on 808a60e (2 FAIL + 2 ERROR: gpt-6.1-sol refused as an Anthropic-maker reviewer, no standby, default gpt-5.6-sol, degradedFrom gpt-6.1-sol refused), 9 / 9 after; tests/verify_free_reviewer_producer.py 356 checks PASSED (the Sol-maker e2e without --reviewer-model keeps Terra; the drift guard binds DEFAULT_REVIEWER_MODEL gpt-6.1-sol to the broker's Anthropic-maker route and the recorder default); verify_mandatory_keyless_review 85, verify_reviewer_independence_policy 42, verify_verification_loop 121 PASSED.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_reviewer_model_compatibility.py && sh skills/_shared/itd_py.sh tests/verify_free_reviewer_producer.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "A Claude-authored candidate is reviewed by gpt-6.1-sol, never by its own model, with a declared Terra standby.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "compatibility",
+          "producer"
+        ]
+      }
+    },
+    {
+      "id": "REVIEWER-61SOL-1-AC2",
+      "unitId": "REVIEWER-61SOL-1",
+      "criterion": "The optional paid API route uses gpt-6.1-sol as its Sol reviewer at the published $2.00 / $10.00 per 1M input / output tokens (observed 2026-11-05) in EXTERNAL_REVIEW_POLICY.json, REVIEW_BROKER_POLICY.json and its schema; the broker's Sol-maker rule matches gpt-6.1-sol so it is routed to Terra; a gpt-5.6-sol maker (another known model for the broker) is routed to the gpt-6.1-sol Sol reviewer; the external route keeps its existing allowSameModelForMedium rule (a fresh same-model session is advisory-eligible only at medium risk; at high or unknown risk a gpt-6.1-sol maker gets only Terra); the per-review cost cap still bounds retries and runs.",
+      "source": "Owner 2026-11-05; https://developers.openai.com/api/docs/pricing (gpt-6.1-sol standard short-context row).",
+      "evidence": "tests/verify_api_reviewer.py 81 checks PASSED (external API route: Claude maker -> [Sol gpt-6.1-sol, Terra]; gpt-6.1-sol maker at high risk -> [Terra]; gpt-5.6-sol maker at high risk -> [Sol gpt-6.1-sol, Terra]; gpt-6.1-sol maker at medium risk keeps the existing same-model advisory eligibility; retry mutation raised to 3 and the expensive fixture to 300K/20K tokens because the old cases relied on the old Sol price - the $0.75 cap is unchanged and still rejects both); verify_review_broker_policy 130, verify_review_broker_primitives 161 and verify_review_broker 1025 PASSED (broker: gpt-6.1-sol maker -> Terra, gpt-5.6-sol maker -> otherKnownMaker -> the gpt-6.1-sol Sol reviewer only); verify_external_reviewer_release PASSED.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_api_reviewer.py && sh skills/_shared/itd_py.sh tests/verify_review_broker_policy.py && sh skills/_shared/itd_py.sh tests/verify_review_broker_primitives.py",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The paid API route never sends a gpt-6.1-sol candidate to gpt-6.1-sol at high or unknown risk and stays within its cost caps.",
+        "impactClasses": [
+          "correctness",
+          "security"
+        ],
+        "oracleIds": [
+          "api-reviewer",
+          "broker"
+        ]
+      }
+    },
+    {
+      "id": "REVIEWER-61SOL-1-AC3",
+      "unitId": "REVIEWER-61SOL-1",
+      "criterion": "The review-efficacy archive holds a new append-only diagnostic snapshot recorded on the final producer bytes (WSL and Windows Terra legs and the cross-vendor U12 leg with the gpt-6.1-sol reviewer) and the efficacy verifier passes; the reviewer docs describe the new default; the full suite is green and native Windows windows-verify has no red beyond clean main 808a60e.",
+      "source": "Owner 2026-11-05 plan; benchmarks/independent-review-efficacy/history/README.md (append-only).",
+      "evidence": "Snapshot history/route-debts/diagnostic-8d434ee2-reviewer-61sol (wsl, windows, u12-cross-vendor-wsl) recorded from a frozen bundle of the final producer bytes 8d434ee2; tests/verify_independent_review_efficacy.py PASSED with the host keyring pin: WSL and Windows (gpt-6.1-sol maker -> gpt-5.6-terra) criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0; U12 cross-vendor (claude-opus-5 maker -> gpt-6.1-sol) criticalHigh 1.0, medium 1.0, cleanFalseBlock 0.0. Docs: docs/VERIFICATION_LOOP.md, docs/CODEX_ADAPTER.md, docs/API_REVIEWER.md, skills/review/references/strict.md, skills/cross-review/SKILL.md. Full suite: the full-suite leg of the committed-head machine receipt. Native Windows (windows-verify steps plus the unit oracles incl. reviewer compatibility, API reviewer, broker primitives): candidate 8ec13bc 46 / 54 green; the 8 reds (adjudication_channel, continuity, operational_cold_start, retro_scan, routing, session_hygiene_quality, strict_route, task_adopt_route) are red on clean main 808a60e under the same launcher too; no new red. Live-model evidence re-recorded on the clean committed candidate (run 20261105T122644Z-40351c18).",
+      "verificationCommand": "bash tests/run-all.sh",
+      "status": "passed",
+      "reviewEvidence": {
+        "claim": "The new reviewer is measured on the frozen efficacy corpus before it becomes the default.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "efficacy",
+          "full-suite"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6842,20 +6902,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.4",
+    "unitId": "REVIEWER-61SOL-1",
     "status": "in_progress",
     "openedAt": "2026-11-05",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-05 (\"продолжи реализацию\" after PR #388): patch release 1.110.4 ships CODEX-HOOK-TIMEOUT-1 (PR #388, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.4] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a - the owner's Codex hook re-trust (Windows: codex --no-daemon), itd_codex_hook_trust.py exit 0, a live ITD-APPROVE canary on both hosts and 3 Windows turns traced through the app-server with no timed-out hook. The same PR carries the CODEX-HOOK-TIMEOUT-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-04 (\"нужен 6.1-sol ревьюером. отдельный юнит по методологии\"), plan approved 2026-11-05 (\"Утверждаю\"), API route 2026-11-05 (\"API тоже на 6.1-sol\"): the mandatory opposite-GPT reviewer of a Claude maker defaults to gpt-6.1-sol with the gpt-5.6-terra degraded standby, gpt-5.6-sol stays valid by explicit choice, the optional paid API Sol reviewer is gpt-6.1-sol at the published price, and on the mandatory route a model never reviews its own output.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "security",
         "host-parity",
-        "repository-hygiene",
-        "generated-artifact-freshness",
-        "compatibility"
+        "repository-hygiene"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
@@ -7984,6 +8043,29 @@
       },
       "closedAt": "2026-11-05",
       "closureEvidence": "PR #388 squash-merged to main 3d73be7; tree fddc53c6 = candidate.reviewedTree of CODEX-HOOK-TIMEOUT-1-canonical-a2-adjudication.json (gpt-5.6-sol PASSED, 0 findings, receiptSha256 59a7f47543bf5c810b3804f617edc0d75a4038ba05444f5ec8c9cee2955cb643, machine a2 PASSED 8/8); CI PR and main 2/2; closed by the ADR-016 closure convention in the REL-1.110.4 candidate; release, rollout and the traced Windows canary are REL-1.110.4."
+    },
+    {
+      "unitId": "REL-1.110.4",
+      "status": "closed",
+      "openedAt": "2026-11-05",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-05 (\"продолжи реализацию\" after PR #388): patch release 1.110.4 ships CODEX-HOOK-TIMEOUT-1 (PR #388, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.4] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a - the owner's Codex hook re-trust (Windows: codex --no-daemon), itd_codex_hook_trust.py exit 0, a live ITD-APPROVE canary on both hosts and 3 Windows turns traced through the app-server with no timed-out hook. The same PR carries the CODEX-HOOK-TIMEOUT-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-05",
+      "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-05T11:15:31Z). Published: PR #389 -> main 808a60e (tree 475fb3bd = REL-1.110.4-canonical-a2 reviewedTree, gpt-5.6-sol PASSED 0 findings, machine a2 PASSED 7/7), tag and GitHub release v1.110.4, CI PR and main 2/2 (PR windows-verify rerun after a 10-minute runner cancellation). Rolled out on WSL (runtime 1.110.4-d7b7a716dcb7a9fa) and Windows; runbook 7a: trust report exit 0 on both hosts, live ITD-APPROVE canary PASSED on WSL and Windows, 3 Windows app-server turns blocked 3/3 with no timed-out or failed hook."
     }
   ]
 }
