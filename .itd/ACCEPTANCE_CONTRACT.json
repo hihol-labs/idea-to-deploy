@@ -6884,6 +6884,51 @@
           "full-suite"
         ]
       }
+    },
+    {
+      "id": "REL-1.110.5-AC1",
+      "unitId": "REL-1.110.5",
+      "status": "passed",
+      "criterion": "All release mirrors declare 1.110.5, CHANGELOG has one ## [1.110.5] section cut from Unreleased (REVIEWER-61SOL-1) with an empty Unreleased above it, CHANGELOG/DECISIONS/BACKLOG describe only what the code, tests and receipts show, and the impact map is fresh. Publication, release and rollout are later owner-confirmed stages, not implied here.",
+      "source": "Owner 2026-11-05 release request; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "tests/verify_harness_docs_freshness.py exit 0 (pluginVersion 1.110.5, reviewedAt 2026-10-31 unchanged) and tests/verify_external_reviewer_release.py PASSED (version 1.110.5, 14 criteria, 5 mutation guards) on the candidate; tests/build_impact_graph.py --check FRESH (nodes 498, edges 1602); CHANGELOG ## [1.110.5] - 2026-11-05 holds the Unreleased entry of PR #390 (REVIEWER-61SOL-1); Unreleased is empty. The docs-freshness, release-mirrors and impact-graph legs of the committed-head machine receipt repeat these on the exact tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py && sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "reviewEvidence": {
+        "claim": "The release metadata is internally consistent and keeps Gate 1 docs freshness green.",
+        "impactClasses": [
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "docs-freshness",
+          "release-mirrors",
+          "impact-graph"
+        ]
+      }
+    },
+    {
+      "id": "REL-1.110.5-AC2",
+      "unitId": "REL-1.110.5",
+      "status": "passed",
+      "criterion": "A genuine fresh live-model run whose methodology pin equals the candidate's passes the unchanged strict replay (tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30), and the exact committed candidate tree passes that replay and the full regression in an isolated checkout as legs of the committed-head machine receipt before review and publication; on native Windows the windows-verify set of the committed candidate has no red suite that is not red on clean main 09a2917 under the same launcher (host-only reds are recorded, the CI windows-verify job stays the gate).",
+      "source": "Owner 2026-11-05 release request; docs/RELEASE_RUNBOOK.md.",
+      "evidence": "Live run 20261105T165750Z-f094c79c (tests/run-live-model-benchmark.py --provider openai --fixture fixture-03-cli-tool, Codex CLI through the temporary Windows proxy) recorded on the clean committed candidate a11cd78; tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30 154 passed / 0 failed on the amended candidate; the live and full legs of the committed-head machine receipt repeat the replay and the full suite on the exact tree. Native Windows: the windows-verify step list plus the unit oracles run on the exact final committed candidate, and that log (.itd-memory/host-inputs/REL-1.110.5/windows-final.txt, header names the commit) is a declared --input of the committed-head machine receipt, so the review sees the result bound to the reviewed tree (a commit cannot name itself). Its red set must equal the 8 host-environment reds of clean main 09a2917 (adjudication_channel, continuity, operational_cold_start, retro_scan, routing, session_hygiene_quality, strict_route, task_adopt_route; .itd-memory/host-inputs/REL-1.110.5/windows-base.txt). The earlier run on the interim commit a11cd78 (44 / 52, the same 8 reds) is superseded because later commits changed .itd/ACCEPTANCE_CONTRACT.json, which verify_verification_loop and meta_review read.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The 1.110.5 candidate carries fresh live-model evidence bound to its methodology pin; its exact committed tree passes the replay and the full regression on WSL in an isolated checkout, and on native Windows the windows-verify set has no red beyond clean main under the same launcher.",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full",
+          "live"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6902,19 +6947,20 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REVIEWER-61SOL-1",
+    "unitId": "REL-1.110.5",
     "status": "in_progress",
     "openedAt": "2026-11-05",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-04 (\"нужен 6.1-sol ревьюером. отдельный юнит по методологии\"), plan approved 2026-11-05 (\"Утверждаю\"), API route 2026-11-05 (\"API тоже на 6.1-sol\"): the mandatory opposite-GPT reviewer of a Claude maker defaults to gpt-6.1-sol with the gpt-5.6-terra degraded standby, gpt-5.6-sol stays valid by explicit choice, the optional paid API Sol reviewer is gpt-6.1-sol at the published price, and on the mandatory route a model never reviews its own output.",
+    "sourceRequest": "Owner 2026-11-05 (\"Да, релиз 1.110.5\"): patch release 1.110.5 ships REVIEWER-61SOL-1 (PR #390, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.5] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns). After the rollout the mandatory reviewer of a Claude maker is gpt-6.1-sol. The same PR carries the REVIEWER-61SOL-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "security",
         "host-parity",
-        "repository-hygiene"
+        "repository-hygiene",
+        "generated-artifact-freshness",
+        "compatibility"
       ],
       "minimumIndependentReviewers": 1,
       "explorer": "isolated-machine-oracle",
@@ -8066,6 +8112,28 @@
       },
       "closedAt": "2026-11-05",
       "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-05T11:15:31Z). Published: PR #389 -> main 808a60e (tree 475fb3bd = REL-1.110.4-canonical-a2 reviewedTree, gpt-5.6-sol PASSED 0 findings, machine a2 PASSED 7/7), tag and GitHub release v1.110.4, CI PR and main 2/2 (PR windows-verify rerun after a 10-minute runner cancellation). Rolled out on WSL (runtime 1.110.4-d7b7a716dcb7a9fa) and Windows; runbook 7a: trust report exit 0 on both hosts, live ITD-APPROVE canary PASSED on WSL and Windows, 3 Windows app-server turns blocked 3/3 with no timed-out or failed hook."
+    },
+    {
+      "unitId": "REVIEWER-61SOL-1",
+      "status": "closed",
+      "openedAt": "2026-11-05",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-04 (\"нужен 6.1-sol ревьюером. отдельный юнит по методологии\"), plan approved 2026-11-05 (\"Утверждаю\"), API route 2026-11-05 (\"API тоже на 6.1-sol\"): the mandatory opposite-GPT reviewer of a Claude maker defaults to gpt-6.1-sol with the gpt-5.6-terra degraded standby, gpt-5.6-sol stays valid by explicit choice, the optional paid API Sol reviewer is gpt-6.1-sol at the published price, and on the mandatory route a model never reviews its own output.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "security",
+          "host-parity",
+          "repository-hygiene"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-05",
+      "closureEvidence": "PR #390 squash-merged to main 09a2917; tree 09a6315b = candidate.reviewedTree of REVIEWER-61SOL-1-canonical-a12-adjudication.json (gpt-5.6-sol PASSED, 0 findings, receiptSha256 5b58368d4f95cdc0823375b39f1f6698e71f7c562117a974d97094addf02eff4, machine a4 PASSED 12/12); CI PR and main 2/2; closed by the ADR-016 closure convention in the REL-1.110.5 candidate; release and rollout are REL-1.110.5."
     }
   ]
 }
