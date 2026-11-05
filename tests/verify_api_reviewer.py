@@ -74,7 +74,7 @@ def repo() -> Path:
     return path
 
 
-def response(verdict: dict, model: str = "gpt-5.6-sol",
+def response(verdict: dict, model: str = "gpt-6.1-sol",
              input_tokens: int = 1000, output_tokens: int = 100) -> dict:
     return {
         "id": "resp_testindependent123",
@@ -221,8 +221,11 @@ def phase_adapters(checks: Checks) -> None:
                 "endpoint", "http://attacker.invalid/v1/responses")),
             ("boolean-limit", lambda row: row["limits"].__setitem__(
                 "timeoutSeconds", True)),
+            # The per-review cost cap bounds retries: worst request cost x (retries + 1) <= maxCostUsd. With the
+            # gpt-6.1-sol Sol price (REVIEWER-61SOL-1) Terra is the costliest row (~$0.233), so one retry fits the
+            # $0.75 cap and three do not.
             ("retry-budget", lambda row: row["limits"].__setitem__(
-                "maxRetries", 1)),
+                "maxRetries", 3)),
             ("routing-shape", lambda row: row["routing"].pop(
                 "allowSameModelForMedium")),
             ("absolute-consent", lambda row: row["consent"].__setitem__(
@@ -337,14 +340,22 @@ def phase_routing(checks: Checks) -> None:
         )
         _, openai = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-5.6-sol", "--risk", "high")
+            "--maker-model", "gpt-6.1-sol", "--risk", "high")
         checks.that(
             openai["providers"] == ["openai-responses-terra"],
             "Sol-authored high-risk route did not select independent Terra",
         )
+        # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.1-sol, so a gpt-5.6-sol maker may get it (another model)
+        _, old_sol = invoke(
+            path, "route", "--maker-vendor", "openai",
+            "--maker-model", "gpt-5.6-sol", "--risk", "high")
+        checks.that(
+            old_sol["providers"] == ["openai-responses", "openai-responses-terra"],
+            "a gpt-5.6-sol maker did not get the independent gpt-6.1-sol and Terra reviewers",
+        )
         _, snapshot_route = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-5.6-sol-2026-07-15", "--risk", "high")
+            "--maker-model", "gpt-6.1-sol-2026-11-01", "--risk", "high")
         checks.that(
             snapshot_route["providers"] == ["openai-responses-terra"],
                     "dated snapshot alias bypassed same-model high-risk separation")
@@ -357,7 +368,8 @@ def phase_routing(checks: Checks) -> None:
         )
         _, medium = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-5.6-sol", "--risk", "medium")
+            "--maker-model", "gpt-6.1-sol", "--risk", "medium")
+        # the existing allowSameModelForMedium rule: a fresh same-model session is advisory-eligible at medium risk only
         checks.that("openai-responses" in medium["providers"],
                     "fresh same-model medium checker should remain advisory-eligible")
 
@@ -370,7 +382,7 @@ def phase_routing(checks: Checks) -> None:
         })
         terra_run, terra_payload = invoke(
             path, "review", "--root", str(path), "--maker-vendor", "openai",
-            "--maker-model", "gpt-5.6-sol", "--maker-session", "maker-sol",
+            "--maker-model", "gpt-6.1-sol", "--maker-session", "maker-sol",
             "--risk", "high", "--mode", "ci", "--fixtures", str(terra_fixture),
             env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
         )
@@ -763,7 +775,8 @@ def phase_egress(checks: Checks) -> None:
             shell(["git", "add", "app.py"], path)
 
         expensive = fixture(path, {"openai-responses": {
-            "response": response(clean_verdict(), input_tokens=100000, output_tokens=10000)
+            # $0.80 at the gpt-6.1-sol price ($2 / $10 per 1M, REVIEWER-61SOL-1) - above the $0.75 per-run cap
+            "response": response(clean_verdict(), input_tokens=300000, output_tokens=20000)
         }, "codex-cli": {"error": "disabled fixture"},
             "gemini-cli": {"error": "disabled fixture"}})
         run, budget = invoke(

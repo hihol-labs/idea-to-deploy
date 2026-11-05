@@ -240,6 +240,14 @@ OPENAI_REVIEW_MODEL_ALTERNATES = {
     "gpt-5.6-sol": "gpt-5.6-terra",
     "gpt-5.6-terra": "gpt-5.6-sol",
 }
+# Cross-vendor reviewers of an Anthropic maker -> their degraded standby
+# (REVIEWER-61SOL-1, owner 2026-11-04: gpt-6.1-sol is the default reviewer;
+# gpt-5.6-sol stays valid by explicit choice; gpt-6-astra is never a reviewer).
+CROSS_VENDOR_REVIEW_MODELS = {
+    **OPENAI_REVIEW_MODEL_ALTERNATES,
+    "gpt-6.1-sol": "gpt-5.6-terra",
+}
+DEFAULT_REVIEWER_MODEL = "gpt-6.1-sol"
 # Maker compatibility is separate from the supported reviewer/standby set.
 OPENAI_MAKER_REVIEW_MODELS = {
     **OPENAI_REVIEW_MODEL_ALTERNATES,
@@ -3803,11 +3811,11 @@ def select_openai_reviewer_model(
     if not maker or not configured or not provider:
         raise FreeReviewError("UNAVAILABLE", "OpenAI reviewer model is absent")
     if canonical_model_identity(provider, maker)[0] == "anthropic":
-        # Cross-vendor leg: an anthropic maker may select either supported
-        # OpenAI reviewer model; the configured value picks the leg.
-        if configured.casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES:
+        # Cross-vendor leg: an anthropic maker may select any supported
+        # cross-vendor OpenAI reviewer; the configured value picks the leg.
+        if configured.casefold() not in CROSS_VENDOR_REVIEW_MODELS:
             raise FreeReviewError(
-                "UNVERIFIED", "configured reviewer is outside the Sol/Terra pair"
+                "UNVERIFIED", "configured reviewer is outside the cross-vendor reviewer set"
             )
         return configured
     alternate = OPENAI_MAKER_REVIEW_MODELS.get(maker.casefold())
@@ -3822,6 +3830,22 @@ def select_openai_reviewer_model(
     return alternate
 
 
+def default_reviewer_model(
+    maker_model: str, configured_model: str | None, *,
+    maker_provider: str = "openai-subscription",
+) -> str:
+    """The explicit reviewer, else DEFAULT_REVIEWER_MODEL for an Anthropic maker
+    and the forced opposite model for an OpenAI maker (REVIEWER-61SOL-1)."""
+    if configured_model is not None:
+        return configured_model
+    if (
+        isinstance(maker_model, str) and isinstance(maker_provider, str)
+        and canonical_model_identity(maker_provider.strip(), maker_model.strip())[0] == "anthropic"
+    ):
+        return DEFAULT_REVIEWER_MODEL
+    return OPENAI_MAKER_REVIEW_MODELS.get(str(maker_model).strip().casefold(), DEFAULT_REVIEWER_MODEL)
+
+
 def alternate_openai_reviewer_model(
     maker_model: str, current_model: str, *,
     maker_provider: str = "openai-subscription",
@@ -3834,7 +3858,7 @@ def alternate_openai_reviewer_model(
     """
     if not isinstance(current_model, str):
         raise FreeReviewError("UNVERIFIED", "OpenAI standby selection is malformed")
-    candidate = OPENAI_REVIEW_MODEL_ALTERNATES.get(current_model.strip().casefold())
+    candidate = CROSS_VENDOR_REVIEW_MODELS.get(current_model.strip().casefold())
     if not candidate:
         return ""
     try:
@@ -4580,10 +4604,10 @@ def require_opposite_openai_model(
     """Require the reviewer the closed independence class permits."""
     if canonical_model_identity(maker["provider"], maker["model"])[0] == "anthropic":
         # Cross-vendor pair: anthropic maker, OpenAI-subscription reviewer on
-        # a supported Sol/Terra model.
+        # a supported cross-vendor model.
         if (
             reviewer["provider"] != "openai-subscription"
-            or reviewer["model"].casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES
+            or reviewer["model"].casefold() not in CROSS_VENDOR_REVIEW_MODELS
         ):
             raise FreeReviewError(
                 "UNVERIFIED",
@@ -4639,9 +4663,13 @@ def _reviewer_identity(value: object) -> dict[str, str]:
         raise FreeReviewError("UNVERIFIED", "reviewer transport executable is unbound")
     degraded_from = row.get("degradedFrom")
     if degraded_from is not None:
-        if degraded_from.casefold() not in OPENAI_REVIEW_MODEL_ALTERNATES:
+        if degraded_from.casefold() not in CROSS_VENDOR_REVIEW_MODELS:
             raise FreeReviewError(
-                "UNVERIFIED", "degraded reviewer origin is outside the Sol/Terra pair"
+                "UNVERIFIED", "degraded reviewer origin is outside the cross-vendor reviewer set"
+            )
+        if CROSS_VENDOR_REVIEW_MODELS[degraded_from.casefold()] != row["model"].strip().casefold():
+            raise FreeReviewError(
+                "UNVERIFIED", "acting reviewer is not the declared standby of the degraded origin"
             )
         if degraded_from.casefold() == row["model"].strip().casefold():
             raise FreeReviewError(
@@ -6268,7 +6296,11 @@ def parser() -> argparse.ArgumentParser:
     review.add_argument("--maker-provider", required=True)
     review.add_argument("--maker-model", required=True)
     review.add_argument("--maker-session", required=True)
-    review.add_argument("--reviewer-model", default="gpt-5.6-sol")
+    review.add_argument(
+        "--reviewer-model", default=None,
+        help=(f"default: {DEFAULT_REVIEWER_MODEL} for an Anthropic maker, the opposite "
+              "model of an OpenAI maker"),
+    )
     review.add_argument("--codex", default="codex")
     review.add_argument("--codex-sha256", required=True)
     review.add_argument("--claude", default="claude")
@@ -6396,7 +6428,10 @@ def main(argv: list[str] | None = None) -> int:
             def openai_adapter(value: str) -> tuple[dict[str, Any], dict[str, str]]:
                 nonlocal selected_prompt_artifact
                 reviewer_model = select_openai_reviewer_model(
-                    args.maker_model, args.reviewer_model,
+                    args.maker_model, default_reviewer_model(
+                        args.maker_model, args.reviewer_model,
+                        maker_provider=args.maker_provider,
+                    ),
                     maker_provider=args.maker_provider,
                 )
 

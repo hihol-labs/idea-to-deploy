@@ -4554,8 +4554,8 @@ def main() -> int:
         finally:
             producer.set_transport_failure_log(None)
 
-    # REVIEWER-DEFAULT-SOL: the standby reviewer is a transport remedy only.
-    # Sol leads because the broker already routes an Anthropic maker to it;
+    # REVIEWER-DEFAULT-SOL / REVIEWER-61SOL-1: the standby reviewer is a transport remedy only.
+    # Sol (gpt-6.1-sol since 2026-11-04) leads because the broker routes an Anthropic maker to it;
     # the default in this file and that routing table must never drift apart.
     broker_policy = json.loads(
         (ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json").read_text(encoding="utf-8")
@@ -4567,12 +4567,12 @@ def main() -> int:
         row["id"]: row["model"] for row in external_policy["providers"]
     }
     default_match = re.search(
-        r'"--reviewer-model",\s*default="([^"]+)"', PRODUCER.read_text(encoding="utf-8")
+        r'^DEFAULT_REVIEWER_MODEL = "([^"]+)"$', PRODUCER.read_text(encoding="utf-8"), re.M
     )
     check(default_match is not None, "the reviewer-model default is unreadable")
     default_model = default_match.group(1)
-    check(default_model == "gpt-5.6-sol",
-          "the default independent reviewer is no longer Sol")
+    check(default_model == "gpt-6.1-sol" == producer.DEFAULT_REVIEWER_MODEL,
+          "the default independent reviewer is no longer gpt-6.1-sol")
     # The declared default lives in two entry points; a drift guard that
     # watched only one would let the other silently keep the old reviewer.
     recorder_match = re.search(
@@ -4590,7 +4590,7 @@ def main() -> int:
           "the broker's preferred Anthropic-maker reviewer drifted from the default")
     check(
         provider_models[claude_route[1]]
-        == producer.OPENAI_REVIEW_MODEL_ALTERNATES[default_model],
+        == producer.CROSS_VENDOR_REVIEW_MODELS[default_model],
         "the broker's standby reviewer is not the declared alternate",
     )
     # Boundary: an OpenAI maker keeps its forced opposite, and an unknown or
@@ -4602,12 +4602,13 @@ def main() -> int:
     check(broker_policy["routing"]["unknownMaker"] == [],
           "an unknown maker gained an automatic reviewer route")
 
-    check(
-        producer.alternate_openai_reviewer_model(
-            "claude-opus-5", "gpt-5.6-sol", maker_provider="anthropic-subscription",
-        ) == "gpt-5.6-terra",
-        "an Anthropic maker lost its Terra standby",
-    )
+    for current in ("gpt-6.1-sol", "gpt-5.6-sol"):
+        check(
+            producer.alternate_openai_reviewer_model(
+                "claude-opus-5", current, maker_provider="anthropic-subscription",
+            ) == "gpt-5.6-terra",
+            f"an Anthropic maker lost its Terra standby behind {current}",
+        )
     # An OpenAI maker's reviewer is already the opposite model, so the standby
     # resolves back to the model in hand and no swap is offered.
     check(

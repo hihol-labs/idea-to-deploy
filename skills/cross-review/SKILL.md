@@ -67,8 +67,13 @@ Use `skills/_shared/itd_free_reviewer_producer.py`. The fixed keyless route is:
 `Sol -> Terra` and `Terra -> Sol`
 
 Approved maker compatibility also routes `gpt-6.1-sol` and `gpt-6-astra`
-to `gpt-5.6-terra`. Preserve the observed maker model in provenance; these
-entries extend the maker set only. Astra is not a reviewer or standby option.
+to `gpt-5.6-terra`. Preserve the observed maker model in provenance. Astra is
+not a reviewer or standby option.
+
+An Anthropic (Claude) maker is reviewed cross-vendor by `gpt-6.1-sol` by default
+(REVIEWER-61SOL-1, owner 2026-11-04); its degraded standby is `gpt-5.6-terra`, used
+only when the primary returned no verdict and stamped `degradedFrom`; `gpt-5.6-sol`
+stays valid by explicit choice. On this mandatory route a model never reviews its own output.
 
 Run exactly one fresh OpenAI subscription session. A Sol maker selects Terra;
 a Terra maker selects Sol. Callers cannot select a third model or reuse the

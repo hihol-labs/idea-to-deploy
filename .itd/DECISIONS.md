@@ -7638,3 +7638,51 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   шагу 7a: переодобрение хуков на обоих хостах (Windows - `codex --no-daemon`), `itd_codex_hook_trust.py` exit 0,
   живая канарейка ITD-APPROVE на WSL и Windows и 3 хода на Windows через app-server без `hook timed out`. reviewedAt
   доков не меняется (окно свежести 2026-10-31 + 30 дней).
+
+## 2026-11-05 - REL-1.110.4 verified: раскатка и приемка шага 7a
+
+- Раскатка («Раскатываем 1.110.4 сейчас»): WSL runtime 1.110.4-d7b7a716dcb7a9fa (бэкап REL-1.110.4-a2; попытка a1 -
+  TLS-таймаут GitHub API на проверке тега, без изменений), Windows (бэкап REL-1.110.4-20261105T095437Z-92ce578a;
+  попытки 1-3 - нестабильная связь Windows с GitHub на предварительной проверке, без изменений; клон Windows из
+  локального репозитория с origin на GitHub, тег сверен). Владелец переодобрил хуки на обоих хостах.
+- Шаг 7a: `itd_codex_hook_trust.py` exit 0 на WSL и Windows; живая канарейка ITD-APPROVE PASSED на WSL и впервые на
+  Windows; 3 хода на Windows через `codex app-server`: external-write gate `blocked` 3/3, `hook timed out` 0, failed 0,
+  самые медленные хуки 6.1-7.5 с (прежний лимит 5 с их обрывал). Переход `itd_unit_log.py verified REL-1.110.4`
+  (2026-11-05T11:15:31Z). Цепочка Codex-гейтов 1.110.2-1.110.4 закрыта.
+
+## 2026-11-05 - REVIEWER-61SOL-1: независимый ревьюер мейкера Claude - gpt-6.1-sol
+
+- Решение владельца 2026-11-04 («нужен 6.1-sol ревьюером. отдельный юнит по методологии»), план утвержден 2026-11-05
+  («Утверждаю»), API-маршрут - 2026-11-05 («API тоже на 6.1-sol»). Заменяет решение 2026-08-31 «ревьюер gpt-5.6-sol
+  для anthropic-мейкера».
+- Проба: `codex exec -m gpt-6.1-sol` на CLI 0.166.0 отвечает на WSL и Windows (раньше 400 model_not_found на
+  0.146/0.157.1).
+- Продюсер: `CROSS_VENDOR_REVIEW_MODELS` = {gpt-6.1-sol -> gpt-5.6-terra, gpt-5.6-sol -> gpt-5.6-terra,
+  gpt-5.6-terra -> gpt-5.6-sol}; `DEFAULT_REVIEWER_MODEL` = gpt-6.1-sol для мейкера Claude, для мейкера OpenAI без
+  `--reviewer-model` - его принудительная противоположная модель (первая версия с общим default ломала e2e мейкера
+  gpt-5.6-sol - исправлено); `degradedFrom` должен называть объявленный standby исходной модели.
+- API: Sol-ревьюер `openai-responses` = gpt-6.1-sol, $2.00 / $10.00 за 1M (страница цен OpenAI, 2026-11-05),
+  правило брокера `solMaker` = gpt-6.1-sol (мейкер gpt-6.1-sol -> Terra, не сам на себя), мейкер gpt-5.6-sol -
+  otherKnownMaker -> Sol-ревьюер gpt-6.1-sol. Тесты стоимости (`retry-budget`, потолок на прогон) опирались на старую
+  цену Sol: мутация повторов поднята до 3, «дорогой» ответ - до 300K/20K токенов; правила не ослаблены.
+- Red: `verify_reviewer_model_compatibility` на 808a60e - 2 FAIL + 2 ERROR (6.1-sol не ревьюер, нет standby, default
+  5.6-sol, degradedFrom 6.1-sol отвергнут); после - 9/9.
+- Efficacy: продюсер 8d434ee2 заморожен (44 файла), три живые части по одной: WSL (мейкер gpt-6.1-sol -> terra; два
+  возобновления с подписанного чекпойнта после обрывов транспорта OpenAI), u12 (мейкер claude-opus-5 -> gpt-6.1-sol;
+  одно возобновление), Windows (gpt-6.1-sol -> terra; одно возобновление). Снимок
+  `history/route-debts/diagnostic-8d434ee2-reviewer-61sol/` (append-only), манифест, закрепленный список в проверке и
+  `results/`. `verify_independent_review_efficacy` PASSED: WSL и Windows - critical/high 1.0, medium 1.0, ложные
+  блокировки 0.0; u12 cross-vendor с gpt-6.1-sol - critical/high 1.0, medium 1.0, ложные блокировки 0.0.
+- Машина a1 (af34447) FAILED только на full-suite: `tests/verify_review_broker.py` - e2e брокера подписывал мейкера
+  gpt-5.6-sol как Sol-мейкера с ревьюером Terra, а правило `solMaker` теперь gpt-6.1-sol; фикстуры мейкера переведены на
+  gpt-6.1-sol (ревьюер Terra), 1025 проверок PASSED.
+- Машина a2 (7af08c6) PASSED 12/12 (6f516f40...). Ревью a2-a6 без вердикта (обрывы потока событий OpenAI через прокси,
+  прокси отвечал); a7 - BLOCKED, одна low (дважды) о сортировке RICE в сгенерированном образце живого бенчмарка
+  `runs/20261105T122644Z-40351c18/output/STRATEGIC_PLAN.md` - записанный вывод модели, закрепленный хешем; в SCOPE_LOCK
+  возвращена оговорка о `runs/**` (как в релизных юнитах), образец не правится.
+- Машина a3 (00e7c5a) PASSED 12/12 (6ad877c6...). Ревью a8 - BLOCKED, две high (каждая дважды), формулировки сужены
+  до доказанного, политика не менялась: (1) брокер ведет мейкера gpt-5.6-sol через `otherKnownMaker` только к
+  Sol-ревьюеру gpt-6.1-sol, а AC2 называл маршрут `[Sol, Terra]` внешнего API-ревьюера - AC2 разделяет брокер и внешний
+  маршрут; (2) внешний маршрут сохраняет прежнее правило `allowSameModelForMedium` (свежая сессия той же модели -
+  рекомендательно и только при medium), поэтому «модель никогда не ревьюит себя» сужено до обязательного маршрута
+  подписки и до high/unknown риска API (CHANGELOG, SCOPE_LOCK, доки, контракт). Ужесточение medium-правила - вне юнита.

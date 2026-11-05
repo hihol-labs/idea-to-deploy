@@ -88,7 +88,7 @@ def provenance(
     head_sha: str = HEAD,
     base_sha: str = BASE,
     vendor: str = "openai",
-    model: str = "gpt-5.6-sol",
+    model: str = "gpt-6.1-sol",
     nonce: str = "n" * 24,
 ) -> dict[str, Any]:
     unsigned = {
@@ -109,7 +109,7 @@ def provenance(
 def provenance_key_record(
     key_id: str = "current",
     vendor: str = "openai",
-    model: str = "gpt-5.6-sol",
+    model: str = "gpt-6.1-sol",
 ) -> dict[str, Any]:
     return {
         "repository": REPO,
@@ -374,12 +374,22 @@ def main() -> int:
     policy = primitive.load_policy()
     check(policy["id"] == "itd-central-review-broker-v1", "frozen policy")
     check(
-        primitive.classify_maker("openai", "gpt-5.6-sol", policy)
+        primitive.classify_maker("openai", "gpt-6.1-sol", policy)
         == "solMaker"
         and primitive.select_reviewer(
-            "solMaker", "openai", "gpt-5.6-sol", policy
+            "solMaker", "openai", "gpt-6.1-sol", policy
         ) == "openai-responses-terra",
-        "Sol maker routes to Terra",
+        "Sol (gpt-6.1-sol) maker routes to Terra, not to the gpt-6.1-sol Sol reviewer",
+    )
+    # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.1-sol; a gpt-5.6-sol maker is another known model and gets it
+    check(
+        primitive.classify_maker("openai", "gpt-5.6-sol", policy)
+        == "otherKnownMaker"
+        and primitive.select_reviewer(
+            "otherKnownMaker", "openai", "gpt-5.6-sol", policy
+        ) == "openai-responses"
+        and policy["routing"]["reviewers"]["openai-responses"]["model"] == "gpt-6.1-sol",
+        "a gpt-5.6-sol maker is reviewed by the gpt-6.1-sol Sol reviewer",
     )
     check(
         primitive.classify_maker("openai", "gpt-5.6-terra", policy)
@@ -782,7 +792,7 @@ def main() -> int:
     component = store.get_component_provenance([pull])
     check(
         len(component) == 1
-        and component[0]["model"] == "gpt-5.6-sol",
+        and component[0]["model"] == "gpt-6.1-sol",
         "merge-group component provenance aggregates exact PR coordinates",
     )
     rejects(

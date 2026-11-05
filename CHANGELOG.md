@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - the independent reviewer of a Claude maker is gpt-6.1-sol (REVIEWER-61SOL-1)
+
+- The mandatory opposite-GPT reviewer for an Anthropic (Claude) maker now
+  defaults to `gpt-6.1-sol` (owner decision 2026-11-04); `gpt-5.6-terra` stays
+  the degraded standby, used only when the primary returned no verdict and
+  stamped `degradedFrom`, and `gpt-5.6-sol` stays valid by explicit choice. A
+  degraded receipt must name the declared standby of its origin. An OpenAI
+  maker keeps its forced opposite model: `gpt-6.1-sol` and `gpt-5.6-sol` are
+  reviewed by `gpt-5.6-terra`, `gpt-5.6-terra` by `gpt-5.6-sol`; on this
+  mandatory route a model never reviews its own output, and `gpt-6-astra` is
+  never a reviewer.
+- The optional paid API route follows: the `openai-responses` (Sol) reviewer
+  of `EXTERNAL_REVIEW_POLICY.json` and `REVIEW_BROKER_POLICY.json` is
+  `gpt-6.1-sol` at the published $2.00 / $10.00 per 1M input / output tokens
+  (observed 2026-11-05), and the broker's Sol-maker rule matches
+  `gpt-6.1-sol`, so a `gpt-6.1-sol` maker is routed to Terra; a `gpt-5.6-sol`
+  maker is now another known model and the broker routes it to the
+  `gpt-6.1-sol` Sol reviewer. The external API route keeps its existing
+  `allowSameModelForMedium` rule: at medium risk a fresh same-model session
+  stays advisory-eligible; at high or unknown risk a `gpt-6.1-sol` maker gets
+  only Terra.
+- The review-efficacy archive is re-recorded on the new producer bytes; its
+  cross-vendor leg is the first live efficacy run of the `gpt-6.1-sol`
+  reviewer.
+
 ## [1.110.4] - 2026-11-05
 
 ### Fixed - Codex gates on Windows no longer race their own timeout (CODEX-HOOK-TIMEOUT-1)

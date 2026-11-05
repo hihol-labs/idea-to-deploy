@@ -625,11 +625,11 @@
       "openai-responses": {
         "vendor": "openai",
         "api": "responses",
-        "model": "gpt-5.6-sol",
+        "model": "gpt-6.1-sol",
         "modelPin": "exact",
-        "inputUsdPerMillion": 5.0,
-        "outputUsdPerMillion": 30.0,
-        "pricingObservedAt": "2026-07-28"
+        "inputUsdPerMillion": 2.0,
+        "outputUsdPerMillion": 10.0,
+        "pricingObservedAt": "2026-11-05"
       },
       "openai-responses-terra": {
         "vendor": "openai",
@@ -656,7 +656,7 @@
       "rules": {
         "solMaker": {
           "vendorEquals": "openai",
-          "modelEquals": "gpt-5.6-sol"
+          "modelEquals": "gpt-6.1-sol"
         },
         "terraMaker": {
           "vendorEquals": "openai",
