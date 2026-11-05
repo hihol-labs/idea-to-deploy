@@ -7611,3 +7611,30 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   раскатка следующего релиза, шаг 7a: 3 хода канарейки на Windows, каждый с трассой app-server без `hook timed out`.
 - Машина a1 (f0c5def) PASSED 8/8 (ac2cf670...). Ревью a1 - BLOCKED, одна high (дважды): runbook требовал трассу
   app-server только в одном из трех ходов на Windows - теперь трасса и ноль таймаутов в каждом из трех.
+- Машина a2 (8970526) PASSED 8/8 (48aacdc2...). Ревью a2 (gpt-5.6-sol) - PASSED без находок: квитанция
+  `.itd-memory/verification-loop/CODEX-HOOK-TIMEOUT-1-canonical-a2-adjudication.json`, receiptSha256
+  59a7f47543bf5c810b3804f617edc0d75a4038ba05444f5ec8c9cee2955cb643, reviewedTree fddc53c6.
+- Публикация (подтверждение владельца «Да, публикуй»): PR #388 через `itd pr create`, CI PR 2/2, squash-merge ->
+  main 3d73be7 2026-11-05 (дерево fddc53c6), CI main 2/2.
+
+## 2026-11-05 - закрытие CODEX-HOOK-TIMEOUT-1 по конвенции ADR-016 в кандидате REL-1.110.4
+
+- Шаг 1: merge-коммит 3d73be70f58c0eb5cec3567dbb2635d9ea930876, дерево fddc53c6b5318d9304d756f05e9885fd734f7984 =
+  `candidate.reviewedTree` квитанции a2 (PASSED, receiptSha256 59a7f475...); CI PR и main 2/2.
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified CODEX-HOOK-TIMEOUT-1` (2026-11-05T07:41:42Z), затем
+  отдельным вызовом `activate REL-1.110.4` (07:41:44Z, medium); activeFollowup перенесен в closedFollowups;
+  `scripts/validate_state.py .itd-memory/STATE.json` - OK. Релиз, раскатка и трассированная канарейка - REL-1.110.4.
+- Шаг 3: подпись владельца 2026-11-05T08:34Z («Подписываю, публикуй») под просмотренной дельтой закрытия
+  `git diff 3d73be7 6553423` по STATE, events, ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG (186 строк, файл
+  `.itd-memory/host-inputs/REL-1.110.4/codex-hook-timeout-closure-delta.diff`, sha256
+  fac124d0911f48884992e476dbfd3f2752798cd87773f31223ace1cfab8b0d0d); merge 3d73be7, дерево fddc53c6, квитанция a2
+  59a7f475.... Эта строка - единственное изменение дельты после подписи. Та же реплика - подтверждение публикации
+  REL-1.110.4 (push, PR, merge после зеленого CI, тег и релиз).
+
+## 2026-11-05 - REL-1.110.4: патч-релиз CODEX-HOOK-TIMEOUT-1
+
+- Владелец 2026-11-05 («продолжи реализацию» после слияния #388): 1.110.4 выпускает CODEX-HOOK-TIMEOUT-1; risk tier
+  medium (дифф релиза не меняет поставляемый код); публикация и раскатка - по отдельному подтверждению. Раскатка по
+  шагу 7a: переодобрение хуков на обоих хостах (Windows - `codex --no-daemon`), `itd_codex_hook_trust.py` exit 0,
+  живая канарейка ITD-APPROVE на WSL и Windows и 3 хода на Windows через app-server без `hook timed out`. reviewedAt
+  доков не меняется (окно свежести 2026-10-31 + 30 дней).

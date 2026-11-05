@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.110.4] - 2026-11-05
+
 ### Fixed - Codex gates on Windows no longer race their own timeout (CODEX-HOOK-TIMEOUT-1)
 
 - Codex 0.166 re-checks the plugin content fingerprint before every hook run
