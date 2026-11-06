@@ -6991,29 +6991,62 @@
     {
       "id": "LEDGER-HORIZON-1-AC1",
       "unitId": "LEDGER-HORIZON-1",
-      "status": "pending",
+      "status": "passed",
       "criterion": "reconcile_goal_with_events treats the parseable 'at' of the first non-blank line of events.jsonl, read from the file head, as the journal horizon (a first line that is not a JSON object with a parseable 'at' leaves the horizon unknown; a later line is never taken): a verified goal unit with no unit event at all and a parseable verifiedAt strictly before the horizon yields no warning; a unit inside the horizon, a unit without a parseable verifiedAt, a unit whose last event is not terminal, and any unit when the horizon is unknown still warn; an open unit with a terminal last event stays an error; a missing or empty events.jsonl stays silent; reconcile_with_events (STATE) is unchanged; above three warnings one 'and N more' line names the hidden count.",
       "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
-      "evidence": "",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_state_hardening.py"
+      "evidence": "tests/verify_state_hardening.py 114 passed, 0 failed on 796e6bb (WSL); the 15 LEDGER-HORIZON-1 scenarios cover a pre-horizon unit (silent), after and exactly at the horizon, no and unparseable verifiedAt, a pre-horizon unit with a non-terminal event (warn), the contradiction (error), a first record without 'at', a corrupt first record, blank leading lines, empty and missing events.jsonl, the head-not-tail horizon on a file above EVENTS_TAIL_BYTES, the hidden-count suffix and its absence at exactly 3; 7 mutants killed (horizon check removed, horizon from the tail, excuse with a non-terminal event, missing verifiedAt excused, non-strict comparison, a later record moves the horizon, suffix dropped); the same file on f8763a5: 11 failed. reconcile_with_events is unchanged in the diff.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_state_hardening.py",
+      "reviewEvidence": {
+        "claim": "Only an absence older than the first journal record is excused; every other absence still warns and a contradiction still fails.",
+        "impactClasses": [
+          "correctness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "unit-state-hardening"
+        ]
+      }
     },
     {
       "id": "LEDGER-HORIZON-1-AC2",
       "unitId": "LEDGER-HORIZON-1",
-      "status": "pending",
+      "status": "passed",
       "criterion": "The repository ledgers validate with no PE5/HDX warning for GOAL-2026-09-20.json; the live-model evidence is re-recorded on the candidate pin and replays green; the full suite is green on WSL and windows-verify on native Windows has no red beyond clean main f8763a5; the installed hook is not changed (rollout is REL-1.110.6).",
       "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
-      "evidence": "",
-      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30"
+      "evidence": "scripts/validate_state.py over the repository ledgers with the patched validator: 0 warnings for GOAL-2026-09-20.json (36 before). Live-model evidence re-recorded on the candidate pin: Codex run 20261106T154938Z-f080c338 PASS, verify_live_model_benchmark --require-evidence 154 passed, 0 failed. WSL full suite: machine LEDGER-HORIZON-1-machine-a2 on 796e6bb PASSED 7/7 incl. full (receipt 34fef0f9...); an earlier direct run had one red, verify_preflight_budget, from a 398-character line of the host memory index (fixed outside the repository, then PASSED). Native Windows (Python 3.12, 49 windows-verify steps plus 6 unit oracles, clone at 796e6bb, .itd-memory/host-inputs/LEDGER-HORIZON-1/windows-cand-a1.txt): 54 of 55 green - verify_state_hardening 112/0 (2 POSIX-lock checks are POSIX-only; all 23 LEDGER-HORIZON-1 checks pass), verify_ledger_reconciliation 96/0, verify_closure_delta, verify_otk_failed_attempt 17/0, verify_goal_tools 83/0; the one red, verify_live_model_benchmark 'Windows Codex bridge receives a native Windows -C path', is the same on clean main f8763a5 (windows-base.txt) - host environment. The installed hook is not changed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The archived goal stops warning, the pinned evidence replays on the candidate, and both hosts are green apart from a red that clean main shares.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "live-evidence",
+          "full"
+        ]
+      }
     },
     {
       "id": "LEDGER-HORIZON-1-AC3",
       "unitId": "LEDGER-HORIZON-1",
-      "status": "pending",
+      "status": "passed",
       "criterion": "The ledger records ITD-PLAN-S13 as verified by the ADR-016 closure convention, the session 13 post-candidate records are in .itd/DECISIONS.md, CHANGELOG Unreleased describes the fix, and the state file validates.",
       "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
-      "evidence": "",
-      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json"
+      "evidence": "itd_unit_log.py verified ITD-PLAN-S13 (2026-11-06T15:21Z) after the tree check 35cd85e4 = reviewedTree of its a4 receipt and CI on main f8763a5 (meta-review, windows-verify success); its post-candidate records and the LEDGER-HORIZON-1 decisions are in .itd/DECISIONS.md; CHANGELOG Unreleased has the Fixed entry; scripts/validate_state.py .itd-memory/STATE.json - OK; the machine state leg exit 0.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "The ITD-PLAN-S13 closure and the session records match their sources and the state file validates.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state",
+          "meta-review"
+        ]
+      }
     }
   ],
   "completion": {
