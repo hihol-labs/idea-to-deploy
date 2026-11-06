@@ -6929,6 +6929,64 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "ITD-PLAN-S13-AC1",
+      "unitId": "ITD-PLAN-S13",
+      "status": "passed",
+      "criterion": "docs/measurements/ITD-SIMPLIFY-PROBE.md states the probe protocol (the fixed tasks, the equal conditions, how to repeat it and what the probe does not do) and a before/after table with one row per metric of the plan section 2, each marked reached or not reached with its reason; the probe claims no correctness proof; the measurement tools it names are unchanged and their tests pass.",
+      "source": "Owner 2026-11-06 session 13 request and plan approval (\"Согласен\"); the ADR-016 program plan, session 13 with the amendments of 2026-10-30 and 2026-11-05.",
+      "evidence": "The probe document carries sections 1.1-1.4, the nine-row table of section 3 and appendix A with the exact PreToolUse inputs and the invocation procedure of the eight gate decisions; the bench numbers are the summarize_rounds.py output over .itd-memory/host-inputs/ITD-PLAN-S13 (phases before and s13, 12 rounds each, meta-s13.txt failed=0); the first s13 run was discarded for concurrent load and is kept in discarded-run1/. docs/measurements/itd-simplify/test_measure_tools.py OK on the candidate; no file under docs/measurements/itd-simplify/ is in the diff.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh -B docs/measurements/itd-simplify/test_measure_tools.py",
+      "reviewEvidence": {
+        "claim": "The before/after table covers every metric of the plan section 2 with a verdict and a reason, and the probe states its own limits.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "baseline-scripts"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S13-AC2",
+      "unitId": "ITD-PLAN-S13",
+      "status": "passed",
+      "criterion": "docs/measurements/ITD-JOURNAL-TEMPLATE.md gives the 30-day journal entry in the lesson format (run link, concrete change, before/after), the entry kinds, the buying fix time breakdown by articles and keeps the entries of private projects out of the repository. docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md fixes the pilot of the owner-chosen failure class before its first run: at least three real cases, N of at least 3 runs per variant, the decision rule, the four metrics, the order baseline -> A -> B -> A+B -> held-out case, the isolation of Claude headless and Codex, the budget with a stop rule; it records the isolation canary, the first baseline run and the budget state. No skill, hook, script or mandatory check changes (ADR-012 item 5).",
+      "source": "Owner 2026-11-06 session 13 request and plan approval (\"Согласен\"); the ADR-016 program plan, session 13 with the amendments of 2026-10-30 and 2026-11-05.",
+      "evidence": "The journal template carries the lesson-format entry, five entry kinds, the buying time breakdown by nine articles plus owner wait and idle, and the rule that entries stay in the git-ignored .itd-memory/journal/. The pilot protocol was written before the first run (class with six named cases, N = 3 per variant and case, decision rule, metrics M1-M4, order, isolation with a canary); section 10.1 records the isolation canary (both violations named) and the first baseline run on K1 (3053 s, 2584609 tokens, no violation in the transcript audit, no hit of the reference gap); section 9 carries the owner-approved budget of 2026-11-06 (30 runs, 8 hours, 40M tokens, 25 minutes per run), the measured price of a review round (60 minutes) and amendment 1 to the task; amendments 2 and 3 (after reviews a1 and a2, before any run counted in M1) make a hit a pattern pre-filter plus a blind owner confirmation and move isolation to OS-level mount and network namespaces with the transcript audit as the second line - only the mount-namespace feasibility was checked on the owner host, the full isolation is a precondition verified by an extended canary before the amended runs. The pilot stops there and continues in a separate session. The diff adds three documents under docs/measurements/ and ledger records only; tests/meta_review.py PASSED with 0 critical on the candidate.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/meta_review.py --verbose",
+      "reviewEvidence": {
+        "claim": "The journal template and the pilot protocol are complete, the protocol was fixed before the first run, and the diff adds documents only.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "meta-review"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PLAN-S13-AC3",
+      "unitId": "ITD-PLAN-S13",
+      "status": "passed",
+      "criterion": "The ledger records REL-1.110.5 as verified by its rollout and runbook step 7a evidence, the session 13 decisions and lessons are in .itd/DECISIONS.md, the findings outside the task are in BACKLOG.md, and the state file validates.",
+      "source": "Owner 2026-11-06 session 13 request and plan approval (\"Согласен\"); the ADR-016 program plan, session 13 with the amendments of 2026-10-30 and 2026-11-05.",
+      "evidence": "itd_unit_log.py verified REL-1.110.5 (2026-11-06T08:24Z) and activate ITD-PLAN-S13 (medium); scripts/validate_state.py .itd-memory/STATE.json - OK; DECISIONS 2026-11-06 entries (REL-1.110.5 verified, session 13 plan and class choice, three lessons); four BACKLOG P3 entries dated 2026-11-06.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "The REL-1.110.5 record matches its rollout evidence and the session records match their sources.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state"
+        ]
+      }
     }
   ],
   "completion": {
@@ -6947,19 +7005,17 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.5",
+    "unitId": "ITD-PLAN-S13",
     "status": "in_progress",
-    "openedAt": "2026-11-05",
+    "openedAt": "2026-11-06",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-05 (\"Да, релиз 1.110.5\"): patch release 1.110.5 ships REVIEWER-61SOL-1 (PR #390, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.5] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns). After the rollout the mandatory reviewer of a Claude maker is gpt-6.1-sol. The same PR carries the REVIEWER-61SOL-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-06 (session 13 of the ADR-016 program plan, plan approved \"Согласен\"): a probe instead of repeating the session 2 measurement with a before/after table of the plan section 2 metrics, a 30-day journal template in the lesson format, one Harness2 pilot on an owner-chosen failure class with a protocol fixed before the first run and a budget set after the first baseline run, the owner decision on sessions 14-16, and the REL-1.110.5 verified record. Documents only; no new mandatory check (ADR-012 item 5). Publication only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "host-parity",
         "repository-hygiene",
-        "generated-artifact-freshness",
         "compatibility"
       ],
       "minimumIndependentReviewers": 1,
@@ -8134,6 +8190,29 @@
       },
       "closedAt": "2026-11-05",
       "closureEvidence": "PR #390 squash-merged to main 09a2917; tree 09a6315b = candidate.reviewedTree of REVIEWER-61SOL-1-canonical-a12-adjudication.json (gpt-5.6-sol PASSED, 0 findings, receiptSha256 5b58368d4f95cdc0823375b39f1f6698e71f7c562117a974d97094addf02eff4, machine a4 PASSED 12/12); CI PR and main 2/2; closed by the ADR-016 closure convention in the REL-1.110.5 candidate; release and rollout are REL-1.110.5."
+    },
+    {
+      "unitId": "REL-1.110.5",
+      "status": "closed",
+      "openedAt": "2026-11-05",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-05 (\"Да, релиз 1.110.5\"): patch release 1.110.5 ships REVIEWER-61SOL-1 (PR #390, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.5] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns). After the rollout the mandatory reviewer of a Claude maker is gpt-6.1-sol. The same PR carries the REVIEWER-61SOL-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-06",
+      "closureEvidence": "PR #391 merged to main 10f970c (v1.110.5), review a10 PASSED; rollout: runtime 1.110.5-23a8eadd4ffd5675 on WSL and Windows, runtime_digest.py 51 files ba6487a3338b8f04d9a7f63bb3b6ba6d8b89dbdd1c5de008c0a963b49f571eca on both hosts; runbook step 7a: scripts/itd_codex_hook_trust.py exit 0 on WSL and natively on Windows (2026-11-06T08:22Z), three traced Windows turns of 2026-11-05 with blocked 1 and timed out 0 in each; itd_unit_log.py verified REL-1.110.5 (2026-11-06T08:24Z); recorded in the ITD-PLAN-S13 candidate (plan rule 5)."
     }
   ]
 }
