@@ -119,6 +119,9 @@
       "tests/verify_tier_wording.py",
       "tests/verify_verification_loop.py"
     ],
+    ".itd-memory/GOAL-2026-09-20.json": [
+      "tests/verify_state_hardening.py"
+    ],
     ".itd-memory/GOAL.json": [
       "tests/verify_closure_delta.py",
       "tests/verify_efficiency_attribution.py",
@@ -194,6 +197,7 @@
       "tests/verify_otk_failed_attempt.py",
       "tests/verify_otk_host_tree.py",
       "tests/verify_route_metric.py",
+      "tests/verify_state_hardening.py",
       "tests/verify_strict_completion_policy.py"
     ],
     ".itd-memory/measurements/LPD003-4-consolidation.json": [
@@ -2027,7 +2031,8 @@
       "tests/verify_graph_study_result.py",
       "tests/verify_operating_loops_release.py",
       "tests/verify_otk_failed_attempt.py",
-      "tests/verify_route_debts.py"
+      "tests/verify_route_debts.py",
+      "tests/verify_state_hardening.py"
     ],
     "starters/bot-aiogram/files/bot/handlers/start.py": [
       "tests/verify_install_owned_tools.py"

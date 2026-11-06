@@ -7869,3 +7869,50 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
 - Конкретная правка: итог строки пишется по каждой части цели; непроверенная часть дает «частично» с названной
   причиной. Тот же проход по остальным строкам понизил еще одну.
 - До/после: 8 «достигнута» из 9 -> 6 «достигнута» и 3 «частично»; ревью a4 - не измерено.
+
+## 2026-11-06 - сессия 13: машина a4 PASSED, ревью sol a4 на 5616044 PASSED
+
+- Машина a4 (5616044, дерево 35cd85e4...) PASSED 6/6 (20364cfe...): meta-review, docs-freshness, impact-graph, state,
+  baseline-scripts, full.
+- Ревью gpt-6.1-sol a4 - PASSED, 0 находок, 0 unverified; `candidate.reviewedTree` квитанции равен дереву HEAD;
+  квитанция `ITD-PLAN-S13-canonical-a4-adjudication.json`, receiptSha256 eec16450b1735ee01541a09af6a3112d5b553d8e3da2c014815bb4d350cf8a42;
+  `check --require-mandatory-route` - exit 0. Все четыре ревью шли напрямую с WSL, прокси не понадобился.
+- Счет кругов юнита: 4 кандидата, 4 машины PASSED, ревью a1 (5 medium), a2 (2 medium), a3 (2 medium) BLOCKED, a4 PASSED.
+  Время: первая машина 09:45Z, принятое ревью 11:34Z - 1 час 49 минут на три перечеканки документного PR.
+- Публикация (владелец 2026-11-06 «Да, публикуй»): первая попытка `itd pr create` - UNVERIFIED («current local
+  independent review is not valid»): запись реестра гейтов указывала на квитанцию юнита INSTALLED-PROOF-DISPATCH-1.
+  С отдельного подтверждения владельца («Да, обнови и публикуй») `itd gate register-profile` перевел запись на
+  квитанцию a4 юнита ITD-PLAN-S13; `itd gate doctor` - LOCAL_REVIEWED, drift пуст. Вторая попытка 11:58-11:59Z -
+  PR #392 (draft), head 56160447, base 10f970c. CI на 12:00Z: Gate 1 - success, windows-verify - идет.
+  CI PR: Gate 1 и windows-verify - success (12:02Z).
+- Мерж (владелец 2026-11-06 «Да, мержи»): `gh pr ready 392`, затем squash-мерж с защитой по хешу head. Семь
+  попыток `gh pr merge` и пять попыток REST PUT упали на «TLS handshake timeout» до api.github.com; шестая попытка
+  REST прошла: main `f8763a59bfc3d22555e5fda9f66999b6cd9243cd`, родитель 10f970c5, дерево
+  35cd85e465dc1b031584c14bd092012cd6c91731 = `candidate.reviewedTree` квитанции a4 (сверено `gh api commits/main`).
+  CI на main после мержа в этой сессии не проверялся.
+
+## 2026-11-06 - сессия 13: хвосты для следующей сессии
+
+- verified ITD-PLAN-S13 - после мержа, в следующем PR программы.
+- Прогоны пилота по поправке 1: сначала сборка изоляции уровня ОС и расширенная канарейка (протокол, раздел 7).
+- Уборка 2026-11-06 (владелец: «WorkTree ... удали. Старые локальные Goal ... перенеси в архив»): worktree
+  `~/projects/itd-release-1.110.5` удален (`git worktree remove`, был чистым на 10f970c); шесть git-исключенных
+  `GOAL-*.json` (axis1-3 от 2026-07-06, harness-conformance 2026-07-15, loop-expired и loop-preseal-blocked
+  2026-07-14) перенесены в `.itd-memory/archive/goal-local-2026-11-06/`; `verify_ledger_reconciliation` в рабочем
+  каталоге после переноса - 96 passed, 0 failed (до переноса 95 и 1). Локальный `main` переведен на f8763a5
+  (fetch по ssh завис, взят по HTTPS), слитая ветка `docs/itd-plan-s13` удалена. `itd gate doctor` на main -
+  LOCAL_REVIEWED, drift пуст.
+- Ветка `docs/itd-plan-s13` на GitHub удалена 2026-11-06 (владелец: «Да, удали»); `git ls-remote` после удаления -
+  10 веток, этой нет.
+- Долг предупреждения леджера (владелец 2026-11-06: «Правка валидатора, новой сессией»): 36 verified-юнитов архивной
+  цели `GOAL-2026-09-20.json` закрыты до первой записи `events.jsonl` (2026-08-31); правка - юнит LEDGER-HORIZON-1,
+  диагноз и правило - `.itd-memory/continuity/ledger-horizon.md`.
+
+## 2026-11-06 - закрытие ITD-PLAN-S13 по конвенции ADR-016
+
+- Дерево main f8763a5 = 35cd85e465dc1b031584c14bd092012cd6c91731 = `candidate.reviewedTree` квитанции
+  `ITD-PLAN-S13-canonical-a4-adjudication.json` (receiptSha256 eec16450...); CI на main для f8763a5 - meta-review и
+  windows-verify success (проверено 2026-11-06 в сессии LEDGER-HORIZON-1).
+- `itd_unit_log.py verified ITD-PLAN-S13`; записи выше перенесены из
+  `.itd-memory/host-inputs/ITD-PLAN-S13/decisions-after-candidate.md` (правило 5 плана). Следующий юнит -
+  LEDGER-HORIZON-1 (high).

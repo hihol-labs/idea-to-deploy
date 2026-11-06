@@ -54,6 +54,191 @@ def load_hook_module(filename: str, modname: str):
     return mod
 
 
+HORIZON = "2026-08-31T16:19:22Z"   # first record of the real events.jsonl
+
+
+def _unit_event(name: str, decision: str, at: str | None) -> str:
+    rec = {"type": "unit", "name": name, "decision": decision}
+    if at is not None:
+        rec["at"] = at
+    return json.dumps(rec) + "\n"
+
+
+def horizon_scenarios(mod, base: Path, goal: dict, unit: dict) -> dict[str, bool]:
+    """LEDGER-HORIZON-1 scenarios over validator module `mod`; each value is
+    True when the module behaves as the rule demands. Used on the real module
+    and on mutants, so every scenario must be decidable by the module alone."""
+    import copy
+    results: dict[str, bool] = {}
+    counter = iter(range(10_000))
+
+    def run(units: list[dict], events: str | None) -> tuple[list[str], list[str]]:
+        mem = base / f"case{next(counter)}" / ".itd-memory"
+        mem.mkdir(parents=True)
+        g = copy.deepcopy(goal)
+        g["units"] = units
+        g["currentUnitId"] = ""
+        if events is not None:
+            (mem / "events.jsonl").write_text(events, encoding="utf-8")
+        path = mem / "GOAL.json"
+        path.write_text(json.dumps(g, ensure_ascii=False), encoding="utf-8")
+        return mod.validate_path(path)
+
+    def u(uid: str, status: str = "verified", verified_at=None) -> dict:
+        x = copy.deepcopy(unit)
+        x.update({"id": uid, "status": status})
+        x.pop("verifiedAt", None)
+        if verified_at is not None:
+            x["verifiedAt"] = verified_at
+        return x
+
+    log = _unit_event("OTHER-1", "activated", HORIZON) + _unit_event(
+        "OTHER-1", "verified", "2026-09-01T00:00:00Z")
+
+    e, w = run([u("OLD-1", verified_at="2026-07-15T19:24:46Z")], log)
+    results["unit verified before the horizon, no event -> silent"] = e == [] and w == []
+
+    e, w = run([u("NEW-1", verified_at="2026-09-02T00:00:00Z")], log)
+    results["unit verified after the horizon, no event -> WARNING"] = (
+        e == [] and len(w) == 1 and "NEW-1" in w[0])
+
+    e, w = run([u("EDGE-1", verified_at=HORIZON)], log)
+    results["unit verified exactly at the horizon -> WARNING (strict)"] = (
+        e == [] and len(w) == 1 and "EDGE-1" in w[0])
+
+    e, w = run([u("NOAT-1")], log)
+    results["unit without verifiedAt -> WARNING"] = e == [] and len(w) == 1
+
+    e, w = run([u("BAD-1", verified_at="last July")], log)
+    results["unit with an unparseable verifiedAt -> WARNING"] = e == [] and len(w) == 1
+
+    e, w = run([u("OLD-2", verified_at="2026-07-15T00:00:00Z")],
+               log + _unit_event("OLD-2", "activated", "2026-09-03T00:00:00Z"))
+    results["pre-horizon unit whose last event is not terminal -> WARNING"] = (
+        e == [] and len(w) == 1 and "last decision 'activated'" in w[0])
+
+    e, w = run([u("OPEN-1", status="in_progress")],
+               log + _unit_event("OPEN-1", "verified", "2026-09-04T00:00:00Z"))
+    results["open in GOAL, terminal in the log -> reconciliation ERROR"] = any(
+        "reconciliation" in x for x in e)
+
+    e, w = run([u("OLD-3", verified_at="2026-07-15T00:00:00Z")],
+               _unit_event("OTHER-1", "activated", None) + log)
+    results["first record without 'at' -> horizon unknown -> WARNING"] = len(w) == 1
+
+    e, w = run([u("OLD-4", verified_at="2026-07-15T00:00:00Z")], "{not json\n" + log)
+    results["corrupt first record -> horizon unknown, a later record is not taken"] = (
+        len(w) == 1)
+
+    e, w = run([u("OLD-5", verified_at="2026-07-15T00:00:00Z")], "\n\n" + log)
+    results["blank lines before the first record are skipped"] = w == []
+
+    e, w = run([u("ANY-1", verified_at="2026-09-02T00:00:00Z")], "")
+    results["empty events.jsonl -> silent"] = e == [] and w == []
+
+    e, w = run([u("ANY-2", verified_at="2026-09-02T00:00:00Z")], None)
+    results["missing events.jsonl -> silent"] = e == [] and w == []
+
+    # The horizon comes from the file head, not from the EVENTS_TAIL_BYTES tail:
+    # a unit closed after the first record but before the tail window still warns.
+    filler = _unit_event("FILL", "activated", "2026-10-01T00:00:00Z")
+    big = (_unit_event("FIRST", "activated", "2026-01-01T00:00:00Z")
+           + filler * (mod.EVENTS_TAIL_BYTES // len(filler) + 10))
+    e, w = run([u("MID-1", verified_at="2026-05-01T00:00:00Z")], big)
+    results["horizon is the file head, not the tail window"] = (
+        len(w) == 1 and "MID-1" in w[0])
+
+    # Cap: 5 in-horizon absences + 2 pre-horizon ones -> 3 listed, "2 more".
+    units = ([u(f"IN-{i}", verified_at="2026-09-10T00:00:00Z") for i in range(5)]
+             + [u(f"PRE-{i}", verified_at="2026-07-10T00:00:00Z") for i in range(2)])
+    e, w = run(units, log)
+    results["above 3 warnings the first names the hidden count (pre-horizon not counted)"] = (
+        len(w) == 3 and "(2 more verified unit(s)" in w[0]
+        and not any("more verified" in x for x in w[1:]))
+
+    e, w = run([u(f"IN-{i}", verified_at="2026-09-10T00:00:00Z") for i in range(3)], log)
+    results["exactly 3 warnings -> no hidden-count suffix"] = (
+        len(w) == 3 and not any("more verified" in x for x in w))
+    return results
+
+
+HORIZON_MUTANTS = {
+    "horizon check removed": (
+        "if last is None and horizon is not None:",
+        "if False:"),
+    "horizon taken from the tail window": (
+        "    horizon = _events_horizon(events_path)\n",
+        "    horizon = _tail_horizon(events_path)\n"),
+    "absence before the horizon excused even with a non-terminal event": (
+        "if last is None and horizon is not None:",
+        "if horizon is not None:"),
+    "missing verifiedAt excused": (
+        "if verified_at is not None and verified_at < horizon:",
+        "if verified_at is None or verified_at < horizon:"),
+    "horizon comparison not strict": (
+        "verified_at < horizon:",
+        "verified_at <= horizon:"),
+    "a later record moves the horizon": (
+        "        except Exception:\n            return None\n        if not isinstance(rec, dict):",
+        "        except Exception:\n            continue\n        if not isinstance(rec, dict):"),
+    "hidden-count suffix dropped": (
+        "    if hidden:\n",
+        "    if False:\n"),
+}
+
+_TAIL_HORIZON = '''
+
+def _tail_horizon(events_path):
+    with events_path.open("rb") as fb:
+        size = events_path.stat().st_size
+        if size > EVENTS_TAIL_BYTES:
+            fb.seek(size - EVENTS_TAIL_BYTES)
+            fb.readline()
+        for raw in fb.read().decode("utf-8", errors="replace").splitlines():
+            if raw.strip():
+                return _parse_utc(json.loads(raw).get("at"))
+    return None
+'''
+
+
+def horizon_cases(base: Path, goal: dict, unit: dict) -> None:
+    results = horizon_scenarios(core, base / "real", goal, unit)
+    for name, ok in results.items():
+        check(f"LEDGER-HORIZON-1: {name}", ok)
+
+    source = (HOOKS / "validate_state_core.py").read_text(encoding="utf-8")
+    for label, (old, new) in HORIZON_MUTANTS.items():
+        if source.count(old) != 1:
+            check(f"LEDGER-HORIZON-1 mutant '{label}': anchor is unique", False)
+            continue
+        mutated = source.replace(old, new) + _TAIL_HORIZON
+        mod_name = f"_vsc_mutant_{abs(hash(label))}"
+        spec = importlib.util.spec_from_loader(mod_name, loader=None)
+        mod = importlib.util.module_from_spec(spec)
+        mod.__file__ = str(HOOKS / "validate_state_core.py")
+        sys.modules[mod_name] = mod
+        try:
+            exec(compile(mutated, mod.__file__, "exec"), mod.__dict__)
+            mres = horizon_scenarios(mod, base / f"m-{abs(hash(label))}", goal, unit)
+            killed = [n for n, ok in mres.items() if not ok]
+        except Exception as exc:  # a crashing mutant is killed too
+            killed = [f"crash: {exc!r}"]
+        finally:
+            sys.modules.pop(mod_name, None)
+        check(f"LEDGER-HORIZON-1 mutant '{label}' is killed", bool(killed))
+
+    # The repository's archived goal: 36 units closed 2026-07-15..27, before
+    # the first event record (2026-08-31) - the patched validator is silent.
+    archived = ROOT / ".itd-memory" / "GOAL-2026-09-20.json"
+    if archived.is_file() and (ROOT / ".itd-memory" / "events.jsonl").is_file():
+        e, w = core.validate_path(archived)
+        check("LEDGER-HORIZON-1: repo GOAL-2026-09-20.json validates without PE5/HDX warnings",
+              e == [] and w == [])
+    else:
+        check("LEDGER-HORIZON-1: repo archived goal absent (isolated tree): live check skipped",
+              True)
+
+
 def make_valid_state(mem_dir: Path, unit_status: str = "in_progress") -> Path:
     schema = json.loads(
         (ROOT / "docs" / "templates" / "itd-memory" / "session-state.schema.json")
@@ -366,6 +551,9 @@ def main() -> int:
     errors, warnings = core.validate_path(gpath)
     check("verified GOAL unit with activated-only log -> WARNING, not error",
           errors == [] and len(warnings) == 1)
+
+    # ---- LEDGER-HORIZON-1: absence older than the journal is not a debt ---
+    horizon_cases(tmp / "horizon", goal, unit)
 
     # ---- fix I1: PreToolUse single-writer gate (behavioural deny proof) --
     gate_proj = tmp / "gate"

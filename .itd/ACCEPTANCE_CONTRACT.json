@@ -6987,6 +6987,33 @@
           "state"
         ]
       }
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC1",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "pending",
+      "criterion": "reconcile_goal_with_events treats the parseable 'at' of the first non-blank line of events.jsonl, read from the file head, as the journal horizon (a first line that is not a JSON object with a parseable 'at' leaves the horizon unknown; a later line is never taken): a verified goal unit with no unit event at all and a parseable verifiedAt strictly before the horizon yields no warning; a unit inside the horizon, a unit without a parseable verifiedAt, a unit whose last event is not terminal, and any unit when the horizon is unknown still warn; an open unit with a terminal last event stays an error; a missing or empty events.jsonl stays silent; reconcile_with_events (STATE) is unchanged; above three warnings one 'and N more' line names the hidden count.",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_state_hardening.py"
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC2",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "pending",
+      "criterion": "The repository ledgers validate with no PE5/HDX warning for GOAL-2026-09-20.json; the live-model evidence is re-recorded on the candidate pin and replays green; the full suite is green on WSL and windows-verify on native Windows has no red beyond clean main f8763a5; the installed hook is not changed (rollout is REL-1.110.6).",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30"
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC3",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "pending",
+      "criterion": "The ledger records ITD-PLAN-S13 as verified by the ADR-016 closure convention, the session 13 post-candidate records are in .itd/DECISIONS.md, CHANGELOG Unreleased describes the fix, and the state file validates.",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json"
     }
   ],
   "completion": {
@@ -7005,16 +7032,17 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S13",
+    "unitId": "LEDGER-HORIZON-1",
     "status": "in_progress",
     "openedAt": "2026-11-06",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-06 (session 13 of the ADR-016 program plan, plan approved \"Согласен\"): a probe instead of repeating the session 2 measurement with a before/after table of the plan section 2 metrics, a 30-day journal template in the lesson format, one Harness2 pilot on an owner-chosen failure class with a protocol fixed before the first run and a budget set after the first baseline run, the owner decision on sessions 14-16, and the REL-1.110.5 verified record. Documents only; no new mandatory check (ADR-012 item 5). Publication only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-06 (\"Правка валидатора, новой сессией\"; rule and plan approved \"Да, по плану\"): the ledger hook stops warning about verified units of the archived goal GOAL-2026-09-20.json that were closed before the first record of events.jsonl, by a validator fix, not by appending events (owner decision 2026-09-20: accepted evidence is immutable); a unit without verifiedAt keeps warning; STATE reconciliation unchanged; the same PR carries the ITD-PLAN-S13 verified record and the session 13 post-candidate records. Publication only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "host-parity",
         "repository-hygiene",
         "compatibility"
       ],
@@ -8213,6 +8241,27 @@
       },
       "closedAt": "2026-11-06",
       "closureEvidence": "PR #391 merged to main 10f970c (v1.110.5), review a10 PASSED; rollout: runtime 1.110.5-23a8eadd4ffd5675 on WSL and Windows, runtime_digest.py 51 files ba6487a3338b8f04d9a7f63bb3b6ba6d8b89dbdd1c5de008c0a963b49f571eca on both hosts; runbook step 7a: scripts/itd_codex_hook_trust.py exit 0 on WSL and natively on Windows (2026-11-06T08:22Z), three traced Windows turns of 2026-11-05 with blocked 1 and timed out 0 in each; itd_unit_log.py verified REL-1.110.5 (2026-11-06T08:24Z); recorded in the ITD-PLAN-S13 candidate (plan rule 5)."
+    },
+    {
+      "unitId": "ITD-PLAN-S13",
+      "status": "closed",
+      "openedAt": "2026-11-06",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-06 (session 13 of the ADR-016 program plan, plan approved \"Согласен\"): a probe instead of repeating the session 2 measurement with a before/after table of the plan section 2 metrics, a 30-day journal template in the lesson format, one Harness2 pilot on an owner-chosen failure class with a protocol fixed before the first run and a budget set after the first baseline run, the owner decision on sessions 14-16, and the REL-1.110.5 verified record. Documents only; no new mandatory check (ADR-012 item 5). Publication only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-06",
+      "closureEvidence": "PR #392 squash-merged to main f8763a5; tree 35cd85e4 = candidate.reviewedTree of ITD-PLAN-S13-canonical-a4-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 eec16450b1735ee01541a09af6a3112d5b553d8e3da2c014815bb4d350cf8a42, machine a4 PASSED 6/6); CI on main f8763a5: meta-review and windows-verify success; itd_unit_log.py verified ITD-PLAN-S13 (2026-11-06T15:21Z); closed by the ADR-016 closure convention in the LEDGER-HORIZON-1 candidate (plan rule 5)."
     }
   ]
 }

@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 _LIB_DIR = Path(__file__).resolve().parent
@@ -188,6 +189,9 @@ def _last_unit_events(events_path: Path) -> dict:
     целиком; хвост — безопасная деградация: «последнее решение по юниту»
     tail-biased по построению, а юнит, чьи события целиком старше окна,
     выглядит как «нет события» → это WARNING-ветка (absence), не ложный fail.
+    LEDGER-HORIZON-1: юнит, закрытый раньше ПЕРВОЙ записи файла (горизонт
+    журнала, см. _events_horizon), события иметь не мог — сверка GOAL его
+    не предупреждает; хвостовое окно горизонт не сдвигает.
     """
     last: dict = {}
     try:
@@ -229,6 +233,50 @@ def _events_ledger(path: Path) -> Path | None:
     return events_path
 
 
+EVENTS_HEAD_BYTES = 64 * 1024  # горизонт читается из первой строки, не дальше
+
+
+def _parse_utc(value) -> datetime | None:
+    """ISO-8601 stamp ('Z' or an offset) -> aware UTC datetime; naive counts as
+    UTC; anything else -> None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def _events_horizon(events_path: Path) -> datetime | None:
+    """LEDGER-HORIZON-1: the journal horizon - the `at` of the FIRST non-blank
+    line of events.jsonl, read from the file head (never from the
+    EVENTS_TAIL_BYTES tail). The first line must be a JSON object with a
+    parseable `at`; otherwise the horizon is unknown (None) and no absence is
+    excused - a later line is never taken, it would move the horizon forward."""
+    try:
+        with events_path.open("rb") as fb:
+            head = fb.read(EVENTS_HEAD_BYTES)
+    except Exception:
+        return None
+    for raw in head.decode("utf-8", errors="replace").splitlines():
+        if not raw.strip():
+            continue
+        try:
+            rec = json.loads(raw)
+        except Exception:
+            return None
+        if not isinstance(rec, dict):
+            return None
+        return _parse_utc(rec.get("at"))
+    return None
+
+
 def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[str]]:
     """v1.76.0 — the reconciliation invariant GOAL.json ↔ events.jsonl.
 
@@ -237,7 +285,13 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
       - a unit still OPEN in GOAL (pending/in_progress/recovery_required/verifying/blocked)
         while the log already recorded a terminal decision for it → ERROR;
       - a unit VERIFIED in GOAL with no terminal decision in a non-empty
-        log → WARNING (capped at 3 to keep the CLI readable).
+        log → WARNING (capped at 3 to keep the CLI readable; the first one
+        names how many more are not listed).
+    LEDGER-HORIZON-1: a VERIFIED unit with NO unit event at all whose
+    `verifiedAt` is strictly before the journal horizon (_events_horizon) was
+    closed before the log existed - not a warning. Still a warning: no or
+    unparseable `verifiedAt`, `verifiedAt` at/after the horizon, an unknown
+    horizon, or any event for the unit whose last decision is not terminal.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -245,6 +299,8 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
     if events_path is None:
         return errors, warnings
     last_by_unit = _last_unit_events(events_path)
+    horizon = _events_horizon(events_path)
+    hidden = 0
 
     units = goal.get("units")
     if not isinstance(units, list):
@@ -268,6 +324,10 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
                 f"'{last_decision}' for it. Goal ledger tail is stale: update "
                 f"the unit status or append the missing unit event.")
         elif status == "verified" and last_decision not in _TERMINAL_DECISIONS:
+            if last is None and horizon is not None:
+                verified_at = _parse_utc(unit.get("verifiedAt"))
+                if verified_at is not None and verified_at < horizon:
+                    continue  # closed before the journal began: nothing to append
             if len(warnings) < 3:
                 seen = ("no unit event at all" if last is None
                         else f"last decision '{last_decision}'")
@@ -275,6 +335,11 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
                     f"{path}: unit '{uid}' is 'verified' in GOAL.json, but "
                     f"events.jsonl has {seen} for it -- append the 'verified' "
                     f"unit event so the ledger stays the source of truth.")
+            else:
+                hidden += 1
+    if hidden:
+        warnings[0] += (f" ({hidden} more verified unit(s) in this file without "
+                        f"a terminal event are not listed.)")
     return errors, warnings
 
 
