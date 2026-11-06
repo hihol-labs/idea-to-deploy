@@ -37,10 +37,10 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "REL-1.110.5",
-    "goal": "Patch release 1.110.5 ships REVIEWER-61SOL-1 (PR #390): version mirrors, CHANGELOG, live evidence on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); after the rollout the mandatory reviewer of a Claude maker is gpt-6.1-sol; each external stage on owner confirmation",
+    "id": "ITD-PLAN-S13",
+    "goal": "ITD-PLAN-S13 (ADR-016 plan session 13, documents only): the before/after probe of the plan section 2 metrics with its protocol (docs/measurements/ITD-SIMPLIFY-PROBE.md), the 30-day journal template in the lesson format (docs/measurements/ITD-JOURNAL-TEMPLATE.md), the protocol and the first baseline of one Harness2 pilot on the owner-chosen failure class - a review round spent on a test gap (docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md), the owner decision on sessions 14-16 in .itd/DECISIONS.md, and the REL-1.110.5 verified record; no skill, hook, script or runtime change, no new mandatory check (ADR-012 item 5)",
     "status": "in_progress",
-    "startedAt": "2026-11-05T16:47:22Z",
+    "startedAt": "2026-11-06T08:24:32Z",
     "ledger": "STATE",
     "riskTier": "medium"
   },
