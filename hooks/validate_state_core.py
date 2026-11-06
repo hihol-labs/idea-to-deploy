@@ -191,13 +191,24 @@ def _last_unit_events(events_path: Path) -> dict:
     выглядит как «нет события» → это WARNING-ветка (absence), не ложный fail.
     LEDGER-HORIZON-1: юнит, закрытый раньше ПЕРВОЙ записи файла (горизонт
     журнала, см. _events_horizon), события иметь не мог — сверка GOAL его
-    не предупреждает; хвостовое окно горизонт не сдвигает.
+    не предупреждает, но только когда журнал прочитан ЦЕЛИКОМ
+    (_scan_unit_events -> complete): «нет события» в обрезанном хвосте
+    отсутствия во всем журнале не доказывает.
     """
+    return _scan_unit_events(events_path)[0]
+
+
+def _scan_unit_events(events_path: Path) -> tuple[dict, bool]:
+    """(last unit-event record by name, complete). complete is True only when
+    the read started at offset 0 (the journal fit in EVENTS_TAIL_BYTES) and
+    finished without an error - i.e. an absent name is absent from the whole
+    journal. A truncated tail or a read error gives complete=False."""
     last: dict = {}
     try:
         size = events_path.stat().st_size
+        complete = size <= EVENTS_TAIL_BYTES
         with events_path.open("rb") as fb:
-            if size > EVENTS_TAIL_BYTES:
+            if not complete:
                 fb.seek(size - EVENTS_TAIL_BYTES)
                 fb.readline()  # отбрасываем, скорее всего, неполную первую строку
             payload = fb.read().decode("utf-8", errors="replace")
@@ -215,8 +226,8 @@ def _last_unit_events(events_path: Path) -> dict:
             if name:
                 last[name] = rec
     except Exception:
-        return {}
-    return last
+        return {}, False
+    return last, complete
 
 
 def _events_ledger(path: Path) -> Path | None:
@@ -246,35 +257,41 @@ def _parse_utc(value) -> datetime | None:
         text = text[:-1] + "+00:00"
     try:
         stamp = datetime.fromisoformat(text)
-    except ValueError:
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        return stamp.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        # e.g. 0001-01-01T00:00:00+01:00 normalizes below datetime.min
         return None
-    if stamp.tzinfo is None:
-        stamp = stamp.replace(tzinfo=timezone.utc)
-    return stamp.astimezone(timezone.utc)
 
 
 def _events_horizon(events_path: Path) -> datetime | None:
     """LEDGER-HORIZON-1: the journal horizon - the `at` of the FIRST non-blank
     line of events.jsonl, read from the file head (never from the
-    EVENTS_TAIL_BYTES tail). The first line must be a JSON object with a
-    parseable `at`; otherwise the horizon is unknown (None) and no absence is
-    excused - a later line is never taken, it would move the horizon forward."""
+    EVENTS_TAIL_BYTES tail). The first line must be complete (newline-terminated
+    or ending at EOF) within EVENTS_HEAD_BYTES of the file start and be a JSON
+    object with a parseable `at`; otherwise the horizon is unknown (None) and no
+    absence is excused - a later line is never taken, it would move the
+    horizon forward, and a cut fragment is never parsed as a record."""
     try:
         with events_path.open("rb") as fb:
-            head = fb.read(EVENTS_HEAD_BYTES)
+            budget = EVENTS_HEAD_BYTES
+            while budget > 0:
+                raw = fb.readline(budget)
+                if not raw:
+                    return None  # EOF before any record
+                budget -= len(raw)
+                if not raw.endswith(b"\n") and fb.read(1):
+                    return None  # the line is longer than the head budget
+                if not raw.strip():
+                    continue
+                rec = json.loads(raw.decode("utf-8"))
+                if not isinstance(rec, dict):
+                    return None
+                return _parse_utc(rec.get("at"))
     except Exception:
         return None
-    for raw in head.decode("utf-8", errors="replace").splitlines():
-        if not raw.strip():
-            continue
-        try:
-            rec = json.loads(raw)
-        except Exception:
-            return None
-        if not isinstance(rec, dict):
-            return None
-        return _parse_utc(rec.get("at"))
-    return None
+    return None  # only blank lines within the head budget
 
 
 def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[str]]:
@@ -287,19 +304,20 @@ def reconcile_goal_with_events(path: Path, goal: dict) -> tuple[list[str], list[
       - a unit VERIFIED in GOAL with no terminal decision in a non-empty
         log → WARNING (capped at 3 to keep the CLI readable; the first one
         names how many more are not listed).
-    LEDGER-HORIZON-1: a VERIFIED unit with NO unit event at all whose
-    `verifiedAt` is strictly before the journal horizon (_events_horizon) was
-    closed before the log existed - not a warning. Still a warning: no or
+    LEDGER-HORIZON-1: a VERIFIED unit with NO unit event in the WHOLE journal
+    whose `verifiedAt` is strictly before the journal horizon (_events_horizon)
+    was closed before the log existed - not a warning. Still a warning: no or
     unparseable `verifiedAt`, `verifiedAt` at/after the horizon, an unknown
-    horizon, or any event for the unit whose last decision is not terminal.
+    horizon, a journal read only as a tail or with an error (absence not
+    proven), or any event for the unit whose last decision is not terminal.
     """
     errors: list[str] = []
     warnings: list[str] = []
     events_path = _events_ledger(path)
     if events_path is None:
         return errors, warnings
-    last_by_unit = _last_unit_events(events_path)
-    horizon = _events_horizon(events_path)
+    last_by_unit, whole_journal = _scan_unit_events(events_path)
+    horizon = _events_horizon(events_path) if whole_journal else None
     hidden = 0
 
     units = goal.get("units")

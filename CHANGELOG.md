@@ -14,17 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `hooks/validate_state_core.py`, `reconcile_goal_with_events`: a verified goal
   unit with no unit event at all is no longer a warning when its `verifiedAt` is
   strictly before the journal horizon - the `at` of the first record of
-  `events.jsonl`, read from the file head, not from the 512 KB tail window. It
+  `events.jsonl`, read from the file head, not from the 512 KB tail window -
+  and the whole journal was read (it fits the tail window), so the absence is
+  proven for the whole journal, not only for its tail. It
   removes the 36 warnings about the archived goal `GOAL-2026-09-20.json`
   (PE5 and HDX units closed 2026-07-15..27; the journal starts 2026-08-31). No
   events were appended: accepted evidence stays immutable (decision 2026-09-20).
-- Still a warning: a unit without a parseable `verifiedAt`, a unit closed at or
+- Still a warning: a unit without a parseable `verifiedAt` (a stamp that
+  overflows UTC normalization counts as unparseable), a unit closed at or
   after the horizon, a unit whose last event is not terminal, any unit when the
-  first record has no parseable `at`. A contradiction (open in the goal,
+  first record has no parseable `at`, is not a JSON object or is longer than
+  the 64 KB head budget, and any unit when the journal is larger than the tail
+  window or could not be read. A contradiction (open in the goal,
   terminal in the journal) stays an error; STATE reconciliation is unchanged.
 - Above three warnings the first one names how many more units are not listed
   (the hook shows two, so 36 looked like two).
-- Tests: 15 scenarios, 7 killed mutants and a check on the repository's
+- Tests: 22 scenarios, 10 killed mutants and a check on the repository's
   archived goal in `tests/verify_state_hardening.py`.
 
 ## [1.110.5] - 2026-11-05

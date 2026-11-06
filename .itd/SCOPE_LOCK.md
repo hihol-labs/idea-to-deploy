@@ -14,7 +14,9 @@
 ## Allowed Change Areas
 
 - `hooks/validate_state_core.py` - `reconcile_goal_with_events`, the docstring of `_last_unit_events`, and the new
-  helpers it needs: `_parse_utc`, `_events_horizon`, `EVENTS_HEAD_BYTES` and the `datetime` import.
+  helpers it needs: `_scan_unit_events` (the tail read of `_last_unit_events` plus a whole-journal flag;
+  `_last_unit_events` keeps its return value), `_parse_utc`, `_events_horizon`, `EVENTS_HEAD_BYTES` and the
+  `datetime` import.
 - `tests/verify_state_hardening.py` - new scenarios and mutants next to the existing GOAL reconciliation checks
   (block C2; `tests/verify_ledger_reconciliation.py` tests lifecycle accounting, not this function).
 - `tests/fixtures/live-model-evidence/` - live evidence re-recorded on the candidate pin.
