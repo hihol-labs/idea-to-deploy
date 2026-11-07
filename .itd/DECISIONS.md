@@ -7988,7 +7988,12 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   `scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - OK. Первая пара вызовов в одну секунду
   дала два события с одним id `evt-unit-1794042344`; незакоммиченные записи откачены `git checkout` и повторены с
   паузой (id ...2711 и ...2718). Релиз, раскатка и приемка на установленном хуке - REL-1.110.6.
-- Шаг 3: подпись владельца - ниже, после просмотра дельты закрытия.
+- Шаг 3: подпись владельца 2026-11-07 («Подписываю») под просмотренной дельтой закрытия `git diff 89d40e7 6f34c5a`
+  по STATE, events, ACCEPTANCE_CONTRACT, DECISIONS, BACKLOG (163 строки, файл
+  `.itd-memory/host-inputs/REL-1.110.6/ledger-horizon-closure-delta.diff`, sha256
+  4d81eb061b6219f6d309ec8f49a60bcf485ca3bf9e16788d98b003e7ef3d29db; BACKLOG не менялся); merge 89d40e7, дерево
+  571af258, квитанция a3 b4e59e43.... Эта строка и критерий REL-1.110.6-AC2 - единственные изменения дельты после
+  подписи. Публикация REL-1.110.6 - отдельным подтверждением после ревью.
 
 ## 2026-11-07 - REL-1.110.6: патч-релиз LEDGER-HORIZON-1
 

@@ -7069,6 +7069,29 @@
           "impact-graph"
         ]
       }
+    },
+    {
+      "id": "REL-1.110.6-AC2",
+      "unitId": "REL-1.110.6",
+      "status": "passed",
+      "criterion": "A genuine fresh live-model run whose methodology pin equals the candidate's passes the unchanged strict replay (tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30), and the exact committed candidate tree passes that replay and the full regression in an isolated checkout as legs of the committed-head machine receipt before review and publication; on native Windows the windows-verify set of the committed candidate has no red suite that is not red on clean main 89d40e7 under the same launcher (host-only reds are recorded, the CI windows-verify job stays the gate).",
+      "source": "Owner 2026-11-07 release request (plan approved \"Да, начинай\"); docs/RELEASE_RUNBOOK.md.",
+      "evidence": "Live run 20261107T092444Z-075a6d77 (tests/run-live-model-benchmark.py --provider openai --fixture fixture-03-cli-tool, Codex CLI directly from WSL, no proxy) recorded on the clean committed candidate 6f34c5a and committed as 1ae189e; tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30 154 passed / 0 failed; the live and full legs of the committed-head machine receipt repeat the replay and the full suite on the exact tree. Native Windows: the windows-verify step list plus the oracles tests/verify_state_hardening.py (the shipped fix) and tests/verify_live_model_benchmark.py run on the exact final committed candidate (.itd-memory/host-inputs/REL-1.110.6/windows-final.txt, header names the commit), and every suite red there is rerun on clean main 89d40e7 under the same launcher (.itd-memory/host-inputs/REL-1.110.6/windows-base.txt); both logs are declared --input files of the committed-head machine receipt, so the review sees them bound to the reviewed tree (a commit cannot name itself). The red set of the final log must be a subset of the reds of the base log.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The 1.110.6 candidate carries fresh live-model evidence bound to its methodology pin; its exact committed tree passes the replay and the full regression on WSL in an isolated checkout, and on native Windows the windows-verify set has no red beyond clean main under the same launcher.",
+        "impactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "full",
+          "live"
+        ]
+      }
     }
   ],
   "completion": {
