@@ -301,6 +301,18 @@ A4_PREFIX = "Bash: path outside the allowed places: "
 A4_FORBIDDEN = ("/tmp/pilot/.proxy", "/tmp/pilot/.ns")
 
 
+def answer_problem(answer) -> str:
+    """Empty when the answer has the task's shape: a boolean ready and a list of {file, problem} strings."""
+    if not isinstance(answer, dict) or not isinstance(answer.get("ready"), bool):
+        return "ready is not a boolean"
+    blockers = answer.get("blockers")
+    if not isinstance(blockers, list) or not all(
+            isinstance(b, dict) and isinstance(b.get("file"), str) and isinstance(b.get("problem"), str)
+            for b in blockers):
+        return "blockers is not a list of {file, problem} strings"
+    return ""
+
+
 def apply_a4(record: dict) -> dict:
     """Amendment 4 (owner 2026-11-07): inside the run namespace /tmp is the run's own tmpfs (place 2), except
     /tmp/pilot/.proxy and /tmp/pilot/.ns. Such paths move to tmpPaths; everything else keeps voiding the run."""
@@ -313,8 +325,8 @@ def apply_a4(record: dict) -> dict:
         else:
             keep.append(v)
     record["isolationViolations"], record["tmpPaths"] = keep, tmp
-    record["valid"] = bool(record.get("answer")) and not keep and not record.get("leaks") and \
-        not record.get("timedOut") and not record.get("isError")
+    record["valid"] = not answer_problem(record.get("answer")) and record.get("exit") == 0 and not keep and \
+        not record.get("leaks") and not record.get("timedOut") and not record.get("isError")
     return record
 
 
@@ -384,7 +396,8 @@ def run(case: str, variant: str, n: str, budget: str = "10", limit: int = 1500):
                                      text=True).stdout.strip().splitlines()[:20],
         "subtype": res.get("subtype"), "isError": res.get("is_error"), "stderrTail": stderr[-600:],
     }
-    record["valid"] = bool(answer) and not bad and not leaks and not timed_out and not res.get("is_error")
+    record["valid"] = not answer_problem(answer) and rc == 0 and not bad and not leaks and not timed_out and \
+        not res.get("is_error")
     if variant != "canary":
         apply_a4(record)
     OUT.mkdir(parents=True, exist_ok=True)

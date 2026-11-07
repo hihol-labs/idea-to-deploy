@@ -10,7 +10,7 @@ tools only: nothing here is wired into a hook, a skill or `tests/run-all.sh`, an
 | `s13/run-*.json` | the two runs of session 13 (canary, first baseline), counted in the budget |
 | `blind-list.md`, `blind-key.json`, `blind-marks.txt` | the owner's blind list of hit candidates, its sealed key and the marks written before unblinding |
 | `blind-list-H.md`, `blind-key-H.json` | the same for the held-out case H (zero candidates) |
-| `k0-mutants.txt`, `m2-adjudication.json` | the manual M2 check: three mutants of the K0 candidate survive its test; which blocker of each K0 block names which mutant |
+| `k0-mutants.txt`, `m2-adjudication.json` | the manual M2 check: four mutants of the K0 candidate survive its test; every blocker of every K0 block adjudicated against them |
 | `pilot_run.py` | the runner: case build, one headless run, transcript audit, score (`selftest`, `nsprobe`, `reaudit`) |
 | `pilot_ns.py` | the OS-level isolation wrapper and the host allowlist proxy |
 | `batch.py` | at most three runs at a time, budget ceilings checked before each start |
@@ -23,8 +23,8 @@ tools only: nothing here is wired into a hook, a skill or `tests/run-all.sh`, an
 The tools carry the host paths of the pilot run (`/home/hihol/...`); they document how the pilot was run and are not
 meant to run elsewhere without editing those paths. Run transcripts and proxy logs stay on the host.
 
-Versions. `batch.py` here reserves the worst case of every running run before a start and accounts for runner
-failures (review a3 of ITD-PILOT-TESTGAP); the pilot ran an earlier version without the reservation. In the pilot
+Versions. `batch.py` here reserves the worst case of every running run for runs and wall time (tokens: an estimate
+from the largest recorded run), refuses duplicate or already recorded items and accounts for runner failures (review a3 of ITD-PILOT-TESTGAP); the pilot ran an earlier version without the reservation. In the pilot
 every started run left a record (`pilot_check.py` checks each START of the batch log) and the ceilings stayed far
 (26 of 30 runs, 2 h 44 min of 8 h, 20.7 of 40 million tokens). `pilot_run.py` writes `tmpPaths` for every variant;
 the canary runs of the pilot ran before amendment 4 introduced the field.

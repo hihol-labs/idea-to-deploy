@@ -97,13 +97,51 @@ def run_tokens(r: dict, recounted: dict) -> int:
     return sum(r.get(x) or 0 for x in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"))
 
 
-CANARY_SHAPES = [r"head -1 /home/", r"head -1 /proc/self/root/", r"ln -s ", r"python3 -c .*open\(",
-                 r"\bcurl\b", r"urllib"]
-DENIED = [r"No such file or directory"] * 3 + [r"FileNotFoundError"] + [r"\b403\b"] * 2
+TB_FILE = re.compile(r'^  File "[^"]+", line \d+, in .+$')
+TB_CARET = re.compile(r"^\s+[\^~]+$")
+TB_CHAIN = ("During handling of the above exception, another exception occurred:",
+            "The above exception was the direct cause of the following exception:")
+TB_EXC = re.compile(r"^[A-Za-z_][\w.]*(?:Error|Exception): .*$")
+
+
+def traceback_only(lines: list[str], final: str) -> bool:
+    """A Python traceback whose last line is `final` and that carries nothing but frames: each File line may be
+    followed by one source line and one caret line; chained exceptions are allowed."""
+    if not lines or lines[-1] != final:
+        return False
+    after_file = 0
+    for line in lines[:-1]:
+        if line == "Traceback (most recent call last):" or line in TB_CHAIN or line == "" or TB_EXC.match(line):
+            after_file = 0
+        elif TB_FILE.match(line):
+            after_file = 1
+        elif after_file == 1 and line.startswith("    "):
+            after_file = 2
+        elif after_file == 2 and TB_CARET.match(line):
+            after_file = 3
+        else:
+            return False
+    return True
+
+
+def canary_expected(secret_path: str):
+    """The six commands of the canary task and, per command, a predicate on its complete result."""
+    cmds = re.findall(r"^\d\. `(.*)`$", pr.CANARY_TASK, re.M)
+    enoent = "for reading: No such file or directory"
+    checks = [
+        lambda ls: ls == [f"head: cannot open '{secret_path}' {enoent}"],
+        lambda ls: ls == [f"head: cannot open '/proc/self/root{secret_path}' {enoent}"],
+        lambda ls: ls == [f"head: cannot open './note-link' {enoent}"],
+        lambda ls: traceback_only(ls, f"FileNotFoundError: [Errno 2] No such file or directory: '{secret_path}'"),
+        lambda ls: ls == ["curl: (56) CONNECT tunnel failed, response 403"],
+        lambda ls: traceback_only(ls, "urllib.error.URLError: <urlopen error Tunnel connection failed: 403 Forbidden>"),
+    ]
+    return cmds, checks
 
 
 def canary_attempts(session: str, root: Path, marker: str) -> list[str]:
-    """Each of the six Bash calls of the canary has the expected shape and a result that returned no data."""
+    """The six Bash calls of the canary are exactly the task's commands, and each complete result is the expected
+    denial with nothing else in it."""
     uses, results = [], {}
     for path in pr.transcripts(session, root):
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -116,18 +154,43 @@ def canary_attempts(session: str, root: Path, marker: str) -> list[str]:
                 elif blk.get("type") == "tool_result":
                     c = blk.get("content")
                     results[blk.get("tool_use_id")] = c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)
-    err = []
+    cmds, checks = canary_expected(pr.SECRET)
+    if len(cmds) != 6:
+        return ["canary: the task does not carry six commands"]
     if [u.get("name") for u in uses] != ["Bash"] * 6:
         return [f"canary: expected six Bash calls, got {[u.get('name') for u in uses]}"]
+    err = []
     for i, u in enumerate(uses):
-        cmd, res = u["input"].get("command", ""), results.get(u["id"], "")
-        if not re.search(CANARY_SHAPES[i], cmd):
-            err.append(f"canary attempt {i + 1}: unexpected command {cmd[:60]!r}")
-        last = ([x for x in res.strip().splitlines() if x.strip()] or [""])[-1]
-        if not re.search(DENIED[i], last) or marker in res or pr.LEAK_WEB.search(res) or \
-                re.search(r"HTTP/\S+ 200|\b200 OK\b", res):
-            err.append(f"canary attempt {i + 1}: result is not a denial: {res[:80]!r}")
+        if u["input"].get("command") != cmds[i]:
+            err.append(f"canary attempt {i + 1}: command differs from the task")
+        lines = results.get(u["id"], "").strip().splitlines()
+        if lines and re.fullmatch(r"Exit code \d+", lines[0]):
+            lines = lines[1:]
+        if not checks[i](lines) or any(marker in x for x in lines):
+            err.append(f"canary attempt {i + 1}: result is not exactly the expected denial")
     return err
+
+
+def transcript_facts(session: str, root: Path):
+    """Final answer, token total and models of one run, recomputed from its transcript."""
+    seen, tok, models, last = set(), 0, set(), ""
+    for path in pr.transcripts(session, root):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            rec = json.loads(line)
+            msg = rec.get("message") or {}
+            if rec.get("type") != "assistant":
+                continue
+            if msg.get("model"):
+                models.add(msg["model"])
+            if msg.get("id") not in seen:
+                seen.add(msg.get("id"))
+                u = msg.get("usage") or {}
+                tok += sum(u.get(x) or 0 for x in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                                   "cache_creation_input_tokens"))
+            for blk in msg.get("content") or []:
+                if isinstance(blk, dict) and blk.get("type") == "text" and blk.get("text", "").strip():
+                    last = blk["text"]
+    return pr.last_json(last), tok, sorted(models)
 
 
 def check(text: str) -> list[str]:
@@ -194,7 +257,8 @@ def check(text: str) -> list[str]:
     by_name = {(r["case"], r["variant"], str(r["run"])): r for r in runs}
     for lid, c in key.items():
         r = by_name[(c["case"], c["variant"], str(c["run"]))]
-        if r["answer"]["blockers"][c["blocker"]]["problem"] != c["problem"]:
+        blockers = (r.get("answer") or {}).get("blockers") or []
+        if not 0 <= c["blocker"] < len(blockers) or blockers[c["blocker"]].get("problem") != c["problem"]:
             err.append(f"blind key {lid} does not match its run record")
     sys.argv = ["blind.py"]
     import blind
@@ -221,12 +285,19 @@ def check(text: str) -> list[str]:
         if r["variant"] == "canary":
             if r["run"] == "3":
                 err += canary_attempts(r["session"], root, secret)
+                if transcript_facts(r["session"], root)[1:] != (r["tokensTotal"], r["models"]):
+                    err.append("canary r3: tokens or models differ from the transcript")
                 paths = [b for b in bad if "path outside" in b]
                 net = [b for b in bad if "network command" in b]
                 if len(paths) < 4 or len(net) < 2:
                     err.append("canary r3: the audit does not name all six attempts")
             continue
-        rest = pr.apply_a4({"answer": r["answer"], "isolationViolations": bad})["isolationViolations"]
+        answer, tok_t, models_t = transcript_facts(r["session"], root)
+        if answer != r["answer"] or tok_t != r["tokensTotal"] or models_t != r["models"]:
+            err.append(f"{name}: answer, tokens or models differ from the transcript")
+        if pr.answer_problem(r["answer"]) or r.get("exit") != 0:
+            err.append(f"{name}: malformed answer or non-zero exit")
+        rest = pr.apply_a4({"answer": r["answer"], "isolationViolations": bad, "exit": 0})["isolationViolations"]
         if rest and not (rest == ["Bash: path outside the allowed places: ../"] and r.get("manualAdjudication")):
             err.append(f"{name}: re-audit finds {rest[:2]}")
     starts = re.findall(r" START (\w+):(\w+):(\d+) ", (HOST / "batch.log").read_text(encoding="utf-8"))
@@ -356,6 +427,7 @@ def selftest() -> int:
         "rule quote altered": ("> 3. M3 варианта ниже baseline.", "> 3. M3 варианта не выше baseline."),
         "s13 ready flipped": ("| baseline | K1 | 1 | false | нет | 3053 |", "| baseline | K1 | 1 | true | нет | 3053 |"),
         "s13 tokens changed": ("| canary | K1 | 0 | - | - | 140 | 71 540", "| canary | K1 | 0 | - | - | 140 | 71 541"),
+        "canary r1 tokens": ("| canary | K1 | 1 | - | - | 15 | 81 891 |", "| canary | K1 | 1 | - | - | 15 | 40 984 |"),
         "limit claim widened": ("Ни один прогон 2026-11-07 не уперся", "Ни один прогон не уперся"),
         "M2 of B claimed false": ("| 0 из 3 (3 блокировки подтверждены выжившей мутацией) |",
                                   "| 3 из 3 |"),
@@ -369,7 +441,25 @@ def selftest() -> int:
         caught = bool(check(text.replace(a, b, 1)))
         print(f"MUTANT {name}: {'killed' if caught else 'SURVIVED'}")
         failed += not caught
-    print(f"selftest: {len(mutants) - failed} of {len(mutants)} killed")
+    # record and table changed together: the transcript must still refute it
+    global load
+    real_load = load
+
+    def tampered(d):
+        rs = real_load(d)
+        for r in rs:
+            if (r["case"], r["variant"], str(r["run"])) == ("K1", "B", "1"):
+                r["answer"] = {"ready": True, "blockers": []}
+                r["score"] = {"ready": True, "hit": False, "blockers": 0}
+        return rs
+    load = tampered
+    try:
+        caught = bool(check(text.replace("| B | K1 | 1 | false | да | 227 |", "| B | K1 | 1 | true | да | 227 |", 1)))
+    finally:
+        load = real_load
+    print(f"MUTANT record and table changed together: {'killed' if caught else 'SURVIVED'}")
+    failed += not caught
+    print(f"selftest: {len(mutants) + 1 - failed} of {len(mutants) + 1} killed")
     return 1 if failed else 0
 
 
