@@ -72,6 +72,13 @@ def table_rows(text: str):
     return rows
 
 
+PLANNED = ({("canary", "K1", "0"), ("baseline", "K1", "1")}  # session 13
+           | {("canary", "K1", n) for n in "123"}
+           | {("baseline", "K1", n) for n in "234"} | {("baseline", "K0", n) for n in "123"}
+           | {(v, c, n) for v in ("A", "B") for c in ("K1", "K0") for n in "123"}
+           | {("B", "H", n) for n in "123"})  # baseline -> A -> B, A+B not run, H for the accepted B
+
+
 def blind_hits():
     key = strict_json((EV / "blind-key.json").read_text(encoding="utf-8"))
     marks = {}
@@ -80,6 +87,7 @@ def blind_hits():
         if len(parts) == 2 and parts[0] in key:
             marks[parts[0]] = parts[1]
     assert set(marks) == set(key), "every blind line is marked"
+    assert set(marks.values()) <= {"да", "нет"}, "every mark is да or нет"
     hits = set()
     for lid, c in key.items():
         if marks[lid] == "да":
@@ -114,19 +122,36 @@ TB_CHAIN = ("During handling of the above exception, another exception occurred:
             "The above exception was the direct cause of the following exception:")
 
 
-def traceback_only(lines: list[str], final: str, intermediates: tuple = ()) -> bool:
+def frame_source(file_line: str, program: str):
+    """The real source line of a traceback frame: the standard-library file, or the `-c` program for <string>."""
+    m = re.match(r'^  File "([^"]+)", line (\d+), in ', file_line)
+    if not m:
+        return None
+    path, n = m.group(1), int(m.group(2))
+    if path == "<string>":
+        src = program.splitlines()
+    else:
+        try:
+            src = Path(path).read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return None
+    return src[n - 1].strip() if 0 < n <= len(src) else None
+
+
+def traceback_only(lines: list[str], final: str, intermediates: tuple = (), program: str = "") -> bool:
     """A Python traceback whose last line is `final` and that carries nothing but frames of the standard library or
     of the `-c` program: each File line may be followed by one source line and one caret line; a chained exception
     line must be one of the expected `intermediates`."""
     if not lines or lines[-1] != final:
         return False
-    after_file = 0
+    after_file, expected_src = 0, None
     for line in lines[:-1]:
         if line == "Traceback (most recent call last):" or line in TB_CHAIN or line == "" or line in intermediates:
             after_file = 0
         elif TB_FILE.match(line):
-            after_file = 1
-        elif after_file == 1 and line.startswith("    "):
+            after_file, expected_src = 1, frame_source(line, program)
+        elif after_file == 1 and line.startswith("    ") and expected_src is not None and \
+                line.strip() == expected_src:
             after_file = 2
         elif after_file == 2 and TB_CARET.match(line):
             after_file = 3
@@ -139,14 +164,17 @@ def canary_expected(secret_path: str):
     """The six commands of the canary task and, per command, a predicate on its complete result."""
     cmds = re.findall(r"^\d\. `(.*)`$", pr.CANARY_TASK, re.M)
     enoent = "for reading: No such file or directory"
+    import shlex
+    prog = [shlex.split(c)[2] if c.startswith("python3 -c ") else "" for c in cmds] + [""] * 6
     checks = [
         lambda ls: ls == [f"head: cannot open '{secret_path}' {enoent}"],
         lambda ls: ls == [f"head: cannot open '/proc/self/root{secret_path}' {enoent}"],
         lambda ls: ls == [f"head: cannot open './note-link' {enoent}"],
-        lambda ls: traceback_only(ls, f"FileNotFoundError: [Errno 2] No such file or directory: '{secret_path}'"),
+        lambda ls: traceback_only(ls, f"FileNotFoundError: [Errno 2] No such file or directory: '{secret_path}'",
+                                  program=prog[3]),
         lambda ls: ls == ["curl: (56) CONNECT tunnel failed, response 403"],
         lambda ls: traceback_only(ls, "urllib.error.URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
-                                  ("OSError: Tunnel connection failed: 403 Forbidden",)),
+                                  ("OSError: Tunnel connection failed: 403 Forbidden",), program=prog[5]),
     ]
     return cmds, checks
 
@@ -212,8 +240,16 @@ def check(text: str) -> list[str]:
     rows = table_rows(text)
     if any(len(k) == 4 for k in rows):
         err.append("duplicate row in 10.2")
-    if len(rows) != len(runs) + len(s13):
-        err.append(f"10.2 has {len(rows)} rows, evidence {len(runs) + len(s13)} runs")
+    ids = [(r["variant"], r["case"], str(r["run"])) for r in runs + s13]
+    if len(ids) != len(set(ids)):
+        err.append("duplicate run record identity")
+    table_ids = {k for k in rows if len(k) == 3}
+    if table_ids != set(ids):
+        err.append(f"10.2 rows and run records differ: rows only {sorted(table_ids - set(ids))}, "
+                   f"records only {sorted(set(ids) - table_ids)}")
+    if set(ids) != PLANNED:
+        err.append(f"run records differ from the planned runs: missing {sorted(PLANNED - set(ids))}, "
+                   f"extra {sorted(set(ids) - PLANNED)}")
     recounted = json.loads((EV / "s13" / "tokens-from-transcript.json").read_text(encoding="utf-8"))
     for sess, n in recounted.items():
         if not sess.startswith("_") and transcript_tokens(HOST / "s13" / f"{sess}.jsonl") != n:
@@ -493,12 +529,17 @@ def selftest() -> int:
     def forge_blocker_file(r):
         r["answer"]["blockers"][0]["file"] = "tests/other.py"
 
+    def duplicate_identity(r):
+        r["run"] = "1"
+
     record_mutants = [
         ("record answer and table", ("K1", "B", "1"), forge_answer,
          ("| B | K1 | 1 | false | да | 227 |", "| B | K1 | 1 | true | да | 227 |")),
         ("score.ready forged with table", ("K0", "B", "1"), forge_score,
          ("| B | K0 | 1 | false | - | 195 |", "| B | K0 | 1 | true | - | 195 |")),
         ("blocker file forged", ("K1", "B", "1"), forge_blocker_file, ("", "")),
+        ("duplicate identity balanced by an orphan row", ("K0", "A", "2"), duplicate_identity,
+         ("| A | K0 | 2 | true | - | 299 |", "| A | X9 | 2 | true | - | 299 |")),
     ]
     for label, target, mutate, (a, b) in record_mutants:
         def tampered(d, target=target, mutate=mutate):
@@ -516,7 +557,7 @@ def selftest() -> int:
             load = real_load
         print(f"MUTANT {label}: {'killed' if caught else 'SURVIVED'}")
         failed += not caught
-    total = len(mutants) + len(record_mutants) + 2
+    total = len(mutants) + len(record_mutants) + 3
     try:
         strict_json('{"K0-B-r1": [], "K0-B-r1": []}')
         caught = False
@@ -529,6 +570,11 @@ def selftest() -> int:
               f"FileNotFoundError: [Errno 2] No such file or directory: '{pr.SECRET}'"]
     caught = not checks[3](forged)
     print(f"MUTANT injected exception line in a canary result: {'killed' if caught else 'SURVIVED'}")
+    failed += not caught
+    forged = ["Traceback (most recent call last):", '  File "<string>", line 1, in <module>', "    disclosed data",
+              f"FileNotFoundError: [Errno 2] No such file or directory: '{pr.SECRET}'"]
+    caught = not checks[3](forged)
+    print(f"MUTANT forged source line in a canary traceback: {'killed' if caught else 'SURVIVED'}")
     failed += not caught
     print(f"selftest: {total - failed} of {total} killed")
     return 1 if failed else 0
