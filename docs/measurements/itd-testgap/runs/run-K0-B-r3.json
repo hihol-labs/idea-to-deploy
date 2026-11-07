@@ -1,0 +1,76 @@
+{
+ "case": "K0",
+ "variant": "B",
+ "run": "3",
+ "session": "b399af22-1978-430a-82c2-b5987bf74ed6",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:53:51Z",
+ "wallSeconds": 207.7,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 206106,
+ "numTurns": 11,
+ "costUsd": 0.6978346000000001,
+ "inputTokens": 20,
+ "outputTokens": 7512,
+ "cacheReadTokens": 586173,
+ "cacheCreationTokens": 53785,
+ "tokensTotal": 647490,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 10,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': only an over-TTL record (31 min, check [14]) is tested; there is no check that a record younger than 30 minutes still passes, so a mutant with APPROVAL_TTL_SECONDS = 60 or 5 survives (31 passed / 0 failed). The AC1 evidence lists the TTL among the 24 killed mutants, but a shortened TTL is not killed."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': no case with approvedAt in the future; removing the lower bound in hooks/codex-dispatch.py consume_approval ('return 0 <= age <= ...' -> 'return age <= ...') survives (31/0), so a future-dated record that never expires is not caught."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'a record counts only from a real directory and file owned by the OS user': on POSIX (WSL, the claimed host) no case covers an entry owned by another uid; removing 'info.st_uid == getuid()' from private_entry in hooks/codex-dispatch.py survives (31/0). Only the Windows owner-SID branch is tested ([22], else branch)."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 3
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/k0b_$t.log",
+  "/tmp/k0b_$t.log",
+  "/tmp",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_tools/mutate.py",
+  "/tmp/k0b_mut",
+  "/tmp/k0b_tools/mutate.py"
+ ]
+}

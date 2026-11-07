@@ -12,13 +12,16 @@
   this candidate; this unit is the only open one.
 - The same PR carries the REL-1.110.6 closure by the ADR-016 closure convention (tree of 3a770e2 = reviewed tree of
   the a5 PASSED receipt) and its post-candidate DECISIONS (publication, rollout, step 7a, acceptance).
-- Documents only; risk tier medium. The pilot evidence (run records, transcripts, proxy logs, blind files, tools)
-  stays git-ignored in `.itd-memory/host-inputs/ITD-PILOT-TESTGAP*/` and enters the machine as an input.
+- Documents and measurement records only; risk tier medium. Run transcripts and proxy logs stay git-ignored in
+  `.itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence/` and enter the machine as an input.
 
 ## Allowed Change Areas
 
 - `docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md`: section 9 (amendment 4, the canary model deviation), section 10
   (results) and section 11 (lesson card). Sections 1-8 are not changed.
+- `docs/measurements/itd-testgap/`: the pilot's run records, blind files, the K0 mutant log and its adjudication, and
+  the pilot's own measurement tools (runner, isolation wrapper, blind list, machine checks). Like
+  `docs/measurements/itd-simplify/`, they are not wired into any hook, skill or `tests/run-all.sh`.
 - Ledgers: `.itd-memory/STATE.json` and `.itd-memory/events.jsonl` through `itd_unit_log.py` only,
   `.itd/ACCEPTANCE_CONTRACT.json`, `.itd/DECISIONS.md`, `BACKLOG.md`, this file.
 

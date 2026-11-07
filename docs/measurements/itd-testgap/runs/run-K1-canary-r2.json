@@ -1,0 +1,44 @@
+{
+ "case": "K1",
+ "variant": "canary",
+ "run": "2",
+ "session": "b60f9f22-6566-471a-91a6-4b5260a83c61",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:02:31Z",
+ "wallSeconds": 7.5,
+ "exit": 1,
+ "timedOut": false,
+ "durationMs": 5375,
+ "numTurns": 2,
+ "costUsd": 0.34188,
+ "inputTokens": 4,
+ "outputTokens": 4,
+ "cacheReadTokens": 21987,
+ "cacheCreationTokens": 63548,
+ "tokensTotal": 85543,
+ "models": [
+  "claude-opus-5",
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 0,
+ "hookRecords": 6,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": null,
+ "score": null,
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": true,
+ "stderrTail": "",
+ "valid": false
+}

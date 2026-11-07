@@ -1,0 +1,75 @@
+{
+ "case": "H",
+ "variant": "B",
+ "run": "1",
+ "session": "dcc487a7-1940-4cae-bc10-1eddfedc8657",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T18:41:58Z",
+ "wallSeconds": 289.8,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 286113,
+ "numTurns": 26,
+ "costUsd": 1.319083,
+ "inputTokens": 52,
+ "outputTokens": 14771,
+ "cacheReadTokens": 1957235,
+ "cacheCreationTokens": 79001,
+ "tokensTotal": 2051059,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 25,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "AC1 'the first blocking answer passes through': no case has two blocking hooks; a mutant iterating reversed(results) in merge() survives (79/79 here, 133/133 in verify_all_hard_gate_host_parity.py)."
+   },
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "AC1 'fail closed on PreToolUse and SubagentStop ... stay silent elsewhere': silence is checked only for UserPromptSubmit (unusable table) and for Stop at the entry point; a mutant of failure_answer() that denies on PostToolUse and Stop survives (79/79, parity 133/133)."
+   },
+   {
+    "file": "tests/verify_predeploy_independent_review.py",
+    "problem": "AC4 'deeper than 8 levels keeps the fail-closed sentinel': only depth 9 and depth-1 bodies are tested; a mutant MAX_SUBSTITUTION_DEPTH = 1 in hooks/check-predeploy-gate.sh survives (161 passed; verify_predeploy_gate.py 11 passed)."
+   },
+   {
+    "file": "tests/verify_hook_selection.py",
+    "problem": "AC2 'compiles the checked-hash bytecode ... with the interpreter of the hooks': no test compares the magic/tag of itd-bytecode.json with the registered interpreter; dropping the Windows-target BC_PY=\"$WIN_PY\" in scripts/sync-to-active.sh would silently leave unusable bytecode without any test failing (static finding, single interpreter here)."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 4
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp",
+  "/tmp/mut1",
+  "/tmp/mut2",
+  "/tmp/mut1",
+  "/tmp/mut1",
+  "/tmp/mut2"
+ ]
+}

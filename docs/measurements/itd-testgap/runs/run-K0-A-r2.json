@@ -1,0 +1,54 @@
+{
+ "case": "K0",
+ "variant": "A",
+ "run": "2",
+ "session": "010bab6f-96e8-4c66-815d-8ddcc246a26b",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:34:16Z",
+ "wallSeconds": 298.6,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 296592,
+ "numTurns": 9,
+ "costUsd": 0.5106843999999999,
+ "inputTokens": 16,
+ "outputTokens": 3487,
+ "cacheReadTokens": 409282,
+ "cacheCreationTokens": 44878,
+ "tokensTotal": 457663,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 8,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": true,
+  "blockers": []
+ },
+ "score": {
+  "ready": true,
+  "hit": false,
+  "blockers": 0
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/mut_k0.py",
+  "/tmp/mut_k0.py"
+ ]
+}

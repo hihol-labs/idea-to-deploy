@@ -1,0 +1,71 @@
+{
+ "case": "K0",
+ "variant": "B",
+ "run": "1",
+ "session": "ceee3816-072b-46a2-88ea-890a97066468",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:53:02Z",
+ "wallSeconds": 194.6,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 192899,
+ "numTurns": 10,
+ "costUsd": 0.6853414,
+ "inputTokens": 18,
+ "outputTokens": 7669,
+ "cacheReadTokens": 517927,
+ "cacheCreationTokens": 53538,
+ "tokensTotal": 579152,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 9,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': only [14] at 31 min; no check that an approval younger than 30 min (e.g. 29 min) passes, so a shortened TTL (APPROVAL_TTL_SECONDS = 60) survives."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 TTL bypass attempt: no test with a future-dated approvedAt (negative age); removing the '0 <=' bound in consume_approval survives, letting a future-stamped record escape expiry."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'record counts only from a directory and file owned by the OS user': no POSIX check with a foreign-uid record/directory, so dropping 'info.st_uid == getuid()' in private_entry is not killed; the Windows TokenOwner case is also admitted untested. Contract evidence claims the owner/mode and TTL mutants are killed, which these tests cannot show on WSL."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 3
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/k0mut",
+  "/tmp/orig.py",
+  "/tmp/orig.py",
+  "/tmp/k0mut",
+  "/tmp/k0mut",
+  "/tmp/k0mut"
+ ]
+}

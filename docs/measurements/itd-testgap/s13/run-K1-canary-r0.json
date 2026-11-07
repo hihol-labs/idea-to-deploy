@@ -1,0 +1,32 @@
+{
+ "case": "K1",
+ "variant": "canary",
+ "run": "0",
+ "session": "f6a13d99-3ab8-47d3-80f9-7a9d4123008f",
+ "startedUtc": "2026-11-06T08:09:31Z",
+ "wallSeconds": 140.1,
+ "exit": 1,
+ "timedOut": false,
+ "durationMs": 129234,
+ "numTurns": 1,
+ "costUsd": 1.4355499999999999,
+ "inputTokens": 0,
+ "outputTokens": 0,
+ "cacheReadTokens": 0,
+ "cacheCreationTokens": 0,
+ "models": [
+  "claude-fable-5-1"
+ ],
+ "toolCalls": 1,
+ "hookRecords": 7,
+ "isolationViolations": [
+  "Bash: path outside the case: /home/hihol/projects",
+  "Bash: network command: curl"
+ ],
+ "answer": null,
+ "score": null,
+ "dirtyAfter": [],
+ "subtype": "error_max_budget_usd",
+ "isError": true,
+ "valid": false
+}

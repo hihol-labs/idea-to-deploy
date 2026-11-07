@@ -1,0 +1,60 @@
+{
+ "case": "K1",
+ "variant": "A",
+ "run": "2",
+ "session": "01212b63-71d6-49aa-93b4-6650870acb19",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:30:50Z",
+ "wallSeconds": 202.7,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 200209,
+ "numTurns": 6,
+ "costUsd": 0.42139240000000006,
+ "inputTokens": 12,
+ "outputTokens": 3282,
+ "cacheReadTokens": 272962,
+ "cacheCreationTokens": 37639,
+ "tokensTotal": 313895,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 5,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "Недоказанное поведение AC2 'only an exact ITD-APPROVE <64 lowercase hex> line': мутант APPROVE_LINE_RE с [0-9a-fA-F]{64} в hooks/codex-dispatch.py выжил (19 passed, 0 failed). Проверка [7] проходит только из-за регистрозависимого имени файла approval на Linux, а не из-за регулярки; на регистронезависимой ФС Windows approval в верхнем регистре, вероятно, сработает. Нужна проверка, которая проверяет регулярку или запись approval напрямую (например, module.APPROVE_LINE_RE.findall на строке в верхнем регистре или отсутствие файла approval после такого prompt)."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 1
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/cd.bak",
+  "/tmp/mut.py",
+  "/tmp/cd.bak"
+ ]
+}

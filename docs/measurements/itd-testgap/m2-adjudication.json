@@ -1,0 +1,17 @@
+{
+ "_rule": "Protocol section 6, M2: a block on K0 confirmed by a surviving mutant in a manual check is not false. Each entry names the blocker (index in the run's answer) and the mutant of k0_mutants.py it describes; the mutant must have SURVIVED in k0-mutants.txt. Manual reading by the maker 2026-11-07.",
+ "K0-B-r1": [
+  {"blocker": 0, "mutant": "ttl-shortened-to-60s"},
+  {"blocker": 1, "mutant": "ttl-lower-bound-dropped"},
+  {"blocker": 2, "mutant": "uid-owner-check-dropped"}
+ ],
+ "K0-B-r2": [
+  {"blocker": 0, "mutant": "ttl-lower-bound-dropped"},
+  {"blocker": 1, "mutant": "uid-owner-check-dropped"}
+ ],
+ "K0-B-r3": [
+  {"blocker": 0, "mutant": "ttl-shortened-to-60s"},
+  {"blocker": 1, "mutant": "ttl-lower-bound-dropped"},
+  {"blocker": 2, "mutant": "uid-owner-check-dropped"}
+ ]
+}
