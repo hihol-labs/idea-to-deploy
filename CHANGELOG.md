@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.110.6] - 2026-11-07
+
 ### Fixed - the ledger hook no longer warns about units closed before the event journal (LEDGER-HORIZON-1)
 
 - `hooks/validate_state_core.py`, `reconcile_goal_with_events`: a verified goal
