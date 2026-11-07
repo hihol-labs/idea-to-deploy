@@ -375,7 +375,7 @@ def run(case: str, variant: str, n: str, budget: str = "10", limit: int = 1500):
         "cacheReadTokens": usage.get("cache_read_input_tokens"),
         "cacheCreationTokens": usage.get("cache_creation_input_tokens"), "tokensTotal": tokens,
         "models": sorted((res.get("modelUsage") or {}).keys()), "toolCalls": calls, "hookRecords": hooks,
-        "isolationViolations": bad, "leaks": leaks, "runtimeOracleTouches": runtime_touches,
+        "isolationViolations": bad, "tmpPaths": [], "leaks": leaks, "runtimeOracleTouches": runtime_touches,
         "proxy": proxy_summary(side),
         "credentials": {"sameInode": cred.stat().st_ino == cred_before[0],
                         "rewritten": cred.stat().st_mtime != cred_before[1], "validJson": cred_ok},

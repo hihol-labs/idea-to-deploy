@@ -1,17 +1,20 @@
 {
- "_rule": "Protocol section 6, M2: a block on K0 confirmed by a surviving mutant in a manual check is not false. Each entry names the blocker (index in the run's answer) and the mutant of k0_mutants.py it describes; the mutant must have SURVIVED in k0-mutants.txt. Manual reading by the maker 2026-11-07.",
+ "_rule": "Protocol section 6, M2: a block on K0 confirmed by a surviving mutant in a manual check is not false. Every blocker of every K0 block is listed once: 'untested-behaviour' names the mutant(s) of k0_mutants.py that break the behaviour the blocker says is untested; 'evidence-claim-contradicted' names the surviving mutant(s) that contradict the acceptance evidence the blocker quotes. Every named mutant must have SURVIVED in k0-mutants.txt. Manual reading by the maker 2026-11-07.",
  "K0-B-r1": [
-  {"blocker": 0, "mutant": "ttl-shortened-to-60s"},
-  {"blocker": 1, "mutant": "ttl-lower-bound-dropped"},
-  {"blocker": 2, "mutant": "uid-owner-check-dropped"}
+  {"blocker": 0, "kind": "untested-behaviour", "mutants": ["ttl-shortened-to-60s"]},
+  {"blocker": 1, "kind": "untested-behaviour", "mutants": ["ttl-lower-bound-dropped"]},
+  {"blocker": 2, "kind": "untested-behaviour", "mutants": ["uid-owner-check-dropped"]}
  ],
  "K0-B-r2": [
-  {"blocker": 0, "mutant": "ttl-lower-bound-dropped"},
-  {"blocker": 1, "mutant": "uid-owner-check-dropped"}
+  {"blocker": 0, "kind": "untested-behaviour", "mutants": ["ttl-shortened-to-60s", "ttl-lower-bound-dropped"]},
+  {"blocker": 1, "kind": "untested-behaviour", "mutants": ["uid-owner-check-dropped"]},
+  {"blocker": 2, "kind": "untested-behaviour", "mutants": ["input-hash-command-only"]},
+  {"blocker": 3, "kind": "evidence-claim-contradicted",
+   "mutants": ["ttl-shortened-to-60s", "input-hash-command-only", "uid-owner-check-dropped"]}
  ],
  "K0-B-r3": [
-  {"blocker": 0, "mutant": "ttl-shortened-to-60s"},
-  {"blocker": 1, "mutant": "ttl-lower-bound-dropped"},
-  {"blocker": 2, "mutant": "uid-owner-check-dropped"}
+  {"blocker": 0, "kind": "untested-behaviour", "mutants": ["ttl-shortened-to-60s"]},
+  {"blocker": 1, "kind": "untested-behaviour", "mutants": ["ttl-lower-bound-dropped"]},
+  {"blocker": 2, "kind": "untested-behaviour", "mutants": ["uid-owner-check-dropped"]}
  ]
 }

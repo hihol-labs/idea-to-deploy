@@ -12,8 +12,8 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-S13 = HERE.parent / "ITD-PLAN-S13" / "pilot"
-MAX_RUNS, MAX_WALL, MAX_TOKENS, PAR = 30, 8 * 3600, 40_000_000, 3
+S13 = HERE / "s13"  # session 13 records (the pilot ran this tool next to them as ITD-PLAN-S13/pilot)
+MAX_RUNS, MAX_WALL, MAX_TOKENS, PAR, LIMIT = 30, 8 * 3600, 40_000_000, 3, 1500
 
 
 def records():
@@ -24,9 +24,14 @@ def records():
     return out
 
 
+RECOUNTED = json.loads((S13 / "tokens-from-transcript.json").read_text(encoding="utf-8"))
+
+
 def tokens(r):
     if r.get("tokensTotal") is not None:
         return r["tokensTotal"]
+    if r.get("session") in RECOUNTED:
+        return RECOUNTED[r["session"]]
     return sum(r.get(k) or 0 for k in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"))
 
 
@@ -36,34 +41,59 @@ def totals():
 
 
 def main(items):
+    """Before each start the ceilings must hold with every running run and the new one at its worst case: the run
+    limit for wall time and the largest recorded run for tokens. A finished runner without a record, or with a
+    non-zero exit, is logged FAIL and counted as one run at the worst case."""
     log = open(HERE / "batch.log", "a", encoding="utf-8")
     running: list = []
+    failed: list = []
     queue = list(items)
+
+    def stamp():
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
     while queue or running:
-        running = [(it, p) for it, p in running if p.poll() is None]
+        still = []
+        for it, p in running:
+            rc = p.poll()
+            if rc is None:
+                still.append((it, p))
+                continue
+            case, variant, rn = it.split(":")
+            has_record = (HERE / "runs" / f"run-{case}-{variant}-r{rn}.json").exists()
+            if rc != 0 or not has_record:
+                failed.append(it)
+                log.write(f"{stamp()} FAIL {it} rc={rc} record={has_record}\n")
+            log.flush()
+        running = still
         if queue and len(running) < PAR:
             n, wall, tok = totals()
-            n += len(running)
-            if n >= MAX_RUNS or wall >= MAX_WALL or tok >= MAX_TOKENS:
-                log.write(f"{time.strftime('%FT%TZ', time.gmtime())} STOP ceiling runs={n} wall={wall:.0f} "
-                          f"tokens={tok}; not started: {queue}\n")
+            worst_tok = max([tokens(r) for r in records()] or [0])
+            lost = sum(1 for it in failed
+                       if not (HERE / "runs" / f"run-{'-'.join(it.split(':')[:2])}-r{it.split(':')[2]}.json").exists())
+            n, wall, tok = n + lost, wall + lost * LIMIT, tok + lost * worst_tok
+            k = len(running) + 1
+            if n + k > MAX_RUNS or wall + k * LIMIT > MAX_WALL or tok + k * worst_tok > MAX_TOKENS:
+                log.write(f"{stamp()} STOP ceiling runs={n}+{k} wall={wall:.0f}+{k}x{LIMIT} "
+                          f"tokens={tok}+{k}x{worst_tok}; not started: {queue}\n")
                 log.flush()
                 queue = []
                 continue
             it = queue.pop(0)
             case, variant, rn = it.split(":")
             out = open(HERE / "runs" / f"stdout-{case}-{variant}-r{rn}.txt", "w", encoding="utf-8")
-            p = subprocess.Popen([sys.executable, str(HERE / "pilot_run.py"), "run", case, variant, rn, "10", "1500"],
-                                 stdout=out, stderr=subprocess.STDOUT)
-            log.write(f"{time.strftime('%FT%TZ', time.gmtime())} START {it} pid={p.pid}\n")
+            p = subprocess.Popen([sys.executable, str(HERE / "pilot_run.py"), "run", case, variant, rn, "10",
+                                  str(LIMIT)], stdout=out, stderr=subprocess.STDOUT)
+            log.write(f"{stamp()} START {it} pid={p.pid}\n")
             log.flush()
             running.append((it, p))
             time.sleep(5)
             continue
         time.sleep(10)
     n, wall, tok = totals()
-    log.write(f"{time.strftime('%FT%TZ', time.gmtime())} DONE runs={n} wall={wall:.0f} tokens={tok}\n")
+    log.write(f"{stamp()} DONE runs={n} wall={wall:.0f} tokens={tok} failed={failed}\n")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    sys.exit(main(sys.argv[1:]))

@@ -10,6 +10,9 @@ MUTANTS = {
                                 "return not info.st_mode & 0o022"),
     "ttl-shortened-to-60s": ("APPROVAL_TTL_SECONDS = 30 * 60", "APPROVAL_TTL_SECONDS = 60"),
     "ttl-lower-bound-dropped": ("return 0 <= age <= APPROVAL_TTL_SECONDS", "return age <= APPROVAL_TTL_SECONDS"),
+    "input-hash-command-only": ("            binding[key] = payload[key]\n",
+                                "            binding[key] = ({\"command\": payload[key].get(\"command\")} if key == \"tool_input\" "
+                                "and isinstance(payload[key], dict) else payload[key])\n"),
 }
 orig = F.read_text(encoding="utf-8")
 p0 = subprocess.run(["python3", "tests/verify_codex_ask_gates.py"], cwd=CASE, capture_output=True, text=True, timeout=300)

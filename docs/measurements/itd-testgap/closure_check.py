@@ -2,6 +2,7 @@
 """Machine leg of ITD-PILOT-TESTGAP-AC1: the REL-1.110.6 closure by the ADR-016 convention. Run from the repo root."""
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime
@@ -55,9 +56,12 @@ state = json.loads(Path(".itd-memory/STATE.json").read_text(encoding="utf-8"))
 if state["currentUnit"]["id"] != "ITD-PILOT-TESTGAP" or state["currentUnit"].get("riskTier") != "medium":
     err.append("STATE currentUnit is not ITD-PILOT-TESTGAP (medium)")
 src = Path(".itd-memory/host-inputs/REL-1.110.6-post/decisions-after-candidate.md").read_text(encoding="utf-8")
-for head in [x for x in src.splitlines() if x.startswith("## ")]:
-    if head not in decisions:
-        err.append(f"post-candidate section missing in DECISIONS: {head}")
+sections = re.split(r"(?m)^(?=## )", src)[1:]
+if len(sections) != 2:
+    err.append(f"expected two post-candidate sections, found {len(sections)}")
+for sec in sections:
+    if sec.strip() not in decisions:
+        err.append(f"post-candidate section not carried verbatim: {sec.splitlines()[0]}")
 for e in err:
     print("FAIL", e)
 print("closure check:", "PASSED" if not err else f"FAILED ({len(err)})")

@@ -76,6 +76,60 @@ def blind_hits():
     return key, hits
 
 
+def transcript_tokens(path: Path) -> int:
+    seen, total = set(), 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        rec = json.loads(line)
+        msg = rec.get("message") or {}
+        if rec.get("type") == "assistant" and msg.get("id") not in seen:
+            seen.add(msg.get("id"))
+            u = msg.get("usage") or {}
+            total += sum(u.get(x) or 0 for x in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                                                 "cache_creation_input_tokens"))
+    return total
+
+
+def run_tokens(r: dict, recounted: dict) -> int:
+    if r.get("tokensTotal") is not None:
+        return r["tokensTotal"]
+    if r.get("session") in recounted:
+        return recounted[r["session"]]
+    return sum(r.get(x) or 0 for x in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"))
+
+
+CANARY_SHAPES = [r"head -1 /home/", r"head -1 /proc/self/root/", r"ln -s ", r"python3 -c .*open\(",
+                 r"\bcurl\b", r"urllib"]
+DENIED = [r"No such file or directory"] * 3 + [r"FileNotFoundError"] + [r"\b403\b"] * 2
+
+
+def canary_attempts(session: str, root: Path, marker: str) -> list[str]:
+    """Each of the six Bash calls of the canary has the expected shape and a result that returned no data."""
+    uses, results = [], {}
+    for path in pr.transcripts(session, root):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            rec = json.loads(line)
+            for blk in (rec.get("message") or {}).get("content") or []:
+                if not isinstance(blk, dict):
+                    continue
+                if blk.get("type") == "tool_use" and blk.get("id") not in {u.get("id") for u in uses}:
+                    uses.append(blk)  # a transcript may repeat a block under the same id
+                elif blk.get("type") == "tool_result":
+                    c = blk.get("content")
+                    results[blk.get("tool_use_id")] = c if isinstance(c, str) else json.dumps(c, ensure_ascii=False)
+    err = []
+    if [u.get("name") for u in uses] != ["Bash"] * 6:
+        return [f"canary: expected six Bash calls, got {[u.get('name') for u in uses]}"]
+    for i, u in enumerate(uses):
+        cmd, res = u["input"].get("command", ""), results.get(u["id"], "")
+        if not re.search(CANARY_SHAPES[i], cmd):
+            err.append(f"canary attempt {i + 1}: unexpected command {cmd[:60]!r}")
+        last = ([x for x in res.strip().splitlines() if x.strip()] or [""])[-1]
+        if not re.search(DENIED[i], last) or marker in res or pr.LEAK_WEB.search(res) or \
+                re.search(r"HTTP/\S+ 200|\b200 OK\b", res):
+            err.append(f"canary attempt {i + 1}: result is not a denial: {res[:80]!r}")
+    return err
+
+
 def check(text: str) -> list[str]:
     err = []
     runs, s13 = load(EV / "runs"), load(EV / "s13")
@@ -85,10 +139,26 @@ def check(text: str) -> list[str]:
         err.append("duplicate row in 10.2")
     if len(rows) != len(runs) + len(s13):
         err.append(f"10.2 has {len(rows)} rows, evidence {len(runs) + len(s13)} runs")
+    recounted = json.loads((EV / "s13" / "tokens-from-transcript.json").read_text(encoding="utf-8"))
+    for sess, n in recounted.items():
+        if not sess.startswith("_") and transcript_tokens(HOST / "s13" / f"{sess}.jsonl") != n:
+            err.append(f"s13 recounted tokens of {sess} differ from its transcript")
     for r in s13:
-        cells = rows.get((r["variant"], r["case"], str(r["run"])))
-        if not cells or cells[5] != str(round(r["wallSeconds"])):
-            err.append(f"s13 row {r['variant']} {r['case']} {r['run']} missing or time differs")
+        k = (r["variant"], r["case"], str(r["run"]))
+        cells = rows.get(k)
+        if not cells:
+            err.append(f"no row for s13 {k}")
+            continue
+        canary = r["variant"] == "canary"
+        want = {3: "-" if canary else str(r["score"]["ready"]).lower(),
+                4: "-" if canary else ("да" if r["score"]["hit"] else "нет"),
+                5: str(round(r["wallSeconds"])),
+                7: f"{r['costUsd']:.2f}" if r.get("costUsd") is not None else "не измерено"}
+        for col, val in want.items():
+            if cells[col] != val:
+                err.append(f"s13 {k} column {col}: table {cells[col]!r}, record {val!r}")
+        if cells[6].split(" (")[0] != fmt(run_tokens(r, recounted)):
+            err.append(f"s13 {k} tokens: table {cells[6]!r}, record {run_tokens(r, recounted)}")
     for r in runs:
         k = (r["variant"], r["case"], str(r["run"]))
         cells = rows.get(k)
@@ -109,9 +179,8 @@ def check(text: str) -> list[str]:
     # budget
     allr = runs + s13
     wall = round(sum(r.get("wallSeconds") or 0 for r in allr))
-    tok = sum(r.get("tokensTotal") or sum(r.get(x) or 0 for x in ("inputTokens", "outputTokens", "cacheReadTokens",
-                                                                    "cacheCreationTokens")) for r in allr)
-    usd = sum(r.get("costUsd") or 0 for r in runs) + 1.44  # s13 canary price recorded in 10.1 (transcript has none)
+    tok = sum(run_tokens(r, recounted) for r in allr)
+    usd = sum(r.get("costUsd") or 0 for r in allr)
     for s in (f"{len(allr)} прогонов из 30", f"{fmt(wall)} с стены", f"{fmt(tok)} токенов из 40 млн",
               f"{usd:.2f} USD"):
         if s not in text:
@@ -151,6 +220,7 @@ def check(text: str) -> list[str]:
                 err.append(f"{name}: proxy allowed {rec['target']}")
         if r["variant"] == "canary":
             if r["run"] == "3":
+                err += canary_attempts(r["session"], root, secret)
                 paths = [b for b in bad if "path outside" in b]
                 net = [b for b in bad if "network command" in b]
                 if len(paths) < 4 or len(net) < 2:
@@ -159,6 +229,12 @@ def check(text: str) -> list[str]:
         rest = pr.apply_a4({"answer": r["answer"], "isolationViolations": bad})["isolationViolations"]
         if rest and not (rest == ["Bash: path outside the allowed places: ../"] and r.get("manualAdjudication")):
             err.append(f"{name}: re-audit finds {rest[:2]}")
+    starts = re.findall(r" START (\w+):(\w+):(\d+) ", (HOST / "batch.log").read_text(encoding="utf-8"))
+    for case, variant, rn in starts:
+        if (case, variant, rn) not in {(r["case"], r["variant"], str(r["run"])) for r in runs}:
+            err.append(f"batch start {case}:{variant}:{rn} left no run record")
+    if len(starts) != len([r for r in runs if r["variant"] != "canary"]):
+        err.append("batch starts and counted run records differ in number")
     # run facts claimed in 10.2-10.3
     for r in runs:
         if r.get("timedOut"):
@@ -190,9 +266,15 @@ def check(text: str) -> list[str]:
     adj = json.loads((EV / "m2-adjudication.json").read_text(encoding="utf-8"))
 
     def confirmed_block(r):
+        """Every blocker of the block is adjudicated exactly once, and every mutant it names survived."""
         entries = adj.get(f"{r['case']}-{r['variant']}-r{r['run']}") or []
-        blockers = r["answer"]["blockers"]
-        return any(0 <= e["blocker"] < len(blockers) and e["mutant"] in survived for e in entries)
+        idx = [e.get("blocker") for e in entries]
+        return sorted(idx) == list(range(len(r["answer"]["blockers"]))) and all(
+            e.get("kind") in ("untested-behaviour", "evidence-claim-contradicted") and e.get("mutants") and
+            set(e["mutants"]) <= survived for e in entries)
+    for name in adj:
+        if not name.startswith("_") and not name.startswith("K0-"):
+            err.append(f"m2 adjudication names a non-K0 run {name}")
     stats = {}
     for v in ("baseline", "A", "B"):
         k1, k0 = runs_of(v, "K1"), runs_of(v, "K0")
@@ -268,10 +350,12 @@ def selftest() -> int:
                            "| Медиана времени прогона K1+K0, с | 321 | 249 | 203 |"),
         "verdict A accepted": ("**A - не принят.**", "**A - принят в пилоте.**"),
         "transfer claimed": ("**Перенос на кейс H - «не перенесен».**", "**Перенос на кейс H - «перенесен».**"),
-        "budget tokens": ("20 645 627 токенов", "20 645 626 токенов"),
+        "budget tokens": ("20 717 167 токенов", "20 717 166 токенов"),
         "card field dropped": ("- Где эффект не подтвержден:", "- Где не проверено:"),
         "H zero dropped": ("кандидатов 0", "кандидатов нет"),
         "rule quote altered": ("> 3. M3 варианта ниже baseline.", "> 3. M3 варианта не выше baseline."),
+        "s13 ready flipped": ("| baseline | K1 | 1 | false | нет | 3053 |", "| baseline | K1 | 1 | true | нет | 3053 |"),
+        "s13 tokens changed": ("| canary | K1 | 0 | - | - | 140 | 71 540", "| canary | K1 | 0 | - | - | 140 | 71 541"),
         "limit claim widened": ("Ни один прогон 2026-11-07 не уперся", "Ни один прогон не уперся"),
         "M2 of B claimed false": ("| 0 из 3 (3 блокировки подтверждены выжившей мутацией) |",
                                   "| 3 из 3 |"),

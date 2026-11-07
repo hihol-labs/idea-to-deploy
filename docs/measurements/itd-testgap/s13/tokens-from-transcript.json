@@ -1,0 +1,4 @@
+{
+ "_note": "Tokens of session 13 runs whose record has no token fields, recounted from the run transcript (sum of input, output, cache read and cache creation tokens over distinct assistant messages). pilot_check.py recounts them from the transcript in the host evidence.",
+ "f6a13d99-3ab8-47d3-80f9-7a9d4123008f": 71540
+}
