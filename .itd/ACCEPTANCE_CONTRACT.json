@@ -6987,6 +6987,66 @@
           "state"
         ]
       }
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC1",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "passed",
+      "criterion": "reconcile_goal_with_events treats the parseable 'at' of the first non-blank line of events.jsonl, read from the file head, as the journal horizon (a first line that is not newline-terminated or at EOF within 64 KB, is not a JSON object or has no parseable 'at' leaves the horizon unknown; a later line is never taken): a verified goal unit with no unit event in the whole journal (the journal fits the tail window and was read without an error) and a parseable verifiedAt strictly before the horizon yields no warning; a unit inside the horizon, a unit without a parseable verifiedAt (an overflowing stamp included, never a crash), a unit whose last event is not terminal, any unit when the horizon is unknown and any unit when the journal was read only as a tail still warn; an open unit with a terminal last event stays an error; a missing or empty events.jsonl stays silent; reconcile_with_events (STATE) is unchanged; above three warnings the first one names how many more are not listed.",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "tests/verify_state_hardening.py 124 passed, 0 failed (WSL): 22 LEDGER-HORIZON-1 scenarios - pre-horizon unit silent; after and exactly at the horizon, no and unparseable verifiedAt, a pre-horizon unit with a non-terminal event warn; the contradiction is an error; a first record without 'at', corrupt, not an object, or longer than the 64 KB head budget leaves the horizon unknown; blank leading lines are skipped; a single record at EOF sets the horizon; empty and missing events.jsonl are silent; on a journal above the tail window the horizon is the head and no absence is excused (incl. a pre-horizon unit whose activated event lies outside the tail); overflowing verifiedAt and journal 'at' warn without a crash; the hidden-count suffix and its absence at exactly 3 - plus the repository's GOAL-2026-09-20.json without warnings. 10 mutants killed (horizon check removed, exemption on a tail-only read, excuse with a non-terminal event, missing verifiedAt excused, non-strict comparison, overflow not caught, cut head fragment accepted, non-object first record skipped, a later record moves the horizon, suffix dropped). The same file on f8763a5: 11 failed; on the reviewed candidate 5b6c171: 10 failed (the three review a1 findings). reconcile_with_events is unchanged.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_state_hardening.py",
+      "reviewEvidence": {
+        "claim": "Only an absence older than the first journal record is excused; every other absence still warns and a contradiction still fails.",
+        "impactClasses": [
+          "correctness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "unit-state-hardening"
+        ]
+      }
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC2",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "passed",
+      "criterion": "The repository ledgers validate with no PE5/HDX warning for GOAL-2026-09-20.json; the live-model evidence is re-recorded on the candidate pin and replays green; the full suite is green on WSL and windows-verify on native Windows has no red beyond clean main f8763a5; the installed hook is not changed (rollout is REL-1.110.6).",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "scripts/validate_state.py over the repository ledgers with the patched validator: 0 warnings for GOAL-2026-09-20.json (36 before). Live-model evidence re-recorded on the candidate pin after review a1: Codex run 20261106T213552Z-bc75dc8b PASS (the run before it, 20261106T204340Z-fail-36bf9f50, failed in the devils-advocate phase on a Codex backend 403 - transport - and is kept), verify_live_model_benchmark --require-evidence 154 passed, 0 failed. WSL full suite: the full-suite leg of the committed-head machine receipt of this candidate (machines a2 on 796e6bb and a3 on 5b6c171 PASSED 7/7). Native Windows (Python 3.12, 49 windows-verify steps plus 6 unit oracles, clone at 6a3e46f, .itd-memory/host-inputs/LEDGER-HORIZON-1/windows-cand-a2.txt): 46 of 55 green - verify_state_hardening 122/0 (2 POSIX-lock checks are POSIX-only; all LEDGER-HORIZON-1 checks pass), verify_ledger_reconciliation 96/0, verify_closure_delta, verify_otk_failed_attempt 17/0, verify_goal_tools 83/0; the 9 reds (verify_adjudication_channel, verify_retro_scan, verify_session_hygiene_quality, verify_operational_cold_start, verify_routing, verify_continuity, verify_strict_route, verify_task_adopt_route - charmap, symlink right, launcher not found - and verify_live_model_benchmark 'Windows Codex bridge receives a native Windows -C path') are the same with the same errors on clean main f8763a5 in the same shell (windows-base.txt) - host environment. The installed hook is not changed.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_live_model_benchmark.py --require-evidence --max-age-days 30",
+      "reviewEvidence": {
+        "claim": "The archived goal stops warning, the pinned evidence replays on the candidate, and both hosts are green apart from a red that clean main shares.",
+        "impactClasses": [
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "live-evidence",
+          "full"
+        ]
+      }
+    },
+    {
+      "id": "LEDGER-HORIZON-1-AC3",
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "passed",
+      "criterion": "The ledger records ITD-PLAN-S13 as verified by the ADR-016 closure convention, the session 13 post-candidate records are in .itd/DECISIONS.md, CHANGELOG Unreleased describes the fix, and the state file validates.",
+      "source": "Owner 2026-11-06 LEDGER-HORIZON-1 request and rule approval (\"Да, по плану\"); .itd-memory/continuity/ledger-horizon.md.",
+      "evidence": "itd_unit_log.py verified ITD-PLAN-S13 (2026-11-06T15:21Z) after the tree check 35cd85e4 = reviewedTree of its a4 receipt and CI on main f8763a5 (meta-review, windows-verify success); its post-candidate records and the LEDGER-HORIZON-1 decisions are in .itd/DECISIONS.md; CHANGELOG Unreleased has the Fixed entry; scripts/validate_state.py .itd-memory/STATE.json - OK; the machine state leg exit 0.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json",
+      "reviewEvidence": {
+        "claim": "The ITD-PLAN-S13 closure and the session records match their sources and the state file validates.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "state",
+          "meta-review"
+        ]
+      }
     }
   ],
   "completion": {
@@ -7005,16 +7065,17 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "ITD-PLAN-S13",
+    "unitId": "LEDGER-HORIZON-1",
     "status": "in_progress",
     "openedAt": "2026-11-06",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-06 (session 13 of the ADR-016 program plan, plan approved \"Согласен\"): a probe instead of repeating the session 2 measurement with a before/after table of the plan section 2 metrics, a 30-day journal template in the lesson format, one Harness2 pilot on an owner-chosen failure class with a protocol fixed before the first run and a budget set after the first baseline run, the owner decision on sessions 14-16, and the REL-1.110.5 verified record. Documents only; no new mandatory check (ADR-012 item 5). Publication only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-06 (\"Правка валидатора, новой сессией\"; rule and plan approved \"Да, по плану\"): the ledger hook stops warning about verified units of the archived goal GOAL-2026-09-20.json that were closed before the first record of events.jsonl, by a validator fix, not by appending events (owner decision 2026-09-20: accepted evidence is immutable); a unit without verifiedAt keeps warning; STATE reconciliation unchanged; the same PR carries the ITD-PLAN-S13 verified record and the session 13 post-candidate records. Publication only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "medium",
+      "riskTier": "high",
       "requiredImpactClasses": [
         "correctness",
+        "host-parity",
         "repository-hygiene",
         "compatibility"
       ],
@@ -8213,6 +8274,27 @@
       },
       "closedAt": "2026-11-06",
       "closureEvidence": "PR #391 merged to main 10f970c (v1.110.5), review a10 PASSED; rollout: runtime 1.110.5-23a8eadd4ffd5675 on WSL and Windows, runtime_digest.py 51 files ba6487a3338b8f04d9a7f63bb3b6ba6d8b89dbdd1c5de008c0a963b49f571eca on both hosts; runbook step 7a: scripts/itd_codex_hook_trust.py exit 0 on WSL and natively on Windows (2026-11-06T08:22Z), three traced Windows turns of 2026-11-05 with blocked 1 and timed out 0 in each; itd_unit_log.py verified REL-1.110.5 (2026-11-06T08:24Z); recorded in the ITD-PLAN-S13 candidate (plan rule 5)."
+    },
+    {
+      "unitId": "ITD-PLAN-S13",
+      "status": "closed",
+      "openedAt": "2026-11-06",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-06 (session 13 of the ADR-016 program plan, plan approved \"Согласен\"): a probe instead of repeating the session 2 measurement with a before/after table of the plan section 2 metrics, a 30-day journal template in the lesson format, one Harness2 pilot on an owner-chosen failure class with a protocol fixed before the first run and a budget set after the first baseline run, the owner decision on sessions 14-16, and the REL-1.110.5 verified record. Documents only; no new mandatory check (ADR-012 item 5). Publication only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-06",
+      "closureEvidence": "PR #392 squash-merged to main f8763a5; tree 35cd85e4 = candidate.reviewedTree of ITD-PLAN-S13-canonical-a4-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 eec16450b1735ee01541a09af6a3112d5b553d8e3da2c014815bb4d350cf8a42, machine a4 PASSED 6/6); CI on main f8763a5: meta-review and windows-verify success; itd_unit_log.py verified ITD-PLAN-S13 (2026-11-06T15:21Z); closed by the ADR-016 closure convention in the LEDGER-HORIZON-1 candidate (plan rule 5)."
     }
   ]
 }
