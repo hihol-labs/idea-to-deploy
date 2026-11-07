@@ -24,7 +24,8 @@ The tools carry the host paths of the pilot run (`/home/hihol/...`); they docume
 meant to run elsewhere without editing those paths. Run transcripts and proxy logs stay on the host.
 
 Versions. `batch.py` here reserves the worst case of every running run for runs and wall time (tokens: an estimate
-from the largest recorded run), refuses duplicate or already recorded items and accounts for runner failures (review a3 of ITD-PILOT-TESTGAP); the pilot ran an earlier version without the reservation. In the pilot
+from the largest recorded run), refuses duplicate or already recorded items and accounts for runner failures (a runner that fails without a
+record leaves a persisted worst-case `runs/charge-*.json`) (review a3 of ITD-PILOT-TESTGAP); the pilot ran an earlier version without the reservation. In the pilot
 every started run left a record (`pilot_check.py` checks each START of the batch log) and the ceilings stayed far
 (26 of 30 runs, 2 h 44 min of 8 h, 20.7 of 40 million tokens). `pilot_run.py` writes `tmpPaths` for every variant;
 the canary runs of the pilot ran before amendment 4 introduced the field.

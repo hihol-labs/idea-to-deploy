@@ -239,8 +239,9 @@ def check(text: str) -> list[str]:
                 err.append(f"{k} column {col}: table {cells[col]!r}, evidence {val!r}")
         if not canary and not r["valid"]:
             err.append(f"{k} is not valid in its record")
-    # budget
-    allr = runs + s13
+    # budget (persisted charges of runners that failed without a record count too)
+    charges = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((EV / "runs").glob("charge-*.json"))]
+    allr = runs + s13 + charges
     wall = round(sum(r.get("wallSeconds") or 0 for r in allr))
     tok = sum(run_tokens(r, recounted) for r in allr)
     usd = sum(r.get("costUsd") or 0 for r in allr)
@@ -256,12 +257,25 @@ def check(text: str) -> list[str]:
             err.append(f"sha256 of {name} not in the protocol")
     by_name = {(r["case"], r["variant"], str(r["run"])): r for r in runs}
     for lid, c in key.items():
-        r = by_name[(c["case"], c["variant"], str(c["run"]))]
-        blockers = (r.get("answer") or {}).get("blockers") or []
-        if not 0 <= c["blocker"] < len(blockers) or blockers[c["blocker"]].get("problem") != c["problem"]:
+        r = by_name.get((c["case"], c["variant"], str(c["run"])))
+        blockers = ((r or {}).get("answer") or {}).get("blockers") or []
+        if not 0 <= c["blocker"] < len(blockers) or blockers[c["blocker"]].get("problem") != c["problem"] or \
+                blockers[c["blocker"]].get("file") != c["file"]:
             err.append(f"blind key {lid} does not match its run record")
     sys.argv = ["blind.py"]
     import blind
+    cases_table = section(text, "## 3. Кейсы", "## 4.")
+    for case, ref in blind.REFERENCE.items():
+        if not any(line.startswith(f"| {case} ") and f"| {ref} |" in line for line in cases_table.splitlines()):
+            err.append(f"blind reference of {case} differs from the section 3 table")
+    entries = re.findall(r"^## (\w+)\n- Эталон: (.*)\n- Блокер: `(.*?)` - (.*)$",
+                         (EV / "blind-list.md").read_text(encoding="utf-8"), re.M)
+    if {e[0] for e in entries} != set(key) or len(entries) != len(key):
+        err.append("blind list lines are not exactly the key lines")
+    for lid, ref, file, problem in entries:
+        c = key.get(lid) or {}
+        if (ref, file, problem) != (blind.REFERENCE.get(c.get("case")), c.get("file"), c.get("problem")):
+            err.append(f"blind list line {lid} differs from its key entry")
     cands = {(c["case"], c["variant"], str(c["run"]), c["blocker"]) for c in blind.candidates()}
     keyset = {(c["case"], c["variant"], str(c["run"]), c["blocker"]) for c in key.values()}
     h_cands = {c for c in cands if c[0] == "H"}
@@ -297,6 +311,8 @@ def check(text: str) -> list[str]:
             err.append(f"{name}: answer, tokens or models differ from the transcript")
         if pr.answer_problem(r["answer"]) or r.get("exit") != 0:
             err.append(f"{name}: malformed answer or non-zero exit")
+        if r.get("score") != pr.score(r["case"], r["answer"]):
+            err.append(f"{name}: score differs from the score of its answer")
         rest = pr.apply_a4({"answer": r["answer"], "isolationViolations": bad, "exit": 0})["isolationViolations"]
         if rest and not (rest == ["Bash: path outside the allowed places: ../"] and r.get("manualAdjudication")):
             err.append(f"{name}: re-audit finds {rest[:2]}")
@@ -343,17 +359,23 @@ def check(text: str) -> list[str]:
         return sorted(idx) == list(range(len(r["answer"]["blockers"]))) and all(
             e.get("kind") in ("untested-behaviour", "evidence-claim-contradicted") and e.get("mutants") and
             set(e["mutants"]) <= survived for e in entries)
+    k0_blocks = {f"{r['case']}-{r['variant']}-r{r['run']}": r for r in runs
+                 if r["case"] == "K0" and r["variant"] != "canary" and r["answer"]["ready"] is False}
     for name in adj:
-        if not name.startswith("_") and not name.startswith("K0-"):
-            err.append(f"m2 adjudication names a non-K0 run {name}")
+        if not name.startswith("_") and name not in k0_blocks:
+            err.append(f"m2 adjudication names a run that is not a K0 block: {name}")
+    for name, r in k0_blocks.items():
+        if not confirmed_block(r):
+            err.append(f"m2 adjudication of {name} is missing, incomplete, duplicated, out of range or names a "
+                       f"mutant that did not survive")
     stats = {}
     for v in ("baseline", "A", "B"):
         k1, k0 = runs_of(v, "K1"), runs_of(v, "K0")
         m1 = sum((r["case"], v, str(r["run"])) in hits for r in k1)
-        blocks = [r for r in k0 if r["score"]["ready"] is False]
+        blocks = [r for r in k0 if r["answer"]["ready"] is False]
         confirmed = [r for r in blocks if confirmed_block(r)]
         m2 = len(blocks) - len(confirmed)
-        m3 = sum(r["score"]["ready"] is True for r in k1)
+        m3 = sum(r["answer"]["ready"] is True for r in k1)
         both = k1 + k0
         stats[v] = (m1, m2, m3, round(statistics.median(r["wallSeconds"] for r in both)),
                     round(statistics.median(r["tokensTotal"] for r in both) / 1000))
@@ -441,25 +463,45 @@ def selftest() -> int:
         caught = bool(check(text.replace(a, b, 1)))
         print(f"MUTANT {name}: {'killed' if caught else 'SURVIVED'}")
         failed += not caught
-    # record and table changed together: the transcript must still refute it
+    # record and table changed together: the transcripts and the cross-checks must still refute it
     global load
     real_load = load
 
-    def tampered(d):
-        rs = real_load(d)
-        for r in rs:
-            if (r["case"], r["variant"], str(r["run"])) == ("K1", "B", "1"):
-                r["answer"] = {"ready": True, "blockers": []}
-                r["score"] = {"ready": True, "hit": False, "blockers": 0}
-        return rs
-    load = tampered
-    try:
-        caught = bool(check(text.replace("| B | K1 | 1 | false | да | 227 |", "| B | K1 | 1 | true | да | 227 |", 1)))
-    finally:
-        load = real_load
-    print(f"MUTANT record and table changed together: {'killed' if caught else 'SURVIVED'}")
-    failed += not caught
-    print(f"selftest: {len(mutants) + 1 - failed} of {len(mutants) + 1} killed")
+    def forge_answer(r):
+        r["answer"] = {"ready": True, "blockers": []}
+        r["score"] = {"ready": True, "hit": False, "blockers": 0}
+
+    def forge_score(r):
+        r["score"] = dict(r["score"], ready=True)
+
+    def forge_blocker_file(r):
+        r["answer"]["blockers"][0]["file"] = "tests/other.py"
+
+    record_mutants = [
+        ("record answer and table", ("K1", "B", "1"), forge_answer,
+         ("| B | K1 | 1 | false | да | 227 |", "| B | K1 | 1 | true | да | 227 |")),
+        ("score.ready forged with table", ("K0", "B", "1"), forge_score,
+         ("| B | K0 | 1 | false | - | 195 |", "| B | K0 | 1 | true | - | 195 |")),
+        ("blocker file forged", ("K1", "B", "1"), forge_blocker_file, ("", "")),
+    ]
+    for label, target, mutate, (a, b) in record_mutants:
+        def tampered(d, target=target, mutate=mutate):
+            rs = real_load(d)
+            for r in rs:
+                if (r["case"], r["variant"], str(r["run"])) == target:
+                    mutate(r)
+            return rs
+        load = tampered
+        try:
+            caught = bool(check(text.replace(a, b, 1) if a else text))
+        except Exception:  # noqa: BLE001 - a crash also refuses the forged evidence
+            caught = True
+        finally:
+            load = real_load
+        print(f"MUTANT {label}: {'killed' if caught else 'SURVIVED'}")
+        failed += not caught
+    total = len(mutants) + len(record_mutants)
+    print(f"selftest: {total - failed} of {total} killed")
     return 1 if failed else 0
 
 

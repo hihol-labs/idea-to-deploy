@@ -17,9 +17,10 @@ MAX_RUNS, MAX_WALL, MAX_TOKENS, PAR, LIMIT = 30, 8 * 3600, 40_000_000, 3, 1500
 
 
 def records():
+    """Run records plus persisted charges of runners that failed without a record (worst case per failure)."""
     out = []
     for d in (S13, HERE / "runs"):
-        for p in sorted(d.glob("run-*.json")):
+        for p in sorted(d.glob("run-*.json")) + sorted(d.glob("charge-*.json")):
             out.append(json.loads(p.read_text(encoding="utf-8")))
     return out
 
@@ -50,8 +51,8 @@ def main(items):
     failed: list = []
     queue = list(items)
     bad = sorted({it for it in queue if queue.count(it) > 1}) + [
-        it for it in queue if len(it.split(":")) != 3 or (HERE / "runs" / "run-{}-{}-r{}.json".format(*it.split(":")))
-        .exists()]
+        it for it in queue if len(it.split(":")) != 3 or any(
+            (HERE / "runs" / f"{kind}-{{}}-{{}}-r{{}}.json".format(*it.split(":"))).exists() for kind in ("run", "charge"))]
     if bad:
         print(f"refused: duplicate, malformed or already recorded items {bad}", file=sys.stderr)
         return 2
@@ -73,14 +74,16 @@ def main(items):
             if rc != 0 or not has_record:
                 failed.append(it)
                 log.write(f"{stamp()} FAIL {it} rc={rc} record={has_record}\n")
+                if not has_record:  # persist the worst-case charge so later invocations still count it
+                    worst = max([tokens(r) for r in records()] or [0])
+                    (HERE / "runs" / f"charge-{case}-{variant}-r{rn}.json").write_text(json.dumps(
+                        {"case": case, "variant": variant, "run": rn, "charge": "runner failed without a record",
+                         "wallSeconds": LIMIT, "tokensTotal": worst}) + "\n", encoding="utf-8")
             log.flush()
         running = still
         if queue and len(running) < PAR:
-            n, wall, tok = totals()
+            n, wall, tok = totals()  # includes the persisted charges of earlier failures
             worst_tok = max([tokens(r) for r in records()] or [0])
-            lost = sum(1 for it in failed
-                       if not (HERE / "runs" / f"run-{'-'.join(it.split(':')[:2])}-r{it.split(':')[2]}.json").exists())
-            n, wall, tok = n + lost, wall + lost * LIMIT, tok + lost * worst_tok
             k = len(running) + 1
             if n + k > MAX_RUNS or wall + k * LIMIT > MAX_WALL or tok + k * worst_tok > MAX_TOKENS:
                 log.write(f"{stamp()} STOP ceiling runs={n}+{k} wall={wall:.0f}+{k}x{LIMIT} "
