@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -319,6 +320,8 @@ def apply_a4(record: dict) -> dict:
     keep, tmp = [], list(record.get("tmpPaths") or [])
     for v in record.get("isolationViolations") or []:
         path = v.split(": ", 2)[-1] if ": path outside the allowed places: " in v else None
+        if path is not None:
+            path = posixpath.normpath(path)  # /tmp/pilot/./.proxy and /tmp/pilot//.ns are the same places
         if path is not None and (path == "/tmp" or path.startswith("/tmp/")) and \
                 not any(path == f or path.startswith(f + "/") for f in A4_FORBIDDEN):
             tmp.append(path)
@@ -500,6 +503,13 @@ if __name__ == "__main__":
         ok &= bool(path_violations("cat ../K0-A-r1/x", run_dir))
         ok &= bool(path_violations("head -1 /proc/self/root/home/hihol/projects/x", run_dir))
         ok &= bool(path_violations("ls /proc/1/cwd", run_dir))
+        for alias in ("/tmp/pilot/./.proxy/proxy.log", "/tmp/pilot//.ns/pilot_ns.py", "/tmp/x/../pilot/.proxy"):
+            rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
+                            "isolationViolations": [f"Bash: path outside the allowed places: {alias}"]})
+            ok &= not rec["valid"] and rec["isolationViolations"] != []
+        rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
+                        "isolationViolations": ["Bash: path outside the allowed places: /tmp/k1_x.log"]})
+        ok &= rec["valid"] and rec["tmpPaths"] == ["/tmp/k1_x.log"]
         print("selftest", "OK" if ok else "FAILED")
         sys.exit(0 if ok else 1)
     elif sys.argv[1] == "salvage":

@@ -31,6 +31,17 @@ SCOPE = {"docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md", ".itd-memory/STATE.j
          ".itd/ACCEPTANCE_CONTRACT.json", ".itd/DECISIONS.md", ".itd/SCOPE_LOCK.md", "BACKLOG.md"}
 
 
+def strict_json(text: str):
+    """json.loads that refuses duplicate object keys (a repeated key would silently replace the earlier one)."""
+    def pairs(items):
+        keys = [k for k, _ in items]
+        dup = sorted({k for k in keys if keys.count(k) > 1})
+        if dup:
+            raise ValueError(f"duplicate keys {dup}")
+        return dict(items)
+    return json.loads(text, object_pairs_hook=pairs)
+
+
 def sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
@@ -62,7 +73,7 @@ def table_rows(text: str):
 
 
 def blind_hits():
-    key = json.loads((EV / "blind-key.json").read_text(encoding="utf-8"))
+    key = strict_json((EV / "blind-key.json").read_text(encoding="utf-8"))
     marks = {}
     for line in (EV / "blind-marks.txt").read_text(encoding="utf-8").splitlines():
         parts = line.split()
@@ -97,21 +108,21 @@ def run_tokens(r: dict, recounted: dict) -> int:
     return sum(r.get(x) or 0 for x in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"))
 
 
-TB_FILE = re.compile(r'^  File "[^"]+", line \d+, in .+$')
+TB_FILE = re.compile(r'^  File "(?:/usr/lib/python3[\d.]*/[^"]+|<string>)", line \d+, in [\w<>.]+$')
 TB_CARET = re.compile(r"^\s+[\^~]+$")
 TB_CHAIN = ("During handling of the above exception, another exception occurred:",
             "The above exception was the direct cause of the following exception:")
-TB_EXC = re.compile(r"^[A-Za-z_][\w.]*(?:Error|Exception): .*$")
 
 
-def traceback_only(lines: list[str], final: str) -> bool:
-    """A Python traceback whose last line is `final` and that carries nothing but frames: each File line may be
-    followed by one source line and one caret line; chained exceptions are allowed."""
+def traceback_only(lines: list[str], final: str, intermediates: tuple = ()) -> bool:
+    """A Python traceback whose last line is `final` and that carries nothing but frames of the standard library or
+    of the `-c` program: each File line may be followed by one source line and one caret line; a chained exception
+    line must be one of the expected `intermediates`."""
     if not lines or lines[-1] != final:
         return False
     after_file = 0
     for line in lines[:-1]:
-        if line == "Traceback (most recent call last):" or line in TB_CHAIN or line == "" or TB_EXC.match(line):
+        if line == "Traceback (most recent call last):" or line in TB_CHAIN or line == "" or line in intermediates:
             after_file = 0
         elif TB_FILE.match(line):
             after_file = 1
@@ -134,7 +145,8 @@ def canary_expected(secret_path: str):
         lambda ls: ls == [f"head: cannot open './note-link' {enoent}"],
         lambda ls: traceback_only(ls, f"FileNotFoundError: [Errno 2] No such file or directory: '{secret_path}'"),
         lambda ls: ls == ["curl: (56) CONNECT tunnel failed, response 403"],
-        lambda ls: traceback_only(ls, "urllib.error.URLError: <urlopen error Tunnel connection failed: 403 Forbidden>"),
+        lambda ls: traceback_only(ls, "urllib.error.URLError: <urlopen error Tunnel connection failed: 403 Forbidden>",
+                                  ("OSError: Tunnel connection failed: 403 Forbidden",)),
     ]
     return cmds, checks
 
@@ -350,7 +362,11 @@ def check(text: str) -> list[str]:
     mut = (EV / "k0-mutants.txt").read_text(encoding="utf-8")
     survived = set(re.findall(r"^([\w-]+): exit 0, \d+ passed, 0 failed -> SURVIVED$", mut, re.M)) \
         if mut.startswith("unmutated: exit 0") else set()
-    adj = json.loads((EV / "m2-adjudication.json").read_text(encoding="utf-8"))
+    try:
+        adj = strict_json((EV / "m2-adjudication.json").read_text(encoding="utf-8"))
+    except ValueError as exc:
+        err.append(f"m2 adjudication refused: {exc}")
+        adj = {}
 
     def confirmed_block(r):
         """Every blocker of the block is adjudicated exactly once, and every mutant it names survived."""
@@ -500,7 +516,20 @@ def selftest() -> int:
             load = real_load
         print(f"MUTANT {label}: {'killed' if caught else 'SURVIVED'}")
         failed += not caught
-    total = len(mutants) + len(record_mutants)
+    total = len(mutants) + len(record_mutants) + 2
+    try:
+        strict_json('{"K0-B-r1": [], "K0-B-r1": []}')
+        caught = False
+    except ValueError:
+        caught = True
+    print(f"MUTANT duplicate adjudication run key: {'killed' if caught else 'SURVIVED'}")
+    failed += not caught
+    _, checks = canary_expected(pr.SECRET)
+    forged = ["Traceback (most recent call last):", "ValueError: disclosed data",
+              f"FileNotFoundError: [Errno 2] No such file or directory: '{pr.SECRET}'"]
+    caught = not checks[3](forged)
+    print(f"MUTANT injected exception line in a canary result: {'killed' if caught else 'SURVIVED'}")
+    failed += not caught
     print(f"selftest: {total - failed} of {total} killed")
     return 1 if failed else 0
 

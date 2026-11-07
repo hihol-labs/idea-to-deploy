@@ -46,7 +46,8 @@ def main(items):
     worst case (the run limit). Tokens have no per-run limit in the CLI (only --max-budget-usd), so the token check is
     an estimate: the largest recorded run per running and new run. A finished runner without a record, or with a
     non-zero exit, is logged FAIL and counted as one run at the worst case. Duplicate items and items that already
-    have a record are refused before anything starts. Exit 0 only when every item ran and none failed."""
+    have a record are refused before anything starts. Exit 0 only when every item ran, none failed and the final
+    totals stay within every ceiling."""
     running: list = []
     failed: list = []
     queue = list(items)
@@ -104,8 +105,10 @@ def main(items):
             continue
         time.sleep(10)
     n, wall, tok = totals()
-    log.write(f"{stamp()} DONE runs={n} wall={wall:.0f} tokens={tok} failed={failed} stopped={stopped}\n")
-    return 1 if failed or stopped else 0
+    exceeded = n > MAX_RUNS or wall > MAX_WALL or tok > MAX_TOKENS  # the token reservation is only an estimate
+    log.write(f"{stamp()} DONE runs={n} wall={wall:.0f} tokens={tok} failed={failed} stopped={stopped} "
+              f"exceeded={exceeded}\n")
+    return 1 if failed or stopped or exceeded else 0
 
 
 if __name__ == "__main__":
