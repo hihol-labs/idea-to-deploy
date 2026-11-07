@@ -8001,3 +8001,105 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
   меняет поставляемый код); публикация и раскатка - по отдельному подтверждению; раскатка по шагу 7a; приемка на
   установленном хуке - а) правка леджера без предупреждений о PE5/HDX, б) свежий verified-юнит без события во
   временном каталоге - предупреждение есть. reviewedAt доков не меняется (окно свежести 2026-10-31 + 30 дней).
+
+## 2026-11-07 - REL-1.110.6: машина a3 PASSED, ревью sol a5 на f73b515 PASSED
+
+- Кандидат f73b515 (дерево 9b299d1e): 6f34c5a (зеркала, CHANGELOG, закрытие LEDGER-HORIZON-1, AC1) -> 1ae189e (живой
+  прогон 20261107T092444Z-075a6d77, Codex CLI напрямую с WSL; реплей 154 passed / 0 failed) -> f73b515 (строка подписи
+  владельца под дельтой закрытия и AC2).
+- Первая пара `itd_unit_log.py verified/activate` в одну секунду дала два события с одним id; незакоммиченные записи
+  откачены и повторены с паузой (записано в разделе закрытия DECISIONS кандидата).
+- Windows на f73b515 (`C:\itd-src\rel6-win.sh`): 42 из 51 зеленые; 9 красных (adjudication_channel, retro_scan,
+  session_hygiene_quality, operational_cold_start, routing, continuity, strict_route, task_adopt_route,
+  live_model_benchmark - мост Codex) красные и на чистом 89d40e7 с той же причиной (`rel6-base.sh`). Два пустых
+  повтора базы сохранены как `windows-base-void1-typo.txt` (опечатка в SHA) и `windows-base-void2-sed.txt` (sed не
+  разбирал строки с байтами cp866; исправлено `LC_ALL=C`).
+- Машина a1 (ноги meta-review, docs-freshness, impact-graph, state, release-mirrors, live, full; вход - только
+  windows-final.txt) PASSED 7/7 (503cd68f...). Ревью a1, a2, a3 напрямую с WSL - без вердикта (таймауты потока
+  событий OpenAI: `request timed out`, `workspace routing discovery timed out`). Ревью a4 через временный прокси
+  `C:\itd-src\cag-proxy.py` (подтверждение владельца «Да, через прокси»; только хосты OpenAI, 172.25.192.1:18080) -
+  BLOCKED, одна high (дважды): AC2 называл оба лога Windows входами машины и сравнение подмножеством, а машина a1
+  объявляла только windows-final.txt и сравнения не проверяла ни одна нога. Исправлено без смены коммита: вход -
+  каталог `.itd-memory/host-inputs/REL-1.110.6` целиком, нога `windows-parity` (`windows_parity.py`: заголовок финала
+  называет HEAD, дерево HEAD = исполняемое, оба лога полные, каждый красный финала красный на 89d40e7 с тем же
+  PYTHONUTF8); три мутанта убиты (убран красный базы, новый красный финала, неполный финал).
+- Машина a2 - FAILED на ноге `full` (exit 1; вывод квитанция не хранит). Повтор ноги в тех же условиях (изолированный
+  клон дерева, те же входы, переменные прокси) - `run-all.sh` exit 0; красный не воспроизвелся. Машина a3 той же
+  конфигурации - PASSED 8/8 (f3caaa8d...).
+- Ревью a5 (gpt-6.1-sol через тот же прокси) - PASSED, 0 находок; `candidate.reviewedTree` = дерево HEAD 9b299d1e;
+  квитанция `REL-1.110.6-canonical-a5-adjudication.json`, receiptSha256
+  e4492978a10cc4faea1893b8e2846a57f9b4556d7db2f9bc7b612a6c983b9969; `check --require-mandatory-route` - exit 0.
+- Урок: заявление критерия о привязке входа машины сверять со списком `--input` и ног скрипта машины до запуска, а не
+  после ревью.
+
+## 2026-11-07 - REL-1.110.6: публикация, раскатка, шаг 7a и приемка
+
+- Публикация (подтверждение владельца «Да, публикуй»): реестр гейтов WSL -> квитанция a5 REL-1.110.6 (medium,
+  keyring dd4c6dea...; `itd gate doctor` без drift); PR #394 через `itd pr create` (LOCAL_REVIEWED), CI PR 2/2 на
+  f73b515; squash-merge -> main 3a770e2 (родитель 89d40e7, дерево 9b299d1e = reviewedTree a5); тег и релиз v1.110.6
+  (`gh release create --target 3a770e2ff028455da60aaca60bebefa129825989`); CI main 3a770e2 2/2.
+- Раскатка (подтверждение «Да, раскатывай»): WSL - `sync-to-active.sh`, `itd_install_cli.py`/`itd_install_git_hooks.py`
+  -> runtime 1.110.6-27883e8f269c820b; `REL-1.110.6-wsl-rollout.py` (скрипт 1.110.0, RELEASE 1.110.6) ->
+  ROLLED_OUT_NOT_ACCEPTED, бэкап `~/.local/share/itd/backups/REL-1.110.6-a1`, Codex idea-to-deploy@personal 1.110.6
+  installed/enabled; `sync-to-active.sh --check` без дрейфа. Windows - нативный клон
+  `C:\itd-src\idea-to-deploy-1.110.6` (3a770e2, autocrlf=false), `REL-1.110.6-windows-rollout.ps1` через PowerShell 7
+  (5.1 не читает кириллицу файла без BOM); две попытки остановились на предпроверке `gh release view` до изменений
+  (отдельно `gh` отвечал) - добавлены 3 повтора с паузой; третья - INSTALLED, runtime 1.110.6-27883e8f269c820b,
+  бэкап `C:\Users\Дмитрий\.codex\plugin-backups\REL-1.110.6-20261107T160844Z-2238564a`.
+- Шаг 7a: владелец переодобрил хуки (WSL 18:17:13, Windows 18:18:32 местного); `itd_codex_hook_trust.py` - exit 0 на
+  WSL и нативно на Windows (36 записей trusted, плагин 1.110.6). Живая канарейка ITD-APPROVE PASSED на WSL (через
+  временный прокси) и Windows: deny с одним хешем -> одобрение, dry-run прошел -> повтор снова deny. Три хода Windows
+  через `codex app-server` (`windows-trace-1..3.txt` здесь же): в каждом blocked 1 (EXTERNAL WRITE GATE),
+  timed out 0, failed 0, 18 hook/completed, плагин 1.110.6; самый медленный хук 14980 мс.
+- Приемка на установленном хуке: (а) синтетическое PostToolUse Bash-мутации `STATE.json` в репо - копия хука 1.110.5
+  дает 2 WARNING о PE5 из GOAL-2026-09-20.json, установленный 1.110.6 - без additionalContext; так же на Windows
+  (нативный Python, репо по UNC); ядро валидатора по архивной цели: 1.110.5 - 3 PE5, 1.110.6 - 0 PE5 и 0 HDX.
+  (б) временный каталог: FRESH-1 (verifiedAt 2026-11-07T10:00Z после горизонта 2026-11-01) - WARNING есть, OLD-1
+  (2026-10-01, до горизонта) - нет; RESULT PASSED (копия 1.110.5 предупреждает об обоих). Репозиторные леджеры не
+  менялись.
+- Инцидент: первый прогон приемки (а) запустил установленный `state-guard.sh` (Python-файл) через `bash`; шелл исполнял
+  строки докстринга. Последствие - пустой неотслеживаемый `out.txt` в корне репо (из строки `git diff ... > out.txt`);
+  леджеры, HEAD и stash не изменились (проверено `find -newermt`, `git status`).
+
+## 2026-11-07 - закрытие REL-1.110.6 по конвенции ADR-016 в кандидате ITD-PILOT-TESTGAP
+
+- Шаг 1: merge-коммит 3a770e2ff028455da60aaca60bebefa129825989, дерево 9b299d1ed99bb699e458e2ab72a92725b5a2ad84 =
+  `candidate.reviewedTree` квитанции `.itd-memory/verification-loop/REL-1.110.6-canonical-a5-adjudication.json`
+  (PASSED, receiptSha256 e4492978a10cc4faea1893b8e2846a57f9b4556d7db2f9bc7b612a6c983b9969); CI main 2/2
+  (`gh run list --commit 3a770e2`: meta-review success, windows-verify success); main получен по HTTPS, FETCH_HEAD =
+  3a770e2.
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified REL-1.110.6` (2026-11-07T16:57:03Z), затем
+  отдельным вызовом через 3 с `activate ITD-PILOT-TESTGAP` (16:57:06Z, medium); activeFollowup REL-1.110.6 перенесен
+  в closedFollowups (closedAt, closureEvidence), открыт activeFollowup ITD-PILOT-TESTGAP;
+  `scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - OK, exit 0. Записи после кандидата
+  REL-1.110.6 (два раздела выше) перенесены из `.itd-memory/host-inputs/REL-1.110.6-post/decisions-after-candidate.md`.
+- Шаг 3: подпись владельца 2026-11-07 («Подписываю») под просмотренной дельтой закрытия `git diff 3a770e2` по STATE,
+  events, ACCEPTANCE_CONTRACT, DECISIONS (164 строки, файл
+  `.itd-memory/host-inputs/REL-1.110.6-post/closure-delta.diff`, sha256
+  2e9f94297d828cf5d2fdad12680612000550d9aad92869ccf3981a67516dd949); merge 3a770e2, дерево 9b299d1e, квитанция a5
+  e4492978.... Эта строка - единственное изменение дельты закрытия после подписи; остальные изменения кандидата
+  относятся к юниту ITD-PILOT-TESTGAP.
+
+## 2026-11-07 - ITD-PILOT-TESTGAP: пилот «круг ревью потрачен на дыру в тестах» проведен; решение по сессии 16
+
+- Владелец 2026-11-07 («Да, начинай»): план, способ изоляции (пространства монтирования, сети и процессов; tmpfs
+  поверх `/mnt`, `/home`, `/tmp`; привязки только методологии и настроек Claude Code) и список хостов прокси
+  (`api.anthropic.com`, `console.anthropic.com`, `platform.claude.com`) утверждены до первого запуска. Пространство
+  процессов добавлено сверх раздела 7: без него `/proc/<pid>/root` процесса хоста открывает файловую систему хоста.
+- Канарейка: две попытки на `claude-opus-5-5` отклонил фильтр API (`[cyber]`, 0 вызовов инструментов); владелец -
+  «Канарейка на Sonnet 5.5»; на `claude-sonnet-5-5` шесть попыток без данных, проверка транскрипта назвала все шесть.
+  Засчитанные прогоны - только `claude-opus-5-5`.
+- Поправка 4 (владелец, «/tmp прогона разрешен»): внутри пространства весь `/tmp` - место (2), кроме
+  `/tmp/pilot/.proxy` и `/tmp/pilot/.ns`; применена ко всем прогонам до раскрытия вариантов. K0 baseline r3 засчитан
+  ручным разбором единственной пометки `../` (путь внутри кейса); разбор - в записи прогона и разделе 10.2.
+- Слепые отметки владельца: «да» по трем строкам (`blind-marks.txt`, sha256 384d070a...badfd4c), записаны до
+  раскрытия; все три - вариант B на K1. Ограничение: уведомления о прогонах показывали результат отбора рядом с
+  вариантом.
+- Итог по разделу 8: A не принят (M1 0 из 3); B принят в пилоте (M1 3 из 3 против 0 из 3, M2 0, M3 0 против 1, медиана
+  204 с против 60 мин); A+B не запускался; перенос B на кейс H - «не перенесен» (0 из 3). Бюджет: 26 прогонов из 30,
+  2 ч 44 мин из 8 ч, 20.6 млн токенов из 40 млн, 17.63 USD измерено. Блокировки B на K0 подтверждены тремя выжившими
+  мутантами - ревьюер круга a18 их пропустил.
+- Сессия 16 (владелец 2026-11-07, «Минимальная S16»): проводится в урезанном виде - `.itd/LESSONS.md` с карточкой
+  этого пилота первым уроком (совет перед ревью, не гейт; поля «где пробовать снова» и «где эффект не подтвержден»
+  сохраняются), без автоматизации `/retro`, не раньше конца окна журнала. Вариант B обязательным не становится:
+  только после отдельного A/B на K2, K3 и новых кейсах класса (ADR-012 п.5).

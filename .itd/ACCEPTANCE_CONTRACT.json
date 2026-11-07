@@ -7092,6 +7092,66 @@
           "live"
         ]
       }
+    },
+    {
+      "id": "ITD-PILOT-TESTGAP-AC1",
+      "unitId": "ITD-PILOT-TESTGAP",
+      "status": "passed",
+      "criterion": "REL-1.110.6 is closed by the ADR-016 closure convention: the tree of merge 3a770e2 equals candidate.reviewedTree of the a5 PASSED receipt; the ledger records REL-1.110.6 verified through itd_unit_log.py with the tree and the receipt hash in its evidence, and ITD-PILOT-TESTGAP is activated (medium) by a separate call at least 2 s later with its own event id; activeFollowup REL-1.110.6 moves to closedFollowups with closedAt and closureEvidence and ITD-PILOT-TESTGAP becomes the active followup; .itd/DECISIONS.md carries every section of the REL-1.110.6 post-candidate records and a closure section with the merge, the tree, the receipt hash, the sha256 of the owner-viewed closure delta and the owner's signature; the state file validates.",
+      "source": "Owner 2026-11-07 TESTGAP pilot session request and plan approval (\"Да, начинай\"); protocol docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md; ADR-016 closure convention (docs/RELEASE_RUNBOOK.md).",
+      "evidence": "closure_check.py (machine input with the receipt and the REL-1.110.6-post directory): tree 9b299d1ed99bb699e458e2ab72a92725b5a2ad84 = reviewedTree, receipt PASSED e4492978...; events evt-unit-1794070623 (verified, 16:57:03Z) and evt-unit-1794070626 (activated, 16:57:06Z); closure delta closure-delta.diff sha256 2e9f9429... (STATE, events, ACCEPTANCE_CONTRACT, DECISIONS) signed by the owner «Подписываю»; validate_state OK. CI on main 3a770e2 2/2 (gh run list: meta-review, windows-verify) - checked in the session, not by the machine.",
+      "verificationCommand": "python3 .itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence/closure_check.py && sh skills/_shared/itd_py.sh scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json",
+      "reviewEvidence": {
+        "claim": "The REL-1.110.6 closure follows the ADR-016 convention and its ledger records match the receipt and the signed delta.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "closure",
+          "state"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PILOT-TESTGAP-AC2",
+      "unitId": "ITD-PILOT-TESTGAP",
+      "status": "passed",
+      "criterion": "Section 10 of the pilot protocol records every run of the pilot evidence: each row of table 10.2 matches its run record (ready, hit, wall time, tokens, USD) and no run is missing or duplicated; the budget counters equal the sums over all runs and no ceiling is exceeded; section 10.3 describes the OS-level isolation and the extended canary, and on re-audit of the canary transcript all six attempts are named and none returned data; every counted run re-audited from its transcript under amendment 4 has no isolation violation except a manually adjudicated '../' inside the case, no leak, and its proxy log allowed only the three approved hosts; the sha256 of the blind list, key and marks are in the protocol, the blind list is exactly the pattern-selected blockers of the counted K1 runs and case H has zero candidates; table 10.5 and the verdicts (A not accepted, B accepted in the pilot, A+B not run, transfer to H not confirmed) equal the section 8 rule recomputed from the records, the owner's marks and the K0 mutant log.",
+      "source": "Owner 2026-11-07 TESTGAP pilot session request and plan approval (\"Да, начинай\"); protocol docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md; ADR-016 closure convention (docs/RELEASE_RUNBOOK.md).",
+      "evidence": "pilot_check.py over .itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence: pilot check PASSED (26 runs: 24 of 2026-11-07 + 2 of session 13; 9871 s, 20 645 627 tokens, 17.63 USD; blind list c276efd5..., key 3e6e3a5a..., marks 384d070a..., H list 0393024c...). pilot_check.py --selftest: 11 of 11 protocol mutants killed (ready, hit, time, removed row, marks hash, median, verdict A, transfer to H, budget tokens, card field, H zero). The check caught a real rounding error (H B r2 434.5 s written as 435) before the candidate; fixed. k0-mutants.txt: unmutated 31 passed; three mutants survive (uid owner, TTL 60 s, lower bound).",
+      "verificationCommand": "python3 .itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence/pilot_check.py && python3 .itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence/pilot_check.py --selftest",
+      "reviewEvidence": {
+        "claim": "The pilot results in section 10 are exactly what the run records, transcripts, proxy logs and the owner's blind marks show, and the verdicts follow the section 8 rule.",
+        "impactClasses": [
+          "correctness",
+          "repository-hygiene"
+        ],
+        "oracleIds": [
+          "pilot-records",
+          "pilot-selftest"
+        ]
+      }
+    },
+    {
+      "id": "ITD-PILOT-TESTGAP-AC3",
+      "unitId": "ITD-PILOT-TESTGAP",
+      "status": "passed",
+      "criterion": "Section 11 of the protocol carries the final lesson card with the fields run, concrete change, before/after, where to try again and where the effect is not confirmed, keeping the negative results (variant A, transfer to H); section 9 carries amendment 4 and the canary model deviation; .itd/DECISIONS.md records the pilot result and the owner's decision on plan session 16 (minimal S16, variant B not mandatory without a separate A/B); BACKLOG.md carries the findings outside the task; the diff from main 3a770e2 touches only the protocol, the scope lock and the ledgers - no skill, hook, agent, script, test or mandatory check changes (ADR-012 item 5).",
+      "source": "Owner 2026-11-07 TESTGAP pilot session request and plan approval (\"Да, начинай\"); protocol docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md; ADR-016 closure convention (docs/RELEASE_RUNBOOK.md).",
+      "evidence": "pilot_check.py checks the five card fields (selftest mutant 'card field dropped' killed); DECISIONS 2026-11-07 section 'ITD-PILOT-TESTGAP: пилот ... решение по сессии 16' (owner «Минимальная S16»); BACKLOG P2 (three surviving mutants of the Codex ask-gate test on the a18 tree, not checked on main) and P3 (API filter refuses the isolation canary on Opus 5); pilot_check.py --diff-scope 3a770e2: only the allowed paths.",
+      "verificationCommand": "python3 .itd-memory/host-inputs/ITD-PILOT-TESTGAP-evidence/pilot_check.py --diff-scope 3a770e2ff028455da60aaca60bebefa129825989 && sh skills/_shared/itd_py.sh tests/meta_review.py",
+      "reviewEvidence": {
+        "claim": "The lesson card keeps the negative results, the session 16 decision is the owner's, and the candidate changes no methodology code.",
+        "impactClasses": [
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "diff-scope",
+          "meta-review"
+        ]
+      }
     }
   ],
   "completion": {
@@ -7110,19 +7170,17 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "REL-1.110.6",
+    "unitId": "ITD-PILOT-TESTGAP",
     "status": "in_progress",
     "openedAt": "2026-11-07",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-07 (unit REL-1.110.6, plan approved \"Да, начинай\"): patch release 1.110.6 ships LEDGER-HORIZON-1 (PR #393, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.6] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); acceptance on the installed hook: no PE5/HDX warnings after a ledger edit, and a fresh verified unit without an event in a temporary directory still warns. The same PR carries the LEDGER-HORIZON-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-07 (plan, isolation method and proxy host list approved \"Да, начинай\"): run the TESTGAP pilot by docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md - OS-level isolation wrapper (mount namespace with tmpfs over ~/projects, /mnt, /tmp and home, bound-back methodology and Claude Code settings; own network namespace, only a local allowlist proxy to api.anthropic.com, console.anthropic.com, platform.claude.com), the extended canary (four read methods, two network methods), runs baseline -> A -> B -> A+B (conditional) -> H within the approved budget, owner blind marks with sha256 before unblinding, decision by section 8, lesson card, owner decision on session 16. Documents only; methodology code, hooks and skills unchanged. The same PR carries the REL-1.110.6 closure by the ADR-016 closure convention. Push, PR and merge only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
       "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
-        "host-parity",
         "repository-hygiene",
-        "generated-artifact-freshness",
         "compatibility"
       ],
       "minimumIndependentReviewers": 1,
@@ -8363,6 +8421,29 @@
       },
       "closedAt": "2026-11-07",
       "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-07T09:11:51Z). PR #393 squash-merged to main 89d40e7 (parent f8763a5); tree 571af258 = candidate.reviewedTree of LEDGER-HORIZON-1-canonical-a3-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 b4e59e43f52d18c35399396ac3743136ff5d83d4ea121604683ff9321cab5570, machine a4 PASSED 7/7); CI PR and main 2/2 (meta-review, windows-verify); closed by the ADR-016 closure convention in the REL-1.110.6 candidate; release, rollout and the acceptance on the installed hook are REL-1.110.6."
+    },
+    {
+      "unitId": "REL-1.110.6",
+      "status": "closed",
+      "openedAt": "2026-11-07",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-07 (unit REL-1.110.6, plan approved \"Да, начинай\"): patch release 1.110.6 ships LEDGER-HORIZON-1 (PR #393, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.6] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); acceptance on the installed hook: no PE5/HDX warnings after a ledger edit, and a fresh verified unit without an event in a temporary directory still warns. The same PR carries the LEDGER-HORIZON-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-07",
+      "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-07T16:57:03Z). PR #394 squash-merged to main 3a770e2 (parent 89d40e7); tree 9b299d1e = candidate.reviewedTree of REL-1.110.6-canonical-a5-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 e4492978a10cc4faea1893b8e2846a57f9b4556d7db2f9bc7b612a6c983b9969); CI PR and main 2/2; tag and release v1.110.6; rollout WSL and Windows, step 7a and acceptance - .itd/DECISIONS.md 2026-11-07. Closed by the ADR-016 closure convention in the ITD-PILOT-TESTGAP candidate."
     }
   ]
 }
