@@ -20,7 +20,7 @@
         "repo": "hihol-labs/idea-to-deploy"
       },
       "homepage": "https://github.com/hihol-labs/idea-to-deploy",
-      "version": "1.110.5",
+      "version": "1.110.6",
       "images": [
         "https://raw.githubusercontent.com/hihol-labs/idea-to-deploy/main/docs/demo.svg"
       ],

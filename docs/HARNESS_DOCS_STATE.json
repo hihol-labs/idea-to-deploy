@@ -2,7 +2,7 @@
   "version": 1,
   "reviewedAt": "2026-10-31",
   "maxAgeDays": 30,
-  "pluginVersion": "1.110.5",
+  "pluginVersion": "1.110.6",
   "inventory": {
     "skills": 41,
     "subagents": 10,

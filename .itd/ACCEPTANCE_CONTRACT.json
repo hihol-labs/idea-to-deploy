@@ -7047,6 +7047,28 @@
           "meta-review"
         ]
       }
+    },
+    {
+      "id": "REL-1.110.6-AC1",
+      "unitId": "REL-1.110.6",
+      "status": "passed",
+      "criterion": "All release mirrors declare 1.110.6, CHANGELOG has one ## [1.110.6] section cut from Unreleased (LEDGER-HORIZON-1) with an empty Unreleased above it, CHANGELOG/DECISIONS/BACKLOG describe only what the code, tests and receipts show, and the impact map is fresh. Publication, release, rollout and the acceptance on the installed hook are later owner-confirmed stages, not implied here.",
+      "source": "Owner 2026-11-07 release request (plan approved \"Да, начинай\"); docs/RELEASE_RUNBOOK.md.",
+      "evidence": "tests/verify_harness_docs_freshness.py exit 0 (pluginVersion 1.110.6, reviewedAt 2026-10-31 unchanged) and tests/verify_external_reviewer_release.py PASSED (version 1.110.6, 14 criteria, 5 mutation guards) on the candidate; tests/build_impact_graph.py --check FRESH (nodes 499, edges 1605); CHANGELOG ## [1.110.6] - 2026-11-07 holds the Unreleased entry of PR #393 (LEDGER-HORIZON-1); Unreleased is empty. The docs-freshness, release-mirrors and impact-graph legs of the committed-head machine receipt repeat these on the exact tree.",
+      "verificationCommand": "sh skills/_shared/itd_py.sh tests/verify_harness_docs_freshness.py && sh skills/_shared/itd_py.sh tests/verify_external_reviewer_release.py",
+      "reviewEvidence": {
+        "claim": "The release metadata is internally consistent and keeps Gate 1 docs freshness green.",
+        "impactClasses": [
+          "repository-hygiene",
+          "generated-artifact-freshness",
+          "compatibility"
+        ],
+        "oracleIds": [
+          "docs-freshness",
+          "release-mirrors",
+          "impact-graph"
+        ]
+      }
     }
   ],
   "completion": {
@@ -7065,18 +7087,19 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "LEDGER-HORIZON-1",
+    "unitId": "REL-1.110.6",
     "status": "in_progress",
-    "openedAt": "2026-11-06",
+    "openedAt": "2026-11-07",
     "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-06 (\"Правка валидатора, новой сессией\"; rule and plan approved \"Да, по плану\"): the ledger hook stops warning about verified units of the archived goal GOAL-2026-09-20.json that were closed before the first record of events.jsonl, by a validator fix, not by appending events (owner decision 2026-09-20: accepted evidence is immutable); a unit without verifiedAt keeps warning; STATE reconciliation unchanged; the same PR carries the ITD-PLAN-S13 verified record and the session 13 post-candidate records. Publication only on the owner's confirmation.",
+    "sourceRequest": "Owner 2026-11-07 (unit REL-1.110.6, plan approved \"Да, начинай\"): patch release 1.110.6 ships LEDGER-HORIZON-1 (PR #393, the CHANGELOG Unreleased section): version mirrors, CHANGELOG ## [1.110.6] cut from Unreleased, live-model evidence re-recorded on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); acceptance on the installed hook: no PE5/HDX warnings after a ledger edit, and a fresh verified unit without an event in a temporary directory still warns. The same PR carries the LEDGER-HORIZON-1 closure by the ADR-016 closure convention. Publication and rollout only on the owner's confirmation.",
     "reviewPolicy": {
       "mode": "evidence-first",
-      "riskTier": "high",
+      "riskTier": "medium",
       "requiredImpactClasses": [
         "correctness",
         "host-parity",
         "repository-hygiene",
+        "generated-artifact-freshness",
         "compatibility"
       ],
       "minimumIndependentReviewers": 1,
@@ -8295,6 +8318,28 @@
       },
       "closedAt": "2026-11-06",
       "closureEvidence": "PR #392 squash-merged to main f8763a5; tree 35cd85e4 = candidate.reviewedTree of ITD-PLAN-S13-canonical-a4-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 eec16450b1735ee01541a09af6a3112d5b553d8e3da2c014815bb4d350cf8a42, machine a4 PASSED 6/6); CI on main f8763a5: meta-review and windows-verify success; itd_unit_log.py verified ITD-PLAN-S13 (2026-11-06T15:21Z); closed by the ADR-016 closure convention in the LEDGER-HORIZON-1 candidate (plan rule 5)."
+    },
+    {
+      "unitId": "LEDGER-HORIZON-1",
+      "status": "closed",
+      "openedAt": "2026-11-06",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-06 (\"Правка валидатора, новой сессией\"; rule and plan approved \"Да, по плану\"): the ledger hook stops warning about verified units of the archived goal GOAL-2026-09-20.json that were closed before the first record of events.jsonl, by a validator fix, not by appending events (owner decision 2026-09-20: accepted evidence is immutable); a unit without verifiedAt keeps warning; STATE reconciliation unchanged; the same PR carries the ITD-PLAN-S13 verified record and the session 13 post-candidate records. Publication only on the owner's confirmation.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "high",
+        "requiredImpactClasses": [
+          "correctness",
+          "host-parity",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-07",
+      "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-07T09:11:51Z). PR #393 squash-merged to main 89d40e7 (parent f8763a5); tree 571af258 = candidate.reviewedTree of LEDGER-HORIZON-1-canonical-a3-adjudication.json (gpt-6.1-sol PASSED, 0 findings, receiptSha256 b4e59e43f52d18c35399396ac3743136ff5d83d4ea121604683ff9321cab5570, machine a4 PASSED 7/7); CI PR and main 2/2 (meta-review, windows-verify); closed by the ADR-016 closure convention in the REL-1.110.6 candidate; release, rollout and the acceptance on the installed hook are REL-1.110.6."
     }
   ]
 }

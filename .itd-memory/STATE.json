@@ -37,12 +37,12 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "LEDGER-HORIZON-1",
-    "goal": "LEDGER-HORIZON-1 (hook fix, strict route): hooks/validate_state_core.py reconcile_goal_with_events stops warning about a verified goal unit with no unit event at all when its verifiedAt is strictly before the first record of events.jsonl (the journal horizon, read from the file head, not the EVENTS_TAIL_BYTES tail); a unit without a parseable verifiedAt, a unit inside the horizon and a unit with a non-terminal last event still warn; a contradiction stays an error; STATE reconciliation unchanged; the 3-warning cap gains an 'and N more' line; mutation tests in tests/verify_ledger_reconciliation.py; live evidence re-recorded for the pinned hook; no events appended (owner decision 2026-09-20)",
+    "id": "REL-1.110.6",
+    "goal": "Patch release 1.110.6 ships LEDGER-HORIZON-1 (PR #393): version mirrors, CHANGELOG, live evidence on the release pin, tag and GitHub release; rollout on WSL and Windows with runbook step 7a (owner re-trust, trust report exit 0, live ITD-APPROVE canary on both hosts, 3 traced Windows turns); acceptance on the installed hook: no PE5/HDX warnings after a ledger edit, a fresh verified unit without an event in a temporary directory still warns; each external stage on owner confirmation",
     "status": "in_progress",
-    "startedAt": "2026-11-06T15:21:48Z",
+    "startedAt": "2026-11-07T09:11:58Z",
     "ledger": "STATE",
-    "riskTier": "high"
+    "riskTier": "medium"
   },
   "gateResults": {
     "acceptanceContract": "pending",

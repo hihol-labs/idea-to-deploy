@@ -7958,3 +7958,41 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
 - Конкретная правка: исключение применяется только при доказанном полном чтении; любое ограниченное чтение
   (хвост, голова 64 KB) дает «неизвестно», и неизвестное не прощается.
 - До/после: a1 - 1 high и 2 medium; после правки - не измерено (ревью a2).
+
+## 2026-11-07 - LEDGER-HORIZON-1: машина a4 PASSED, ревью sol a3 на 650b93e PASSED
+
+- Машина a4 (650b93e, дерево 571af258...) PASSED 7/7 (739524dc...): meta-review, docs-freshness, impact-graph, state,
+  unit-state-hardening, live-evidence, full.
+- Ревью gpt-6.1-sol a2 запущено цепочкой 2026-11-07T00:40Z и прервано перезапуском сессии до вердикта (транспортный
+  журнал пуст, отчета нет); его файлы (`prompts/...-a2.md.ledger.jsonl`, `route-checkpoint`, пустой
+  `reports/...-a2.json.transport.jsonl`) сохранены. Повтор - отдельной попыткой a3 на той же машине a4 (квитанция
+  живет 24 ч), без перезапуска a2.
+- Ревью a3 - PASSED, 0 находок; `candidate.reviewedTree` квитанции = дерево HEAD 571af258; квитанция
+  `LEDGER-HORIZON-1-canonical-a3-adjudication.json`, receiptSha256
+  b4e59e43f52d18c35399396ac3743136ff5d83d4ea121604683ff9321cab5570; `check --require-mandatory-route` - exit 0.
+  Ревью шло напрямую с WSL, без прокси.
+- Счет кругов юнита: кандидаты 796e6bb (машина a1 FAILED на `verify_preflight_budget` - строка 398 символов в индексе
+  памяти хоста, исправлено вне репозитория; машина a2 PASSED, ревью не стартовало: критерии не passed), 5b6c171 (машина
+  a3 PASSED, ревью a1 BLOCKED 1 high + 2 medium), 650b93e (машина a4 PASSED, ревью a2 прервано, a3 PASSED).
+- Публикация (подтверждение владельца): PR #393, CI PR 2/2, squash-merge -> main 89d40e7
+  2026-11-07 (родитель f8763a5, дерево 571af258), CI main 2/2 (meta-review, windows-verify).
+
+## 2026-11-07 - закрытие LEDGER-HORIZON-1 по конвенции ADR-016 в кандидате REL-1.110.6
+
+- Шаг 1: merge-коммит 89d40e7380e771e6d4ef588d463dfe4f8921121e, дерево 571af2585d515840745cc37e71f029e89aa8e384 =
+  `candidate.reviewedTree` квитанции `.itd-memory/verification-loop/LEDGER-HORIZON-1-canonical-a3-adjudication.json`
+  (PASSED, receiptSha256 b4e59e43f52d18c35399396ac3743136ff5d83d4ea121604683ff9321cab5570); CI PR и main 2/2
+  (`gh run list --commit 89d40e7`: meta-review success, windows-verify success).
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified LEDGER-HORIZON-1` (2026-11-07T09:11:51Z), затем
+  отдельным вызовом `activate REL-1.110.6` (09:11:58Z, medium); activeFollowup перенесен в closedFollowups;
+  `scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json` - OK. Первая пара вызовов в одну секунду
+  дала два события с одним id `evt-unit-1794042344`; незакоммиченные записи откачены `git checkout` и повторены с
+  паузой (id ...2711 и ...2718). Релиз, раскатка и приемка на установленном хуке - REL-1.110.6.
+- Шаг 3: подпись владельца - ниже, после просмотра дельты закрытия.
+
+## 2026-11-07 - REL-1.110.6: патч-релиз LEDGER-HORIZON-1
+
+- Владелец 2026-11-07 (план «Да, начинай»): 1.110.6 выпускает LEDGER-HORIZON-1; risk tier medium (дифф релиза не
+  меняет поставляемый код); публикация и раскатка - по отдельному подтверждению; раскатка по шагу 7a; приемка на
+  установленном хуке - а) правка леджера без предупреждений о PE5/HDX, б) свежий verified-юнит без события во
+  временном каталоге - предупреждение есть. reviewedAt доков не меняется (окно свежести 2026-10-31 + 30 дней).
