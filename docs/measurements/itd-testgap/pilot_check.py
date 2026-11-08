@@ -295,14 +295,15 @@ def check(text: str) -> list[str]:
     # budget (persisted charges of runners that failed without a record count too)
     charges = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((EV / "runs").glob("charge-*.json"))]
     allr = runs + s13 + charges
-    wall = round(sum(r.get("wallSeconds") or 0 for r in allr))
+    wall_exact = sum(r.get("wallSeconds") or 0 for r in allr)
+    wall = round(wall_exact)
     tok = sum(run_tokens(r, recounted) for r in allr)
     usd = sum(r.get("costUsd") or 0 for r in allr)
     for s in (f"{len(allr)} прогонов из 30", f"{fmt(wall)} с стены", f"{fmt(tok)} токенов из 40 млн",
               f"{usd:.2f} USD"):
         if s not in text:
             err.append(f"budget string missing: {s}")
-    if len(allr) > 30 or wall > 8 * 3600 or tok > 40_000_000:
+    if len(allr) > 30 or wall_exact > 8 * 3600 or tok > 40_000_000:
         err.append("a budget ceiling is exceeded")
     # blind files
     for name in ("blind-list.md", "blind-key.json", "blind-marks.txt", "blind-list-H.md"):
@@ -336,6 +337,15 @@ def check(text: str) -> list[str]:
         err.append("the K1 blind list is not exactly the pattern-selected blockers")
     if h_cands or "кандидатов 0" not in text:
         err.append("case H candidates are not zero as recorded")
+    try:
+        key_h = strict_json((EV / "blind-key-H.json").read_text(encoding="utf-8"))
+    except ValueError as exc:
+        key_h = None
+        err.append(f"blind key H refused: {exc}")
+    list_h = (EV / "blind-list-H.md").read_text(encoding="utf-8")
+    if key_h != {} or re.search(r"^## ", list_h, re.M) or \
+            "Кандидатов нет: ни один блокер засчитанных прогонов не прошел отбор шаблоном." not in list_h:
+        err.append("the case H blind list and key are not the empty selection of the H blockers")
     # isolation re-audit from the transcripts
     secret = (HOST / "canary-secret.txt").read_text(encoding="utf-8").strip()
     for r in runs:

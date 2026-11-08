@@ -57,6 +57,13 @@ def main(items):
     if bad:
         print(f"refused: duplicate, malformed or already recorded items {bad}", file=sys.stderr)
         return 2
+    import fcntl
+    lock = open(HERE / "batch.lock", "w")
+    try:  # one batch at a time: concurrency and the budget reservation are accounted in this process only
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        print("refused: another batch.py holds batch.lock", file=sys.stderr)
+        return 2
     stopped = False
     log = open(HERE / "batch.log", "a", encoding="utf-8")
 

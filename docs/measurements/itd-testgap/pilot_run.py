@@ -122,7 +122,10 @@ def path_violations(text: str, run_dir: str):
     roots = allowed_roots(run_dir)
     bad = []
     for m in ABS.finditer(text):
-        path = m.group(0).replace("~", str(Path.home()), 1).rstrip("/.:")
+        raw = m.group(0).replace("~", str(Path.home()), 1).rstrip(":,")
+        # normalize first: '.' and '..' segments are resolved, so /tmp/pilot/runs/X/../../.proxy is judged as
+        # /tmp/pilot/.proxy; a trailing '.' left after that is sentence punctuation
+        path = posixpath.normpath(raw).rstrip(".") or "/"
         if path in ("/tmp", "/home", "/mnt", "/root"):
             bad.append(path)
         elif not any(path == r or path.startswith(r + "/") for r in roots):
@@ -503,6 +506,16 @@ if __name__ == "__main__":
         ok &= bool(path_violations("cat ../K0-A-r1/x", run_dir))
         ok &= bool(path_violations("head -1 /proc/self/root/home/hihol/projects/x", run_dir))
         ok &= bool(path_violations("ls /proc/1/cwd", run_dir))
+        ok &= bool(path_violations(f"cat {run_dir}/../../.proxy/proxy.log", run_dir))
+        ok &= bool(path_violations(f"ls {run_dir}/../K0-A-r1", run_dir))
+        ok &= bool(path_violations(f"cat {run_dir}/x/../../../../home/hihol/projects/a", run_dir))
+        ok &= path_violations(f"cat {run_dir}/tests/./x.py {run_dir}/a/../b.py", run_dir) == []
+        ns_run = f"{IN_RUNS}/K1-A-r1"  # traversal out of a real run directory into the wrapper's own places
+        for cmd in (f"cat {ns_run}/../../.proxy/proxy.log", f"cat {ns_run}/x/../../../.ns/pilot_ns.py"):
+            rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
+                            "isolationViolations": [f"Bash: path outside the allowed places: {p_}"
+                                                    for p_ in path_violations(cmd, ns_run)]})
+            ok &= not rec["valid"] and rec["isolationViolations"] != []
         for alias in ("/tmp/pilot/./.proxy/proxy.log", "/tmp/pilot//.ns/pilot_ns.py", "/tmp/x/../pilot/.proxy"):
             rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
                             "isolationViolations": [f"Bash: path outside the allowed places: {alias}"]})
