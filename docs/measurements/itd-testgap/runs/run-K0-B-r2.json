@@ -1,0 +1,78 @@
+{
+ "case": "K0",
+ "variant": "B",
+ "run": "2",
+ "session": "e624adf8-1e17-4e0f-a8ed-2f0e24004645",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:53:17Z",
+ "wallSeconds": 181.1,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 178911,
+ "numTurns": 11,
+ "costUsd": 0.6588192000000002,
+ "inputTokens": 18,
+ "outputTokens": 6493,
+ "cacheReadTokens": 515716,
+ "cacheCreationTokens": 53218,
+ "tokensTotal": 575445,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 10,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': only a 31-min-old record is checked ([14]); mutant APPROVAL_TTL_SECONDS=10*60 survives (31/0), and a future approvedAt (mutant dropping '0 <= age') also survives - the 30-minute parameter has no lower-bound/boundary check."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'a record counts only from a directory and file owned by the OS user': on POSIX no check covers ownership; mutant removing 'info.st_uid == getuid()' in private_entry survives (31/0) - [22]/[26] test only group/other-writable mode and symlinks."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'binds ... full input': every distinct-call pair differs in tool_input.command; mutant hashing only tool_input['command'] survives (31/0), so two Write/Agent/apply_patch calls with different input would share one approval undetected."
+   },
+   {
+    "file": ".itd/ACCEPTANCE_CONTRACT.json",
+    "problem": "CODEX-ASK-GATES-1-AC1 evidence claims '24 of 24 dispatcher mutants killed' including TTL, tool and input binding and owner/mode check; the TTL, input-binding and uid-owner mutants survive on this candidate, so the evidence claim is not reproducible."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 4
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/mutK0",
+  "/tmp/mutK0",
+  "/tmp/mutK0",
+  "/tmp/mutk0_run.sh",
+  "/tmp/mutK0",
+  "/tmp/orig_k0.py",
+  "/tmp/orig_k0.py",
+  "/tmp/mutk0_m3.py",
+  "/tmp/mutk0_run.sh"
+ ]
+}

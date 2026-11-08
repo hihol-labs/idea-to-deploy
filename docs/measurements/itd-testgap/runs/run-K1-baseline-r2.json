@@ -1,0 +1,60 @@
+{
+ "case": "K1",
+ "variant": "baseline",
+ "run": "2",
+ "session": "8d752a22-6a85-4af6-93a4-d0131d315753",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:16:21Z",
+ "wallSeconds": 322.3,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 320186,
+ "numTurns": 10,
+ "costUsd": 0.7512329999999999,
+ "inputTokens": 20,
+ "outputTokens": 5692,
+ "cacheReadTokens": 517165,
+ "cacheCreationTokens": 66735,
+ "tokensTotal": 589612,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 9,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "docs/HOST_ADAPTER_CONTRACT.md",
+    "problem": "Lines 41-47 still say the host approval UI is the only trusted grant and that the methodology stores no local approval ledger. The candidate adds a local Codex approval store (~/.claude/itd-codex-approvals/) whose grant is not given through the host UI, so the normative contract contradicts itself."
+   },
+   {
+    "file": "hooks/codex-dispatch.py",
+    "problem": "record_approvals skips the hash when a record already exists (O_EXCL -> FileExistsError -> continue). After the 30-minute TTL expires, a repeat ITD-APPROVE of the same hash is silently ignored: consume_approval spends the expired record and denies the call, so the user's explicit approval is lost. No test covers re-approval after expiry."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 2
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": []
+}

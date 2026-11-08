@@ -1,0 +1,4 @@
+{
+ "_rule": "Protocol section 7 voids a run only for an exit from the case directory through '../'. A run whose only violation is the '../' string match is counted when every tool-input string with '../' is a command that starts with `cd <cd> && ` and every '../' path in it resolves, from the case root through <cd>, inside the case directory. pilot_check.py re-derives this from the transcript.",
+ "K0-baseline-r3": {"cd": "skills/_shared", "relative": ["../../.itd/ACCEPTANCE_CONTRACT.json"]}
+}

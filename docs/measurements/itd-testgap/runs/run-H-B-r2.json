@@ -1,0 +1,88 @@
+{
+ "case": "H",
+ "variant": "B",
+ "run": "2",
+ "session": "71db551d-423d-4f37-803a-e66234a5c564",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T18:42:04Z",
+ "wallSeconds": 434.5,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 430447,
+ "numTurns": 29,
+ "costUsd": 1.3500969999999997,
+ "inputTokens": 58,
+ "outputTokens": 15817,
+ "cacheReadTokens": 2134625,
+ "cacheCreationTokens": 75825,
+ "tokensTotal": 2226325,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 28,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "AC1 says the FIRST blocking answer passes through byte for byte. The merge test has only one blocking hook. A mutant in hooks/itd_dispatch.py merge() that returns the last blocking answer (reversed(results)) leaves the suite at 79 passed, 0 failed. Needed: a case with two blocking hooks that asserts the first one's exact bytes and exit code."
+   },
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "AC1 says a hard gate that lies outside the hooks directory denies, and an advisory one stays silent. The only test uses the row '../ok.sh', which the table schema (SCRIPT_NAME_RE) already rejects, so the per-hook check in run_all() is never reached. A mutant that drops 'path.parent != hooks_dir' passes all tests, so a hook in the hooks directory that is a symlink to a file elsewhere would run. Needed: a symlink case, both hard and advisory."
+   },
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "AC1 says the dispatcher module fails closed on ANY BaseException while it loads. Only SystemExit at load is tested. A mutant in hooks/claude-dispatch.py that narrows 'except BaseException' to '(Exception, SystemExit)' passes all tests, so KeyboardInterrupt (or another BaseException) at load is not pinned."
+   },
+   {
+    "file": "tests/verify_itd_dispatch.py",
+    "problem": "The SubagentStop decision for a failed hard gate depends on stop_hook_active, and no test checks that. A mutant in merge() that calls failure_answer(event, reason) without stop_hook_active passes all tests. A hard gate that crashes in a SubagentStop that already continues because of a stop hook would then be blocked again, which can loop. Today stop_hook_active is tested only for the paths where the table, the payload or the dispatcher itself fails."
+   },
+   {
+    "file": "tests/verify_predeploy_independent_review.py",
+    "problem": "AC4 says a body with a here-document, case or backtick keeps the fail-closed sentinel. Every test case for these also hides a transport (rsync) that the parser finds without the sentinel, so the deny never proves the sentinel held. Mutants in hooks/check-predeploy-gate.sh _substitution_end() that turn off the '<<' check, the 'case' check, the unquoted backtick check or the backtick-inside-double-quotes check each pass all 161 tests. Only the comment and depth>8 cases are pinned. Needed: assert the sentinel directly, or use bodies whose deny comes only from the sentinel."
+   },
+   {
+    "file": ".itd/ACCEPTANCE_CONTRACT.json",
+    "problem": "No check covers the AC6 claims that the ITD-PLAN-S5 verified record and followup move ride in this PR and that the session 5 a4 adjudication is in .itd/DECISIONS.md. The AC6 verificationCommand (scripts/validate_state.py .itd-memory/STATE.json .itd-memory/GOAL.json) reads only git-ignored local files, which are not part of the candidate diff. Removing the ITD-PLAN-S5 closedFollowups entry or the DECISIONS entry would leave it green. Needed: a check on the committed contract and DECISIONS, for example a run of verify_closure_delta / itd_closure_delta.py tied to this unit."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 6
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/mutwork",
+  "/tmp/mutwork",
+  "/tmp/mutwork/$name",
+  "/tmp/mutwork",
+  "/tmp/mutwork/mut.py",
+  "/tmp/mutwork/{name}",
+  "/tmp/mutwork/mut.py",
+  "/tmp/mutwork/mut.py",
+  "/tmp/mutwork/mut.py",
+  "/tmp/mutwork",
+  "/tmp/pilot/runs"
+ ]
+}

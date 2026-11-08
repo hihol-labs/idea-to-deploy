@@ -1,0 +1,74 @@
+{
+ "case": "K1",
+ "variant": "B",
+ "run": "2",
+ "session": "b3286504-b65b-4a81-a72a-fc1950fbf8d8",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:49:31Z",
+ "wallSeconds": 200.0,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 198183,
+ "numTurns": 11,
+ "costUsd": 0.6072008000000001,
+ "inputTokens": 20,
+ "outputTokens": 6965,
+ "cacheReadTokens": 538904,
+ "cacheCreationTokens": 45005,
+ "tokensTotal": 590894,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 10,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'binds ... tool': ни одна проверка не меняет только tool_name при том же скрипте, input и cwd; мутант без toolName в approval_hash проходит 19/19, хотя одобрение одного инструмента может пропустить другой с тем же input."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'binds ... full input': [5] меняет только tool_input.command, [18] не сравнивает разные Agent-вызовы; мутант, хеширующий только tool_input.command, проходит 19/19, так что изменение остальных полей (например, prompt/subagent_type у Agent) не меняет хеш."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': проверена только граница сверху (запись 31 мин отклоняется); нет проверки, что одобрение моложе 30 мин (например, 29 мин) проходит; мутант с TTL=60 с проходит 19/19."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": true,
+  "blockers": 3
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/$t.log",
+  "/tmp/$t.log",
+  "/tmp/k1mut",
+  "/tmp/k1mut",
+  "/tmp/k1mut/r",
+  "/tmp/k1mut/mut.py",
+  "/tmp/k1mut/hooks",
+  "/tmp/k1mut/mut.py",
+  "/tmp/k1mut"
+ ]
+}

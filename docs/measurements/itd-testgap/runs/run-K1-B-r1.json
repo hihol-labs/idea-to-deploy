@@ -1,0 +1,81 @@
+{
+ "case": "K1",
+ "variant": "B",
+ "run": "1",
+ "session": "ec020f94-0eb6-45aa-8aee-13f87241968e",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:49:26Z",
+ "wallSeconds": 227.2,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 225159,
+ "numTurns": 11,
+ "costUsd": 0.6794711999999999,
+ "inputTokens": 18,
+ "outputTokens": 7585,
+ "cacheReadTokens": 518176,
+ "cacheCreationTokens": 53008,
+ "tokensTotal": 578787,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 10,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 says the hash binds the tool, but no check varies tool_name. Check [19] is titled 'binds script, tool, exact input and cwd' yet only varies script and cwd. Removing \"toolName\" from approval_hash in hooks/codex-dispatch.py leaves the test green (19 passed, 0 failed)."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 says the hash binds the full tool input, but the only different call ([5]) differs in tool_input.command alone. Hashing only tool_input.command instead of the whole tool_input leaves the test green (19 passed, 0 failed), so other input fields are not proven to be bound."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 says an approval expires after 30 minutes, but [14] only checks an approval that is 31 minutes old. Setting APPROVAL_TTL_SECONDS to 60 or to 30*60+54 leaves the test green (19 passed, 0 failed). The 30-minute value is not pinned: no check of the constant, of the boundary, or of an approval that is about 29 minutes old."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": true,
+  "blockers": 3
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/k1_$t.log",
+  "/tmp/k1_$t.log",
+  "/tmp/k1_*.log",
+  "/tmp/k1mut",
+  "/tmp/k1m.log",
+  "/tmp/k1m.log",
+  "/tmp/k1run.sh",
+  "/tmp/k1mut/r",
+  "/tmp/k1mut",
+  "/tmp/k1mutate.py",
+  "/tmp/k1mut/r",
+  "/tmp/k1mut",
+  "/tmp/k1mutate.py",
+  "/tmp/k1mut",
+  "/tmp/k1mutate.py",
+  "/tmp/k1m.log"
+ ]
+}

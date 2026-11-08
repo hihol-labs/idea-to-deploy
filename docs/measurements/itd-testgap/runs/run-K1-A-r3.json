@@ -1,0 +1,63 @@
+{
+ "case": "K1",
+ "variant": "A",
+ "run": "3",
+ "session": "8679fd3c-32d9-4bb2-9e57-973185ee0d7b",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:30:55Z",
+ "wallSeconds": 204.0,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 202004,
+ "numTurns": 6,
+ "costUsd": 0.44327619999999995,
+ "inputTokens": 12,
+ "outputTokens": 3677,
+ "cacheReadTokens": 280161,
+ "cacheCreationTokens": 39207,
+ "tokensTotal": 323057,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 5,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 says the approval hash binds the tool, but no check proves it: removing \"toolName\" from approval_hash in hooks/codex-dispatch.py leaves the test green (19/0); check [19] varies only script and cwd."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 allows only 64 lowercase hex, but this is not proven: making APPROVE_LINE_RE accept [0-9a-fA-F] leaves the test green (19/0). Check [7] passes only because Linux file names are case-sensitive, not because of the regex; on case-insensitive NTFS (Windows) the uppercase approval would likely pass."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 2
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/mut_k1.py",
+  "/tmp/mut_k1.py"
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "_rule": "Protocol section 6, M2: a block on K0 confirmed by a surviving mutant in a manual check is not false. Every blocker of every K0 block is listed once: 'untested-behaviour' names the mutant(s) of k0_mutants.py that break the behaviour the blocker says is untested; 'evidence-claim-contradicted' names the surviving mutant(s) that contradict the acceptance evidence the blocker quotes. Every named mutant must have SURVIVED in k0-mutants.txt. Manual reading by the maker 2026-11-07. Each entry quotes its blocker verbatim (blockerExcerpt, checked against the run record); _mutants says what each mutant changes in hooks/codex-dispatch.py of the K0 tree (k0_mutants.py).",
+ "_mutants": {
+  "uid-owner-check-dropped": "private_entry: drop 'info.st_uid == getuid() and' (a record or directory of another uid counts)",
+  "ttl-shortened-to-60s": "APPROVAL_TTL_SECONDS = 60 instead of 30 * 60 (an approval expires after one minute)",
+  "ttl-lower-bound-dropped": "consume_approval: 'age <= TTL' instead of '0 <= age <= TTL' (a future-dated approval never expires)",
+  "input-hash-command-only": "approval_hash: binds only tool_input['command'] (two calls with different other input share one approval)"
+ },
+ "K0-B-r1": [
+  {
+   "blocker": 0,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "ttl-shortened-to-60s"
+   ],
+   "blockerExcerpt": "no check that an approval younger than 30 min (e.g. 29 min) passes"
+  },
+  {
+   "blocker": 1,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "ttl-lower-bound-dropped"
+   ],
+   "blockerExcerpt": "removing the '0 <=' bound in consume_approval"
+  },
+  {
+   "blocker": 2,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "uid-owner-check-dropped"
+   ],
+   "blockerExcerpt": "no POSIX check with a foreign-uid record/directory"
+  }
+ ],
+ "K0-B-r2": [
+  {
+   "blocker": 0,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "ttl-shortened-to-60s",
+    "ttl-lower-bound-dropped"
+   ],
+   "blockerExcerpt": "mutant APPROVAL_TTL_SECONDS=10*60 survives (31/0), and"
+  },
+  {
+   "blocker": 1,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "uid-owner-check-dropped"
+   ],
+   "blockerExcerpt": "on POSIX no check covers ownership"
+  },
+  {
+   "blocker": 2,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "input-hash-command-only"
+   ],
+   "blockerExcerpt": "mutant hashing only tool_input['command']"
+  },
+  {
+   "blocker": 3,
+   "kind": "evidence-claim-contradicted",
+   "mutants": [
+    "ttl-shortened-to-60s",
+    "input-hash-command-only",
+    "uid-owner-check-dropped"
+   ],
+   "blockerExcerpt": "evidence claims '24 of 24 dispatcher mutants killed'"
+  }
+ ],
+ "K0-B-r3": [
+  {
+   "blocker": 0,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "ttl-shortened-to-60s"
+   ],
+   "blockerExcerpt": "there is no check that a record younger than 30 minutes still passes"
+  },
+  {
+   "blocker": 1,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "ttl-lower-bound-dropped"
+   ],
+   "blockerExcerpt": "no case with approvedAt in the future"
+  },
+  {
+   "blocker": 2,
+   "kind": "untested-behaviour",
+   "mutants": [
+    "uid-owner-check-dropped"
+   ],
+   "blockerExcerpt": "on POSIX (WSL, the claimed host) no case covers an entry owned by another uid"
+  }
+ ]
+}

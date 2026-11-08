@@ -1,0 +1,87 @@
+{
+ "case": "K1",
+ "variant": "B",
+ "run": "3",
+ "session": "4a5e30e4-663b-4903-99d4-60be319b91bd",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:49:36Z",
+ "wallSeconds": 249.8,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 247625,
+ "numTurns": 12,
+ "costUsd": 0.6983192,
+ "inputTokens": 22,
+ "outputTokens": 7239,
+ "cacheReadTokens": 659136,
+ "cacheCreationTokens": 52703,
+ "tokensTotal": 719100,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 11,
+ "hookRecords": 12,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'exact line': removing only the ^ anchor or only the end anchor from APPROVE_LINE_RE in hooks/codex-dispatch.py keeps 19/0 ([6] has text on both sides of the hash). Lines 'text ITD-APPROVE <hash>' and 'ITD-APPROVE <hash> text' are not checked. The AC1 evidence claim 'line anchor mutant killed' does not hold for a single anchor."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 '64 lowercase hex': adding re.IGNORECASE to APPROVE_LINE_RE keeps 19/0. [7] passes only because the Linux filesystem is case-sensitive; on Windows (where AC evidence claims green) the case is not checked."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'expires after 30 minutes': APPROVAL_TTL_SECONDS=60 keeps 19/0. Only the 31-minute side is checked; there is no check that an approval younger than 30 minutes (e.g. 29 minutes) still passes."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 'binds ... tool': removing toolName from approval_hash keeps 19/0. [19] checks script and cwd, [5] checks input; no check that another tool_name with the same input gets a different hash or does not pass."
+   },
+   {
+    "file": "tests/verify_codex_ask_gates.py",
+    "problem": "AC2 TTL/one-time: removing the '0 <= age' lower bound in consume_approval keeps 19/0. A future-dated approvedAt record is not checked to be refused."
+   },
+   {
+    "file": ".itd/ACCEPTANCE_CONTRACT.json",
+    "problem": "The CODEX-ASK-GATES-1-AC1 evidence ('8/8 dispatcher mutants (TTL, ..., line anchor, ...) killed') and the AC2 evidence ('binds hook, tool, full input and cwd') claim more than the checks prove: a single-anchor mutant, a shorter TTL and dropping tool from the binding survive the current oracle."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": true,
+  "blockers": 6
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/orig.py",
+  "/tmp/orig.py",
+  "/tmp/k1mut",
+  "/tmp/k1mut",
+  "/tmp/k1mut/r",
+  "/tmp/k1mut_run.py",
+  "/tmp/k1mut/r",
+  "/tmp/k1mut_run.py",
+  "/tmp/k1mut_run.py",
+  "/tmp/k1mut_run.py"
+ ]
+}

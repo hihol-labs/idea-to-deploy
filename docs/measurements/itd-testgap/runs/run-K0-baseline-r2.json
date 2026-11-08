@@ -1,0 +1,66 @@
+{
+ "case": "K0",
+ "variant": "baseline",
+ "run": "2",
+ "session": "2e549534-371f-4727-8533-031f6a13b9fe",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:21:53Z",
+ "wallSeconds": 524.7,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 521818,
+ "numTurns": 12,
+ "costUsd": 0.5892527999999999,
+ "inputTokens": 24,
+ "outputTokens": 4862,
+ "cacheReadTokens": 670704,
+ "cacheCreationTokens": 44722,
+ "tokensTotal": 720312,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 11,
+ "hookRecords": 13,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": true,
+  "blockers": []
+ },
+ "score": {
+  "ready": true,
+  "hit": false,
+  "blockers": 0
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": [
+  "/tmp/k0_$t.log",
+  "/tmp/k0_$t.log",
+  "/tmp/k0_$t.log",
+  "/tmp/k0_$t.log",
+  "/tmp/k0base",
+  "/tmp/k0base",
+  "/tmp/k0base",
+  "/tmp/k0base",
+  "/tmp/k0_$t.log",
+  "/tmp/k0_$t.log",
+  "/tmp/k0_$t.log",
+  "/tmp/k0base",
+  "/tmp/k0base",
+  "/tmp/k0base"
+ ]
+}

@@ -1,0 +1,50 @@
+{
+ "case": "K1",
+ "variant": "baseline",
+ "run": "1",
+ "session": "d75bd394-ee6f-402c-9adb-f7fa276cb461",
+ "source": "transcript (runner died)",
+ "startedUtc": "2026-11-06T08:19:38.753Z",
+ "endedUtc": "2026-11-06T09:10:31.927Z",
+ "wallSeconds": 3053.2,
+ "numTurns": 28,
+ "costUsd": null,
+ "inputTokens": 56,
+ "outputTokens": 13211,
+ "cacheReadTokens": 2460905,
+ "cacheCreationTokens": 110437,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 27,
+ "hookRecords": 23,
+ "isolationViolations": [],
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": ".itd/IMPACT_GRAPH.json",
+    "problem": "Committed graph is stale against the tracked tree: build_impact_graph.py --check reports DRIFT (nodes .itd-memory/* and tests/fixtures/ledger-reconciliation/*). Same drift in a clean HEAD checkout and on HEAD~1, so it existed before the candidate, but it makes verify_verification_profiles fail. Regenerate the graph in a clean tree."
+   },
+   {
+    "file": "tests/verify_stop_rule_closed_contract.py",
+    "problem": "Fails in the full suite: FileNotFoundError .../itd-stub-tree-*/repo/.itd-memory/STATE.json. Also fails on HEAD~1 (existed before the candidate), but tests/run-all.sh, the verification command for AC3, is red (exit 1)."
+   },
+   {
+    "file": ".itd-memory/host-inputs/GPG-003_REVIEW_EFFICACY_KEYRING.sha256",
+    "problem": "Host-owned input is not provisioned, so verify_independent_review_efficacy is BLOCKED and the regression oracle cannot pass on this host."
+   },
+   {
+    "file": ".itd/ACCEPTANCE_CONTRACT.json",
+    "problem": "CODEX-ASK-GATES-1-AC3 is marked passed, but on exact tree 6a4bebf the full suite exits 1 and no native Windows run was done. The exact-tree machine receipt required before review is missing (SCOPE_LOCK Review Rule)."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 4
+ },
+ "dirtyAfter": [],
+ "valid": true
+}

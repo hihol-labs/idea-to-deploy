@@ -1,0 +1,56 @@
+{
+ "case": "K1",
+ "variant": "baseline",
+ "run": "4",
+ "session": "f36da91f-cca5-4bad-aabe-a8631e3d452f",
+ "isolation": "os-namespaces (pilot_ns.py)",
+ "runtime": "unknown",
+ "startedUtc": "2026-11-07T17:16:33Z",
+ "wallSeconds": 370.7,
+ "exit": 0,
+ "timedOut": false,
+ "durationMs": 366342,
+ "numTurns": 11,
+ "costUsd": 0.654785,
+ "inputTokens": 20,
+ "outputTokens": 6522,
+ "cacheReadTokens": 547445,
+ "cacheCreationTokens": 51847,
+ "tokensTotal": 605834,
+ "models": [
+  "claude-opus-5-5"
+ ],
+ "toolCalls": 10,
+ "hookRecords": 11,
+ "isolationViolations": [],
+ "leaks": [],
+ "runtimeOracleTouches": [],
+ "proxy": {
+  "allow api.anthropic.com:443": 3
+ },
+ "credentials": {
+  "sameInode": true,
+  "rewritten": false,
+  "validJson": true
+ },
+ "answer": {
+  "ready": false,
+  "blockers": [
+   {
+    "file": "docs/HOST_ADAPTER_CONTRACT.md",
+    "problem": "Lines 42-44 still state 'the methodology stores no local approval ledger, and a caller-controlled tool flag or file can never mint approval', but the candidate adds a local Codex approval store (~/.claude/itd-codex-approvals/<sha(session)>/<hash>.json) where any process of the OS user, including the gated Codex agent's own shell call, can write a record that mints a one-time pass. This contradicts the new Codex sentence in the same paragraph, the Known limitation in .itd/SCOPE_LOCK.md and the HARNESS_ENGINEERING_MAP.md row for pii-egress-guard.sh ('без локального approval-ledger'); the normative contract should state the limitation instead of denying it."
+   }
+  ]
+ },
+ "score": {
+  "ready": false,
+  "hit": false,
+  "blockers": 1
+ },
+ "dirtyAfter": [],
+ "subtype": "success",
+ "isError": false,
+ "stderrTail": "",
+ "valid": true,
+ "tmpPaths": []
+}
