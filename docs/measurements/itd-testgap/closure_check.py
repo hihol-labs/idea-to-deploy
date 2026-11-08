@@ -11,6 +11,7 @@ from pathlib import Path
 MERGE = "3a770e2ff028455da60aaca60bebefa129825989"
 RECEIPT = Path(".itd-memory/host-inputs/REL-1.110.6-post/REL-1.110.6-canonical-a5-adjudication.json")  # copy
 DELTA = Path(".itd-memory/host-inputs/REL-1.110.6-post/closure-delta.diff")
+RECEIPT_FILE_SHA256 = "6ce18b36b39218ba1b6b31fc6003045b06fb7fc5eb9f9e8e94eb14d71ca08f83"  # bytes of the a5 receipt
 err = []
 
 
@@ -18,11 +19,13 @@ def git(*a):
     return subprocess.check_output(["git", *a], text=True).strip()
 
 
+if hashlib.sha256(RECEIPT.read_bytes()).hexdigest() != RECEIPT_FILE_SHA256:
+    err.append("the receipt copy is not the a5 receipt file")
 receipt = json.loads(RECEIPT.read_text(encoding="utf-8"))
 tree = git("rev-parse", f"{MERGE}^{{tree}}")
 if receipt["candidate"]["reviewedTree"] != tree:
     err.append(f"tree {tree} != reviewedTree {receipt['candidate']['reviewedTree']}")
-if receipt.get("outcome", receipt.get("verdict")) != "PASSED":
+if receipt.get("outcome") != "PASSED":
     err.append("receipt outcome is not PASSED")
 decisions = Path(".itd/DECISIONS.md").read_text(encoding="utf-8")
 closure = decisions[decisions.index("## 2026-11-07 - закрытие REL-1.110.6 по конвенции ADR-016"):]
@@ -37,6 +40,13 @@ if delta_paths != [".itd-memory/STATE.json", ".itd-memory/events.jsonl", ".itd/A
 events = [json.loads(x) for x in Path(".itd-memory/events.jsonl").read_text(encoding="utf-8").splitlines() if x]
 ver = [e for e in events if e.get("name") == "REL-1.110.6" and e.get("decision") == "verified"]
 act = [e for e in events if e.get("name") == "ITD-PILOT-TESTGAP" and e.get("decision") == "activated"]
+for e in ver + act:  # written by itd_unit_log.py: harness unit events of the STATE ledger
+    if (e.get("actor"), e.get("type"), e.get("ledger")) != ("harness", "unit", "STATE"):
+        err.append(f"event {e.get('id')} is not an itd_unit_log.py STATE unit event")
+state_rc = subprocess.run([sys.executable, "scripts/validate_state.py", ".itd-memory/STATE.json", ".itd-memory/GOAL.json"],
+                          capture_output=True, text=True).returncode
+if state_rc != 0:
+    err.append("scripts/validate_state.py does not exit 0")
 if len(ver) != 1 or len(act) != 1:
     err.append("expected one verified REL-1.110.6 and one activated ITD-PILOT-TESTGAP event")
 else:

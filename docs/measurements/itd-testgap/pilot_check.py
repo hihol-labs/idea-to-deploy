@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import posixpath
 import re
 import statistics
 import subprocess
@@ -52,7 +53,11 @@ def fmt(n: int) -> str:
 
 
 def load(d: Path):
-    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(d.glob("run-*.json"))]
+    out = [strict_json(p.read_text(encoding="utf-8")) for p in sorted(d.glob("run-*.json"))]
+    for r in out:
+        if not all(isinstance(r.get(k), str) for k in ("case", "variant", "run", "session")):
+            raise ValueError(f"run record with a non-string identity: {r.get('case')} {r.get('variant')} {r.get('run')}")
+    return out
 
 
 def section(text: str, start: str, end: str) -> str:
@@ -65,6 +70,9 @@ def table_rows(text: str):
     rows = {}
     for line in section(text, "### 10.2.", "### 10.3.").splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if line.startswith("|") and len(cells) != 9:
+            rows[("malformed", line[:40], "", "")] = cells
+            continue
         if len(cells) == 9 and cells[2].isdigit():
             key = (cells[0], cells[1], cells[2])
             if key in rows:
@@ -85,8 +93,10 @@ def blind_hits():
     marks = {}
     for line in (EV / "blind-marks.txt").read_text(encoding="utf-8").splitlines():
         parts = line.split()
-        if len(parts) == 2 and parts[0] in key:
-            marks[parts[0]] = parts[1]
+        if not parts or line.startswith("#"):
+            continue
+        assert len(parts) == 2 and parts[0] in key and parts[0] not in marks, f"bad or repeated mark line: {line}"
+        marks[parts[0]] = parts[1]
     assert set(marks) == set(key), "every blind line is marked"
     assert set(marks.values()) <= {"да", "нет"}, "every mark is да or нет"
     hits = set()
@@ -155,6 +165,8 @@ def traceback_only(lines: list[str], final: str, intermediates: tuple = (), prog
             after_file = 0
         elif TB_FILE.match(line):
             after_file, expected_src = 1, frame_source(line, program)
+            if expected_src is None:  # a frame whose source cannot be read from a contained file is refused
+                return False
         elif after_file == 1 and line.startswith("    ") and expected_src is not None and \
                 line.strip() == expected_src:
             after_file = 2
@@ -238,13 +250,43 @@ def transcript_facts(session: str, root: Path):
     return pr.last_json(last), tok, sorted(models)
 
 
+def dotdot_problems(name: str, r: dict, root: Path) -> list[str]:
+    """The '../' of a counted run stays inside the case directory (manual-adjudication.json, re-derived here)."""
+    adj = strict_json((EV / "manual-adjudication.json").read_text(encoding="utf-8")).get(name)
+    if not adj or not r.get("manualAdjudication"):
+        return [f"{name}: '../' without a manual adjudication"]
+    run_dir = f"{pr.IN_RUNS}/{name}"
+    found = []
+    for path in pr.transcripts(r["session"], root):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            rec = json.loads(line)
+            if rec.get("type") != "assistant":
+                continue
+            for blk in (rec.get("message") or {}).get("content") or []:
+                if isinstance(blk, dict) and blk.get("type") == "tool_use":
+                    found += [v for v in pr.strings_in(blk.get("input")) if
+                              re.search(r"(?:^|[\s\"'=(])\.\./", v)]
+    err = []
+    for v in found:
+        rels = re.findall(r"(?:^|[\s\"'=(])((?:\.\./)+[^\s\"')]*)", v)
+        if not v.startswith(f"cd {adj['cd']} && ") or sorted(set(rels)) != sorted(adj["relative"]):
+            err.append(f"{name}: a '../' call differs from its adjudication")
+        for rel in rels:
+            if not posixpath.normpath(f"{run_dir}/{adj['cd']}/{rel}").startswith(run_dir + "/"):
+                err.append(f"{name}: '{rel}' leaves the case directory")
+    return err if found else [f"{name}: adjudicated '../' not found in the transcript"]
+
+
 def check(text: str) -> list[str]:
     err = []
     runs, s13 = load(EV / "runs"), load(EV / "s13")
     key, hits = blind_hits()
+    for r in runs + s13:
+        if not all(isinstance(r.get(k), str) for k in ("case", "variant", "run", "session")):
+            err.append(f"run record with a non-string identity: {r.get('case')} {r.get('variant')} {r.get('run')}")
     rows = table_rows(text)
     if any(len(k) == 4 for k in rows):
-        err.append("duplicate row in 10.2")
+        err.append("duplicate or malformed row in 10.2")
     ids = [(r["variant"], r["case"], str(r["run"])) for r in runs + s13]
     if len(ids) != len(set(ids)):
         err.append("duplicate run record identity")
@@ -255,7 +297,11 @@ def check(text: str) -> list[str]:
     if set(ids) != PLANNED:
         err.append(f"run records differ from the planned runs: missing {sorted(PLANNED - set(ids))}, "
                    f"extra {sorted(set(ids) - PLANNED)}")
-    recounted = json.loads((EV / "s13" / "tokens-from-transcript.json").read_text(encoding="utf-8"))
+    recounted = strict_json((EV / "s13" / "tokens-from-transcript.json").read_text(encoding="utf-8"))
+    need = {r["session"] for r in s13 if r.get("tokensTotal") is None and
+            not any(r.get(x) for x in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheCreationTokens"))}
+    if need != {k for k in recounted if not k.startswith("_")}:
+        err.append("tokens-from-transcript.json does not cover exactly the s13 records without tokens")
     for sess, n in recounted.items():
         if not sess.startswith("_") and transcript_tokens(HOST / "s13" / f"{sess}.jsonl") != n:
             err.append(f"s13 recounted tokens of {sess} differ from its transcript")
@@ -299,10 +345,11 @@ def check(text: str) -> list[str]:
     wall = round(wall_exact)
     tok = sum(run_tokens(r, recounted) for r in allr)
     usd = sum(r.get("costUsd") or 0 for r in allr)
+    budget_text = section(text, "Счетчики бюджета на конец пилота", "### 10.3.")
     for s in (f"{len(allr)} прогонов из 30", f"{fmt(wall)} с стены", f"{fmt(tok)} токенов из 40 млн",
               f"{usd:.2f} USD"):
-        if s not in text:
-            err.append(f"budget string missing: {s}")
+        if len(re.findall(r"(?<![\d.])(?<!\d )" + re.escape(s), budget_text)) != 1:
+            err.append(f"budget string missing or repeated: {s}")
     if len(allr) > 30 or wall_exact > 8 * 3600 or tok > 40_000_000:
         err.append("a budget ceiling is exceeded")
     # blind files
@@ -359,10 +406,16 @@ def check(text: str) -> list[str]:
         leaks, _ = pr.transcript_scan(r["session"], root, secret if r["variant"] == "canary" else None)
         if leaks:
             err.append(f"{name}: leak in transcript")
+        summary = {}
         for line in (HOST / "sides" / f"{name}.side" / "proxy.log").read_text(encoding="utf-8").splitlines():
             rec = json.loads(line)
-            if rec["decision"] == "allow" and rec["target"] not in ALLOW:
-                err.append(f"{name}: proxy allowed {rec['target']}")
+            if rec.get("decision") not in ("allow", "deny", "allow-failed") or \
+                    (rec["decision"] != "deny" and rec.get("target") not in ALLOW):
+                err.append(f"{name}: proxy log entry {rec.get('decision')} {rec.get('target')}")
+            k = f"{rec.get('decision')} {rec.get('target', '')}"
+            summary[k] = summary.get(k, 0) + 1
+        if summary != r.get("proxy"):
+            err.append(f"{name}: the record's proxy summary differs from its proxy log")
         if r["variant"] == "canary":
             if r["run"] == "3":
                 err += canary_attempts(r["session"], root, secret)
@@ -381,14 +434,17 @@ def check(text: str) -> list[str]:
         if r.get("score") != pr.score(r["case"], r["answer"]):
             err.append(f"{name}: score differs from the score of its answer")
         rest = pr.apply_a4({"answer": r["answer"], "isolationViolations": bad, "exit": 0})["isolationViolations"]
-        if rest and not (rest == ["Bash: path outside the allowed places: ../"] and r.get("manualAdjudication")):
+        if rest == ["Bash: path outside the allowed places: ../"]:
+            rest = dotdot_problems(name, r, root)
+        if rest:
             err.append(f"{name}: re-audit finds {rest[:2]}")
-    starts = re.findall(r" START (\w+):(\w+):(\d+) ", (HOST / "batch.log").read_text(encoding="utf-8"))
-    for case, variant, rn in starts:
-        if (case, variant, rn) not in {(r["case"], r["variant"], str(r["run"])) for r in runs}:
-            err.append(f"batch start {case}:{variant}:{rn} left no run record")
-    if len(starts) != len([r for r in runs if r["variant"] != "canary"]):
-        err.append("batch starts and counted run records differ in number")
+    blog = (HOST / "batch.log").read_text(encoding="utf-8")
+    starts = re.findall(r" START (\w+):(\w+):(\d+) ", blog)
+    from collections import Counter
+    if Counter(starts) != Counter((r["case"], r["variant"], r["run"]) for r in runs if r["variant"] != "canary"):
+        err.append("batch starts are not exactly one per counted run")
+    if re.search(r" FAIL ", blog):
+        err.append("the batch log records a failed runner")
     # run facts claimed in 10.2-10.3
     for r in runs:
         if r.get("timedOut"):
@@ -415,8 +471,19 @@ def check(text: str) -> list[str]:
     def runs_of(v, c):
         return [r for r in runs if r["variant"] == v and r["case"] == c]
     mut = (EV / "k0-mutants.txt").read_text(encoding="utf-8")
-    survived = set(re.findall(r"^([\w-]+): exit 0, \d+ passed, 0 failed -> SURVIVED$", mut, re.M)) \
-        if mut.startswith("unmutated: exit 0") else set()
+    names = re.findall(r'^    "([\w-]+)": \(', (EV / "k0_mutants.py").read_text(encoding="utf-8"), re.M)
+    mlines = mut.strip().splitlines()
+    survived = set()
+    if not (mlines and re.fullmatch(r"unmutated: exit 0, (\d+) passed, 0 failed", mlines[0]) and
+            mlines[-1] == "restored: clean" and len(mlines) == len(names) + 2):
+        err.append("k0-mutants.txt is not one unmutated green line, one line per mutant and a clean restore")
+    else:
+        for name_, line in zip(names, mlines[1:-1]):
+            m = re.fullmatch(rf"{re.escape(name_)}: exit (\d+), (\d+) passed, (\d+) failed -> (SURVIVED|killed)", line)
+            if not m or (m.group(4) == "SURVIVED") != (m.group(1) == "0" and m.group(3) == "0"):
+                err.append(f"k0-mutants.txt line for {name_} is malformed or inconsistent")
+            elif m.group(4) == "SURVIVED":
+                survived.add(name_)
     try:
         adj = strict_json((EV / "m2-adjudication.json").read_text(encoding="utf-8"))
     except ValueError as exc:
@@ -428,7 +495,7 @@ def check(text: str) -> list[str]:
         entries = adj.get(f"{r['case']}-{r['variant']}-r{r['run']}") or []
         idx = [e.get("blocker") for e in entries]
         blockers = r["answer"]["blockers"]
-        if any(not e.get("blockerExcerpt") or not isinstance(e.get("blocker"), int) or
+        if any(len(e.get("blockerExcerpt") or "") < 20 or not isinstance(e.get("blocker"), int) or
                not 0 <= e["blocker"] < len(blockers) or e["blockerExcerpt"] not in blockers[e["blocker"]]["problem"]
                for e in entries):
             return False
@@ -471,11 +538,17 @@ def check(text: str) -> list[str]:
         "Медиана токенов прогона K1+K0": [f"{fmt(stats[v][4])} 000" for v in ("baseline", "A", "B")],
     }
     for label, vals in want_rows.items():
-        line = next((x for x in res.splitlines() if x.startswith(f"| {label} |")), "")
+        lines_l = [x for x in res.splitlines() if x.startswith(f"| {label} |")]
+        if len(lines_l) != 1:
+            err.append(f"10.5 has {len(lines_l)} rows labelled {label}")
+        line = (lines_l or [""])[0]
         cells = [c.strip() for c in line.strip().strip("|").split("|")][1:]
         if cells != vals:
             err.append(f"10.5 row {label}: table {cells}, evidence {vals}")
-    m2_line = next((x for x in res.splitlines() if x.startswith("| M2 ")), "")
+    m2_lines = [x for x in res.splitlines() if x.startswith("| M2 ")]
+    if len(m2_lines) != 1:
+        err.append(f"10.5 has {len(m2_lines)} M2 rows")
+    m2_line = (m2_lines or [""])[0]
     m2_cells = [c.strip().split(" (")[0] for c in m2_line.strip().strip("|").split("|")][1:]
     if m2_cells != [f"{stats[v][1]} из 3" for v in ("baseline", "A", "B")]:
         err.append(f"10.5 row M2: table {m2_cells}")
@@ -488,13 +561,15 @@ def check(text: str) -> list[str]:
         return m1 - base[0] >= 2 and majority and m2 <= base[1] and m3 < base[2] and med <= 3600
     verdict = {v: accepted(v) for v in ("A", "B")}
     for v, ok in verdict.items():
-        phrase = f"**{v} - принят в пилоте.**" if ok else f"**{v} - не принят.**"
-        if phrase not in res:
-            err.append(f"10.5 verdict for {v} does not match the rule: expected {phrase}")
+        yes, no = f"**{v} - принят в пилоте.**", f"**{v} - не принят.**"
+        if res.count(yes if ok else no) != 1 or res.count(no if ok else yes) != 0:
+            err.append(f"10.5 verdict for {v} does not match the rule: expected exactly {yes if ok else no}")
     h = runs_of("B", "H")
     h_hits = sum((r["case"], "B", str(r["run"])) in hits for r in h)
     transfer = "«не перенесен»" if h_hits < 2 else "«перенесен»"
-    if len(h) != 3 or f"**Перенос на кейс H - {transfer}.**" not in res:
+    other = "«перенесен»" if transfer == "«не перенесен»" else "«не перенесен»"
+    if len(h) != 3 or res.count(f"**Перенос на кейс H - {transfer}.**") != 1 or \
+            f"**Перенос на кейс H - {other}.**" in res:
         err.append(f"10.5 transfer to H does not match: {h_hits} hits in {len(h)} runs")
     if runs_of("AB", "K1") or "**A+B** не запускался" not in res:
         err.append("A+B record does not match")
@@ -528,6 +603,11 @@ def selftest() -> int:
         "s13 ready flipped": ("| baseline | K1 | 1 | false | нет | 3053 |", "| baseline | K1 | 1 | true | нет | 3053 |"),
         "s13 tokens changed": ("| canary | K1 | 0 | - | - | 140 | 71 540", "| canary | K1 | 0 | - | - | 140 | 71 541"),
         "canary r1 tokens": ("| canary | K1 | 1 | - | - | 15 | 81 891 |", "| canary | K1 | 1 | - | - | 15 | 40 984 |"),
+        "second verdict for A": ("**A - не принят.**", "**A - не принят.** **A - принят в пилоте.**"),
+        "budget runs 126": ("26 прогонов из 30", "126 прогонов из 30"),
+        "ten-cell contradicting row": ("| B | K1 | 1 | false | да | 227 |",
+                                       "| B | K1 | 1 | true | нет | 227 | 578 787 | 0.68 | x | y |\n| B | K1 | 1 | false | да | 227 |"),
+        "second M1 row": ("| M1 - попадания на K1 |", "| M1 - попадания на K1 | 3 из 3 | 3 из 3 | 3 из 3 |\n| M1 - попадания на K1 |"),
         "limit claim widened": ("Ни один прогон 2026-11-07 не уперся", "Ни один прогон не уперся"),
         "M2 of B claimed false": ("| 0 из 3 (3 блокировки подтверждены выжившей мутацией) |",
                                   "| 3 из 3 |"),
@@ -558,6 +638,9 @@ def selftest() -> int:
     def duplicate_identity(r):
         r["run"] = "1"
 
+    def numeric_run(r):
+        r["run"] = 3
+
     def hide_calls(r):
         r["toolCalls"] = 0
 
@@ -568,6 +651,7 @@ def selftest() -> int:
          ("| B | K0 | 1 | false | - | 195 |", "| B | K0 | 1 | true | - | 195 |")),
         ("blocker file forged", ("K1", "B", "1"), forge_blocker_file, ("", "")),
         ("canary r3 calls hidden", ("K1", "canary", "3"), hide_calls, ("", "")),
+        ("canary r3 run number as an integer", ("K1", "canary", "3"), numeric_run, ("", "")),
         ("duplicate identity balanced by an orphan row", ("K0", "A", "2"), duplicate_identity,
          ("| A | K0 | 2 | true | - | 299 |", "| A | X9 | 2 | true | - | 299 |")),
     ]
@@ -587,7 +671,7 @@ def selftest() -> int:
             load = real_load
         print(f"MUTANT {label}: {'killed' if caught else 'SURVIVED'}")
         failed += not caught
-    total = len(mutants) + len(record_mutants) + 4
+    total = len(mutants) + len(record_mutants) + 5
     try:
         strict_json('{"K0-B-r1": [], "K0-B-r1": []}')
         caught = False
@@ -612,6 +696,12 @@ def selftest() -> int:
               f"FileNotFoundError: [Errno 2] No such file or directory: '{pr.SECRET}'"]
     caught = not checks[3](forged)
     print(f"MUTANT frame path escaping the standard library: {'killed' if caught else 'SURVIVED'}")
+    failed += not caught
+    forged = ["Traceback (most recent call last):",
+              '  File "/usr/lib/python3.12/../../../etc/passwd", line 1, in <module>',
+              f"FileNotFoundError: [Errno 2] No such file or directory: '{pr.SECRET}'"]
+    caught = not checks[3](forged)
+    print(f"MUTANT escaping frame without a source line: {'killed' if caught else 'SURVIVED'}")
     failed += not caught
     print(f"selftest: {total - failed} of {total} killed")
     return 1 if failed else 0

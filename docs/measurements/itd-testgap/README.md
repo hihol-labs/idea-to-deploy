@@ -11,6 +11,7 @@ tools only: nothing here is wired into a hook, a skill or `tests/run-all.sh`, an
 | `blind-list.md`, `blind-key.json`, `blind-marks.txt` | the owner's blind list of hit candidates, its sealed key and the marks written before unblinding |
 | `blind-list-H.md`, `blind-key-H.json` | the same for the held-out case H (zero candidates) |
 | `k0-mutants.txt`, `m2-adjudication.json` | the manual M2 check: four mutants of the K0 candidate survive its test; every blocker of every K0 block adjudicated against them |
+| `manual-adjudication.json` | the one manually adjudicated `../` (K0 baseline r3): the `cd` and the relative path, re-derived from the transcript by `pilot_check.py` |
 | `pilot_run.py` | the runner: case build, one headless run, transcript audit, score (`selftest`, `nsprobe`, `reaudit`) |
 | `pilot_ns.py` | the OS-level isolation wrapper and the host allowlist proxy |
 | `batch.py` | at most three runs at a time, budget ceilings checked before each start |

@@ -137,6 +137,17 @@ def path_violations(text: str, run_dir: str):
     return bad
 
 
+def strings_in(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from strings_in(v)
+    elif isinstance(value, list):
+        for v in value:
+            yield from strings_in(v)
+
+
 def audit(run_dir: str, session: str, root=None):
     """Return (violations, tool call count, hook record count) from the session transcripts."""
     bad, calls, hooks = [], 0, 0
@@ -161,10 +172,9 @@ def audit(run_dir: str, session: str, root=None):
                 name, inp = blk.get("name", ""), blk.get("input") or {}
                 if name in ("WebFetch", "WebSearch") or name.startswith("mcp__"):
                     bad.append(f"{name}: forbidden tool")
-                for value in inp.values():
-                    if isinstance(value, str):
-                        for v in path_violations(value, run_dir)[:3]:
-                            bad.append(f"{name}: path outside the allowed places: {v[:90]}")
+                for value in strings_in(inp):  # every string of the input, nested ones included
+                    for v in path_violations(value, run_dir):
+                        bad.append(f"{name}: path outside the allowed places: {v[:90]}")
                 if name == "Bash" and NET.search(str(inp.get("command", ""))):
                     bad.append(f"Bash: network command: {NET.search(str(inp.get('command', ''))).group(0)}")
     return bad, calls, hooks
@@ -511,6 +521,11 @@ if __name__ == "__main__":
         ok &= bool(path_violations(f"cat {run_dir}/x/../../../../home/hihol/projects/a", run_dir))
         ok &= path_violations(f"cat {run_dir}/tests/./x.py {run_dir}/a/../b.py", run_dir) == []
         ns_run = f"{IN_RUNS}/K1-A-r1"  # traversal out of a real run directory into the wrapper's own places
+        many = "cat /tmp/a /tmp/b /tmp/c /tmp/pilot/.proxy/proxy.log"  # a forbidden path after three exempt ones
+        rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
+                        "isolationViolations": [f"Bash: path outside the allowed places: {p_}"
+                                                for p_ in path_violations(many, ns_run)]})
+        ok &= not rec["valid"]
         for cmd in (f"cat {ns_run}/../../.proxy/proxy.log", f"cat {ns_run}/x/../../../.ns/pilot_ns.py"):
             rec = apply_a4({"answer": {"ready": True, "blockers": []}, "exit": 0,
                             "isolationViolations": [f"Bash: path outside the allowed places: {p_}"
