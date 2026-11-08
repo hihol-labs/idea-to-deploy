@@ -109,6 +109,12 @@ def approval_hash(proc: subprocess.CompletedProcess) -> str:
     return match.group(1) if match else ""
 
 
+def set_approved_at(home: Path, approved_at: float) -> None:
+    """Rewrite the timestamp of every stored approval."""
+    for record in (home / "itd-codex-approvals").rglob("*.json"):
+        record.write_text(json.dumps({"approvedAt": approved_at}), encoding="utf-8")
+
+
 def load_dispatcher():
     spec = importlib.util.spec_from_file_location("itd_codex_dispatch_probe", DISPATCHER)
     assert spec and spec.loader
@@ -378,6 +384,40 @@ def main() -> int:
               switched_off.stdout + switched_off.stderr)
         check("[25] the guard leaves ordinary shell calls and file writes alone",
               passes(dispatch(env, PII, tool_call("git status"))) and passes(dispatch(env, PII, doc_edit)))
+
+        inside = tool_call("git push origin ttl-inside")
+        prompt(env, f"ITD-APPROVE {approval_hash(dispatch(env, PII, inside))}")
+        set_approved_at(home, time.time() - 29 * 60)
+        check("[34] an approval younger than the 30-minute TTL still passes",
+              passes(dispatch(env, PII, inside)))
+
+        future = tool_call("git push origin ttl-future")
+        prompt(env, f"ITD-APPROVE {approval_hash(dispatch(env, PII, future))}")
+        set_approved_at(home, time.time() + 3600)
+        check("[35] an approval dated in the future does not pass",
+              denied(dispatch(env, PII, future)))
+
+        with_timeout = dict(push, tool_input={**push["tool_input"], "timeout": 5})
+        no_command_a = dict(push, tool_name="Write", tool_input={"file_path": "a.txt"})
+        no_command_b = dict(push, tool_name="Write", tool_input={"file_path": "b.txt"})
+        check("[36] the hash binds the whole tool input, also a field beside command and an input without command",
+              module.approval_hash(PII, with_timeout) != digest
+              and module.approval_hash(PII, no_command_a) != module.approval_hash(PII, no_command_b))
+
+        if hasattr(os, "getuid"):
+            own = base / "own-record.json"
+            own.write_text("{}", encoding="utf-8")
+            own.chmod(0o600)
+            real_getuid = os.getuid
+            mine = module.private_entry(own, directory=False)
+            try:
+                os.getuid = lambda: real_getuid() + 1  # type: ignore[assignment]
+                foreign = module.private_entry(own, directory=False)
+                foreign_dir = module.private_entry(base, directory=True)
+            finally:
+                os.getuid = real_getuid  # type: ignore[assignment]
+            check("[37] a file or directory owned by another uid is not private (own file with the same mode is)",
+                  mine and not foreign and not foreign_dir)
 
     windows_launch_check(push)
     print(f"\n{passed} passed, {failed} failed")

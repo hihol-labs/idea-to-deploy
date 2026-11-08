@@ -37,10 +37,10 @@
     "lastAnalysisSummary": "GPG-003 is being simplified under accepted ADR-006 to one fresh opposite-GPT reviewer: Sol maker to Terra, Terra maker to Sol. Evidence-first exact-tree machine oracles, strict receipts, efficacy gates, PR/release and dual-host rollout remain required; Anthropic, Copilot, Antigravity and paid API transports are optional and cannot block unrelated projects."
   },
   "currentUnit": {
-    "id": "ITD-PILOT-TESTGAP",
-    "goal": "TESTGAP pilot by docs/measurements/ITD-PILOT-TESTGAP-PROTOCOL.md (documents only): OS-level isolation wrapper and extended canary, runs baseline -> A -> B -> A+B (conditional) -> H within the approved budget (K1+K0, N=3, 30 runs, 8 h, 40M tokens), owner blind marks with sha256 before unblinding, decision by section 8, lesson card, owner decision on session 16; the closure of REL-1.110.6 rides in this PR",
+    "id": "CODEX-ASK-MUTANTS-1",
+    "goal": "Run the four surviving mutants of the Codex ask-gate test on current main; for each survivor add a refusal-case test (foreign uid, TTL bound, future date, input without command) that kills it; no hook change. The closure of ITD-PILOT-TESTGAP rides in this PR",
     "status": "in_progress",
-    "startedAt": "2026-11-07T16:57:06Z",
+    "startedAt": "2026-11-08T10:55:53Z",
     "ledger": "STATE",
     "riskTier": "medium"
   },
