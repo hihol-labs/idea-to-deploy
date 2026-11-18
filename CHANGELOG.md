@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.110.7] - 2026-11-18
+
+### Changed - the independent reviewer is gpt-6.2-astra with the gpt-6.2-sol standby (REVIEWER-62ASTRA-1, #397)
+
+- Owner decision 2026-11-18: everywhere `gpt-6.1-sol` becomes `gpt-6.2-astra` and
+  `gpt-5.6-terra` becomes `gpt-6.2-sol` - the Codex producer, both API-route
+  policies, the broker policy and its frozen schema, tests and docs.
+- Producer: an Anthropic maker is reviewed by `gpt-6.2-astra` (standby
+  `gpt-6.2-sol`); `gpt-6.2-astra`, `gpt-6-astra` and `gpt-6.1-sol` makers get
+  `gpt-6.2-sol`; `gpt-5.6-sol` <-> `gpt-6.2-sol`.
+- API prices observed 2026-11-18: `gpt-6.2-astra` $8 / $40 per 1M tokens,
+  `gpt-6.2-sol` $2 / $10. Cost limits raised for the Astra price: $2.10 per
+  review (was $0.75), $25 per month (was $10).
+- Efficacy: two live runs on WSL and Windows, critical/high and medium detection
+  1.0 on every leg. On clean code only a `BLOCKED` verdict now counts as a false
+  block; `PASSED_WITH_WARNINGS` is reported as `WARN` (owner decision).
+
 ## [1.110.6] - 2026-11-07
 
 ### Fixed - the ledger hook no longer warns about units closed before the event journal (LEDGER-HORIZON-1)
