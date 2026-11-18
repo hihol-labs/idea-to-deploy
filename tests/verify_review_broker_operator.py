@@ -150,7 +150,7 @@ def main() -> int:
         )
 
         changed = key_record()
-        changed["authorizedMakerModel"] = "gpt-5.6-terra"
+        changed["authorizedMakerModel"] = "gpt-6.2-sol"
         record.write_text(json.dumps(changed), encoding="utf-8")
         rejects(
             lambda: key_args.handler(key_args),

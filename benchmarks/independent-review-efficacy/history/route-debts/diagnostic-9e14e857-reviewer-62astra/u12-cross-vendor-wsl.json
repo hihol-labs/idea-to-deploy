@@ -1,0 +1,270 @@
+{
+  "signatureHex": "f004ec5d797d2b28dea6eb6b428b5ee96a4da4e3abcb982f7bdbb0c2ee155e22f90957d22a2b8be34ea18a07542d61bae540a61991fa6dbb2329ce16a744890c",
+  "signed": {
+    "cases": [
+      {
+        "attempts": 1,
+        "id": "high-export-capacity",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
+        "report": {
+          "findings": [
+            {
+              "category": "Worksheet capacity",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 9,
+              "severity": "high",
+              "summary": "The writer receives a projected 1,807,231 data rows for one worksheet, exceeding Excel’s 1,048,576-row limit by 758,655 before any header. The declared limit is unused. A complete default download requires a bounded row representation that preserves the annual report data."
+            },
+            {
+              "category": "Browser memory",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The nested flatMap calls allocate a row object per conversion and materialize the entire array before the writer runs. Browser memory demand grows with document count without a bound, so even a writer-side capacity check comes too late to protect row construction."
+            },
+            {
+              "category": "Report reconciliation",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 6,
+              "severity": "medium",
+              "summary": "An order with an empty conversionDocuments array contributes zero rows. Such orders disappear from the annual report, while orders with several documents appear repeatedly, so exported row counts no longer reconcile directly to base orders."
+            }
+          ],
+          "unverified": [
+            "Actual browser peak memory and download completion remain unverified. The supplied evidence gives row counts but no end-to-end default export result or memory measurement for a supported browser.",
+            "The worksheet writer’s handling of oversized input is unverified. No implementation or artifact test shows whether it rejects the export, truncates rows, or produces an unreadable workbook."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee0e-a565-7be0-92a8-dbf67ee48e09"
+      },
+      {
+        "attempts": 1,
+        "id": "high-reconciliation-omission",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
+        "report": {
+          "findings": [
+            {
+              "category": "Reconciliation",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The closing calculation omits fx_other consumption. For the observed data, this overstates the closing balance by exactly 1,494,440 TRY."
+            },
+            {
+              "category": "Specification compliance",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The function returns only the closing balance. The supplied change exposes no turnover breakdown showing opening, inflow, expense outflow, conversion totals by category, and closing."
+            }
+          ],
+          "unverified": [
+            "The new module references Pool and sum without imports or local definitions. No ambient declarations or successful build establish that those names resolve.",
+            "Exact TRY arithmetic is unverified because the amount representation, supported range, and sum implementation are absent.",
+            "No test output compares the displayed turnover components with an independent closing balance for each supported type and for a pool containing all three."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee0f-c26d-72e0-89b2-2d6d371cf642"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-allocation-rounding",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
+        "report": {
+          "findings": [
+            {
+              "category": "Reconciliation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "high",
+              "summary": "Splitting 0.01 TRY with shares [0.5, 0.5] returns two 0.01 TRY rows, totaling 0.02 TRY. Independent rounding leaves the residual unassigned. The supplied evidence reports 1578 TRY of aggregate drift. Allocate the rounded source in integer cents and distribute residual cents so each source reconciles."
+            },
+            {
+              "category": "Numerical stability",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "medium",
+              "summary": "Binary floating-point multiplication can move an exact decimal midpoint below the rounding threshold. With source 2.01 and share 0.5, the mathematical allocation is 1.005, but the expression rounds it to 1.00. Compute the source-cent target and fractional remainders using a defined decimal rounding rule."
+            },
+            {
+              "category": "Input validation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "medium",
+              "summary": "The function silently returns an unreconciled allocation when the shares cannot account for the source. For a 1.00 TRY source, an empty array returns no rows, [0.5] returns only 0.50 TRY, and [NaN] produces a non-finite detail amount. Reject invalid inputs or define how weights are normalized before allocation."
+            }
+          ],
+          "unverified": [
+            "No regression test or per-source export assertion is shown for the exact-cent invariant. The aggregate drift measurement cannot establish which individual sources reconcile."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee10-a321-7e11-8657-24aed1c4b153"
+      },
+      {
+        "attempts": 1,
+        "id": "high-stale-generated-client",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
+        "report": {
+          "findings": [
+            {
+              "category": "Generated-client freshness",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "Removing `prisma generate` lets `verify` typecheck against a stale client that lacks `newcrmChangedSince`. Restore generation as a prerequisite with `prisma generate && tsc --noEmit`."
+            },
+            {
+              "category": "Failure propagation",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "`|| echo existing Prisma mismatch` replaces any non-zero compiler exit status with the successful status of `echo`. An unrelated TypeScript error therefore passes the release gate and is mislabeled as a Prisma mismatch. Remove the fallback so `verify` preserves the compiler exit status."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee11-75b0-75a2-acf0-afd55545ab82"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-repository-hygiene",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
+        "report": {
+          "findings": [
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "review-tools/local_probe.py",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The release tree includes a temporary reviewer probe that only prints 'debug'. Remove it to meet the acceptance criterion excluding reviewer probes."
+            },
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "ROOT_CAUSE.md",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The release tree includes a file that identifies its contents as private scratch notes for this review run. Remove it to meet the acceptance criterion excluding private root-cause notes."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee15-be38-7091-8fca-761bef52249b"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-bounded-reconciled-export",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee16-260d-79f0-975c-e126af9d55ea"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-inclusive-utc-day-span",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee17-1e38-7121-ad31-d46a21d41a7f"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-nearest-rank-percentile",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
+        "report": {
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "src/percentile.ts",
+              "line": 34,
+              "severity": "medium",
+              "summary": "The descriptor used to copy each value inherits from Object.prototype. If that prototype has a `get` or `set` property, Object.defineProperty sees both an accessor field and the own `value` field and throws TypeError even for a genuine sample such as [7]. Give the descriptor a null prototype and add a regression test that expects 7 under this condition."
+            }
+          ],
+          "unverified": [],
+          "verdict": "PASSED_WITH_WARNINGS"
+        },
+        "session": "01a1ee17-ad92-7e82-ab43-aad06006250f"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-half-up-basis-point-fee",
+        "observedModel": "gpt-6.2-astra",
+        "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee18-26cb-7512-b30e-674252913f18"
+      }
+    ],
+    "host": "wsl",
+    "hostRuntime": {
+      "osName": "posix",
+      "pythonImplementation": "cpython",
+      "release": "6.6.87.2-microsoft-standard-WSL2",
+      "system": "Linux"
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-independent-review-semantic-efficacy-run",
+    "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
+    "observedAt": "2026-11-18T09:59:02Z",
+    "producerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+    "reviewer": {
+      "isolation": {
+        "ephemeral": true,
+        "freshSession": true,
+        "inheritedContext": false,
+        "networkTools": false,
+        "observedToolCallsZero": true,
+        "paidApi": false,
+        "repositoryAccess": false,
+        "repositoryMutation": false,
+        "secrets": false,
+        "shellTools": false
+      },
+      "makerModel": "claude-opus-5",
+      "makerProvider": "anthropic-subscription",
+      "paidApiCalls": 0,
+      "provider": "openai-subscription",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-6.2-astra",
+      "runtimeVersion": "0.166.0",
+      "transportExecutableSha256": "b8a11fedf24b2dfb59a70c9e52b030f9a508dcd49cd2dd0d41956f4c785156b8"
+    },
+    "runnerSha256": "8f59a9a8e760f883ecce94866e385f477f35096310e2947e33c2ad1fec39bd06",
+    "version": 1
+  }
+}

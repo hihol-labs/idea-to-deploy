@@ -723,14 +723,14 @@ def main() -> int:
         and classification["firstMatchOrder"][-1] == "unknownMaker"
         and classification["consumerOverrideAllowed"] is False
         and classification["rules"]["solMaker"]
-        == {"vendorEquals": "openai", "modelEquals": "gpt-6.1-sol"},
+        == {"vendorEquals": "openai", "modelEquals": "gpt-6.2-astra"},
         "maker provenance maps to routes deterministically",
     )
     reviewers = policy["routing"]["reviewers"]
     constraints = policy["routing"]["selectionConstraints"]
     check(
-        reviewers["openai-responses"]["model"] == "gpt-6.1-sol"
-        and reviewers["openai-responses-terra"]["model"] == "gpt-5.6-terra"
+        reviewers["openai-responses"]["model"] == "gpt-6.2-astra"
+        and reviewers["openai-responses-terra"]["model"] == "gpt-6.2-sol"
         and all(row["modelPin"] == "exact" for row in reviewers.values())
         and all(
             row["inputUsdPerMillion"] > 0
@@ -751,7 +751,7 @@ def main() -> int:
         == "direct-maxReviewUsd-or-planned-hierarchical-provider-call-count-times-reviewer-cap"
         and budget["hierarchicalCallReservationMicrousd"]
         == {
-            "openai-responses": 750000,
+            "openai-responses": 2100000,
             "openai-responses-terra": 500000,
         }
         and budget["maxHierarchicalProviderCalls"] == 17
@@ -759,8 +759,8 @@ def main() -> int:
         and budget["requestMustSetOutputTokenCap"] is True
         and budget["rounding"] == "decimal-round-up-6-places"
         and budget["currencyUnit"] == "microusd"
-        and budget["reservationMicrousd"] == 750000
-        and budget["monthlyMicrousd"] == 10000000
+        and budget["reservationMicrousd"] == 2100000
+        and budget["monthlyMicrousd"] == 25000000
         and budget["settlementSchema"]
         == "REVIEW_BROKER_RUNTIME.schema.json#/$defs/budgetSettlement"
         and budget["authoritativeSpendSource"] == "immutable-budget-settlements"
@@ -1338,7 +1338,7 @@ def main() -> int:
         * Decimal(str(terra_pricing["outputUsdPerMillion"]))
     ).to_integral_value(rounding=ROUND_CEILING)
     check(
-        derived_microusd == Decimal("2750"),
+        derived_microusd == Decimal("2000"),
         "settled cost is reproducible from primary usage and frozen pricing",
     )
 

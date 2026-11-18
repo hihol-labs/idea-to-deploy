@@ -88,7 +88,7 @@ def provenance(
     head_sha: str = HEAD,
     base_sha: str = BASE,
     vendor: str = "openai",
-    model: str = "gpt-6.1-sol",
+    model: str = "gpt-6.2-astra",
     nonce: str = "n" * 24,
 ) -> dict[str, Any]:
     unsigned = {
@@ -109,7 +109,7 @@ def provenance(
 def provenance_key_record(
     key_id: str = "current",
     vendor: str = "openai",
-    model: str = "gpt-6.1-sol",
+    model: str = "gpt-6.2-astra",
 ) -> dict[str, Any]:
     return {
         "repository": REPO,
@@ -374,28 +374,28 @@ def main() -> int:
     policy = primitive.load_policy()
     check(policy["id"] == "itd-central-review-broker-v1", "frozen policy")
     check(
-        primitive.classify_maker("openai", "gpt-6.1-sol", policy)
+        primitive.classify_maker("openai", "gpt-6.2-astra", policy)
         == "solMaker"
         and primitive.select_reviewer(
-            "solMaker", "openai", "gpt-6.1-sol", policy
+            "solMaker", "openai", "gpt-6.2-astra", policy
         ) == "openai-responses-terra",
-        "Sol (gpt-6.1-sol) maker routes to Terra, not to the gpt-6.1-sol Sol reviewer",
+        "Sol (gpt-6.2-astra) maker routes to Terra, not to the gpt-6.2-astra Sol reviewer",
     )
-    # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.1-sol; a gpt-5.6-sol maker is another known model and gets it
+    # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.2-astra; a gpt-5.6-sol maker is another known model and gets it
     check(
         primitive.classify_maker("openai", "gpt-5.6-sol", policy)
         == "otherKnownMaker"
         and primitive.select_reviewer(
             "otherKnownMaker", "openai", "gpt-5.6-sol", policy
         ) == "openai-responses"
-        and policy["routing"]["reviewers"]["openai-responses"]["model"] == "gpt-6.1-sol",
-        "a gpt-5.6-sol maker is reviewed by the gpt-6.1-sol Sol reviewer",
+        and policy["routing"]["reviewers"]["openai-responses"]["model"] == "gpt-6.2-astra",
+        "a gpt-5.6-sol maker is reviewed by the gpt-6.2-astra Sol reviewer",
     )
     check(
-        primitive.classify_maker("openai", "gpt-5.6-terra", policy)
+        primitive.classify_maker("openai", "gpt-6.2-sol", policy)
         == "terraMaker"
         and primitive.select_reviewer(
-            "terraMaker", "openai", "gpt-5.6-terra", policy
+            "terraMaker", "openai", "gpt-6.2-sol", policy
         ) == "openai-responses",
         "Terra maker routes to Sol",
     )
@@ -559,7 +559,7 @@ def main() -> int:
         "unknown provenance key id",
     )
     forged = dict(signed)
-    forged["makerModel"] = "gpt-5.6-terra"
+    forged["makerModel"] = "gpt-6.2-sol"
     rejects(
         "UNVERIFIED",
         lambda: primitive.verify_provenance(
@@ -596,7 +596,7 @@ def main() -> int:
         ),
         "stale provenance",
     )
-    wrong_authorization = provenance_key_record(model="gpt-5.6-terra")
+    wrong_authorization = provenance_key_record(model="gpt-6.2-sol")
     rejects(
         "UNVERIFIED",
         lambda: primitive.verify_provenance(
@@ -771,7 +771,7 @@ def main() -> int:
     unauthorized_store = primitive.BrokerStore(
         ":memory:",
         provenance_keyring={
-            "current": provenance_key_record(model="gpt-5.6-terra")
+            "current": provenance_key_record(model="gpt-6.2-sol")
         },
     )
     rejects(
@@ -792,7 +792,7 @@ def main() -> int:
     component = store.get_component_provenance([pull])
     check(
         len(component) == 1
-        and component[0]["model"] == "gpt-6.1-sol",
+        and component[0]["model"] == "gpt-6.2-astra",
         "merge-group component provenance aggregates exact PR coordinates",
     )
     rejects(
@@ -1045,7 +1045,7 @@ def main() -> int:
         provenance_keyring={
             "current": provenance_key_record(),
             "terra": provenance_key_record(
-                "terra", model="gpt-5.6-terra"
+                "terra", model="gpt-6.2-sol"
             ),
         },
     )
@@ -1349,12 +1349,12 @@ def main() -> int:
         pull_request=11,
         head_sha=terra_coordinates.head_sha,
         base_sha=terra_coordinates.base_sha,
-        model="gpt-5.6-terra",
+        model="gpt-6.2-sol",
         nonce="t" * 24,
     )
     verified_terra = primitive.verify_provenance(
         signed_terra,
-        {"terra": provenance_key_record("terra", model="gpt-5.6-terra")},
+        {"terra": provenance_key_record("terra", model="gpt-6.2-sol")},
         policy,
     )
     check(
@@ -1397,12 +1397,12 @@ def main() -> int:
     rejects(
         "UNVERIFIED",
         lambda: store.settle(
-            overspend, {"inputTokens": 0, "outputTokens": 50001}
+            overspend, {"inputTokens": 0, "outputTokens": 210001}
         ),
         "derived provider overspend fails closed after accounting",
     )
     check(
-        store.budget_status()["spentMicrousd"] == 750415,
+        store.budget_status()["spentMicrousd"] == 2100310,
         "provider overspend remains in ledger",
     )
     finite = store.reserve("openai-responses-terra", candidate_sha)
@@ -1421,12 +1421,12 @@ def main() -> int:
         settlement is not None
         and settlement["usage"] == {"inputTokens": 500, "outputTokens": 100}
         and "costUsd" not in settlement
-        and settlement["reservationMicrousd"] == 750000,
+        and settlement["reservationMicrousd"] == 2100000,
         "settlement stores primary usage and derives cost from frozen pricing",
     )
     reservations = [
         store.reserve("openai-responses-terra", candidate_sha)
-        for _ in range(12)
+        for _ in range(10)
     ]
     rejects(
         "UNAVAILABLE",
@@ -1443,7 +1443,7 @@ def main() -> int:
         == {
             "period": budget["period"],
             "reservedMicrousd": 0,
-            "spentMicrousd": 753165,
+            "spentMicrousd": 2102310,
         },
         "budget released and overspend retained",
     )

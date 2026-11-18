@@ -21,12 +21,12 @@ and `UNAVAILABLE` stop the gate. Anthropic, GitHub Copilot, Antigravity and
 paid API adapters are optional separately invoked facilities, not automatic
 fallbacks or quorum members.
 
-Approved maker compatibility also routes `gpt-6.1-sol` and `gpt-6-astra`
-to `gpt-5.6-terra`. Preserve the observed maker identity in provenance.
+Approved maker compatibility also routes `gpt-6.2-astra` and `gpt-6-astra`
+to `gpt-6.2-sol`. Preserve the observed maker identity in provenance.
 Astra is never a reviewer or standby.
 
-An Anthropic (Claude) maker is reviewed cross-vendor by `gpt-6.1-sol` by default
-(REVIEWER-61SOL-1, owner 2026-11-04); its degraded standby is `gpt-5.6-terra`, used
+An Anthropic (Claude) maker is reviewed cross-vendor by `gpt-6.2-astra` by default
+(REVIEWER-61SOL-1, owner 2026-11-04); its degraded standby is `gpt-6.2-sol`, used
 only when the primary returned no verdict and stamped `degradedFrom`; `gpt-5.6-sol`
 stays valid by explicit choice. On this mandatory route a model never reviews its own output.
 

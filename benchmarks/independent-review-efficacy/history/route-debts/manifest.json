@@ -515,6 +515,60 @@
       "sourceGitBlobSha1": null,
       "classification": "diagnostic",
       "sizeBytes": 10949
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra/u12-cross-vendor-wsl.json",
+      "sha256": "17f0e0294a4a520975403bfbdcc8f4e6a89a785e23d920c442cf1b552654869b",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T09:59:02Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 12652
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra/windows.json",
+      "sha256": "63c46ca56b47dfbfbbde8c9e9f1dd21ba92195be31ca5fe36dc2381bc7f1a69e",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T09:52:54Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 11603
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra/wsl.json",
+      "sha256": "06c4e8cf1b176796029804be65b6991f79e594d33b20a99435287fb63e655a7c",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T10:01:25Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 14566
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra-run2/u12-cross-vendor-wsl.json",
+      "sha256": "e5dd63da383d95bea806842422960ac5b6eb7f7512cc485bfd431303e50da90a",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T10:40:08Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 12829
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra-run2/windows.json",
+      "sha256": "495eea00704ee745e217741aba2832a02df6f816390b761c577f8cd229f43159",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T10:31:36Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 13298
+    },
+    {
+      "path": "diagnostic-9e14e857-reviewer-62astra-run2/wsl.json",
+      "sha256": "4c225c1dc49dced9b12ea460847520e9bc341d56f5cb9a3b97e8226c26edd84d",
+      "sourceProducerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+      "observedAt": "2026-11-18T10:39:38Z",
+      "sourceGitBlobSha1": null,
+      "classification": "diagnostic",
+      "sizeBytes": 13522
     }
   ]
 }

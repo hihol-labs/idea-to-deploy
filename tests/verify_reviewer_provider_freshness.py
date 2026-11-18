@@ -181,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
             + producer._trusted_json_output_contract(producer.VERDICT_SCHEMA)
         )
         report, session, model = producer.run_codex_review(
-            prompt, executable=str(executable), model="gpt-5.6-terra",
+            prompt, executable=str(executable), model="gpt-6.2-sol",
             expected_executable_sha256=args.executable_sha256,
             expected_proxy_sha256=args.proxy_sha256,
         )

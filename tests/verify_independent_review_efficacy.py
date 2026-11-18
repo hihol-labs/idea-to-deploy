@@ -43,6 +43,12 @@ HISTORY_BASELINE_COMMIT = "541081840d2f972e1b0c5aea16fa09a767f80b2c"
 # 0f156678f8b42f29561874d1435c9ef4d770c116.  It intentionally lives in the
 # verifier: a rewritten manifest must not be able to erase or replace history.
 HISTORY_PINNED_SNAPSHOTS = {
+    'diagnostic-9e14e857-reviewer-62astra-run2/u12-cross-vendor-wsl.json': 'e5dd63da383d95bea806842422960ac5b6eb7f7512cc485bfd431303e50da90a',
+    'diagnostic-9e14e857-reviewer-62astra-run2/windows.json': '495eea00704ee745e217741aba2832a02df6f816390b761c577f8cd229f43159',
+    'diagnostic-9e14e857-reviewer-62astra-run2/wsl.json': '4c225c1dc49dced9b12ea460847520e9bc341d56f5cb9a3b97e8226c26edd84d',
+    'diagnostic-9e14e857-reviewer-62astra/u12-cross-vendor-wsl.json': '17f0e0294a4a520975403bfbdcc8f4e6a89a785e23d920c442cf1b552654869b',
+    'diagnostic-9e14e857-reviewer-62astra/windows.json': '63c46ca56b47dfbfbbde8c9e9f1dd21ba92195be31ca5fe36dc2381bc7f1a69e',
+    'diagnostic-9e14e857-reviewer-62astra/wsl.json': '06c4e8cf1b176796029804be65b6991f79e594d33b20a99435287fb63e655a7c',
     'diagnostic-8d434ee2-reviewer-61sol/u12-cross-vendor-wsl.json': 'da3262b76eeb61ba834cb974cde49a3bca68cfc231f057454c25af2c1d87900f',
     'diagnostic-8d434ee2-reviewer-61sol/windows.json': '6c4f2fc9cb9d328878fe4faa630ad2f66bc63e3f9537232a9e640992a476b160',
     'diagnostic-8d434ee2-reviewer-61sol/wsl.json': '056ffee153d4686db082419adbc6568e53dc2abb8aeb1b59fc4a056c6262fb58',
@@ -126,10 +132,11 @@ RESULTS = {
     "windows": ROOT / "benchmarks" / "independent-review-efficacy" / "results" / "windows.json",
 }
 EXPECTED_OPPOSITE = {
-    "gpt-6-astra": "gpt-5.6-terra",
-    "gpt-6.1-sol": "gpt-5.6-terra",
-    "gpt-5.6-sol": "gpt-5.6-terra",
-    "gpt-5.6-terra": "gpt-5.6-sol",
+    "gpt-6-astra": "gpt-6.2-sol",
+    "gpt-6.2-astra": "gpt-6.2-sol",
+    "gpt-6.1-sol": "gpt-6.2-sol",
+    "gpt-5.6-sol": "gpt-6.2-sol",
+    "gpt-6.2-sol": "gpt-5.6-sol",
 }
 EXPECTED_ISOLATION = {
     "freshSession": True,
@@ -1125,12 +1132,12 @@ def structural_metrics(manifest, evidence, producer) -> dict[str, float]:
         print("PASS  structural/" + label)
     policy = load_module("itd_reviewer_independence_efficacy", POLICY_PATH)
     quorum_identity = {
-        "provider": "openai-subscription", "model": "gpt-5.6-terra",
+        "provider": "openai-subscription", "model": "gpt-6.2-sol",
         "session": "quorum-a",
     }
     try:
         policy.require_reviewer_quorum(
-            [dict(quorum_identity), {**quorum_identity, "model": "GPT-5.6-TERRA"}], 2,
+            [dict(quorum_identity), {**quorum_identity, "model": "GPT-6.2-SOL"}], 2,
         )
     except policy.IndependenceError:
         print("PASS  structural/duplicate-reviewer-quorum")
@@ -1300,7 +1307,11 @@ def validate_host_result(
                 and not report["findings"]
                 and not report["unverified"]
             )
-            false_block = not detected
+            # REVIEWER-62ASTRA-1 (owner 2026-11-18): on clean code only a
+            # BLOCKED verdict is a false block. PASSED_WITH_WARNINGS does not
+            # stop the merge, so non-blocking remarks of the gpt-6.2 reviewers
+            # are recorded (WARN below) instead of failing the benchmark.
+            false_block = report["verdict"] == "BLOCKED"
         else:
             blocking_verdict = (
                 report["verdict"] == "BLOCKED"
@@ -1313,7 +1324,12 @@ def validate_host_result(
             "id": definition["id"], "severity": definition["severity"],
             "detected": detected, "falseBlock": false_block,
         })
-        print(("PASS  " if detected else "FAIL  ") + f"{host}/{definition['id']}")
+        label = (
+            "PASS  " if detected
+            else "WARN  " if definition["severity"] == "clean" and not false_block
+            else "FAIL  "
+        )
+        print(label + f"{host}/{definition['id']}")
     return outcomes
 
 
@@ -1472,7 +1488,7 @@ def verify_checkpoint_resume(manifest: dict[str, Any], manifest_raw: bytes) -> N
         producer_raw=PRODUCER_PATH.read_bytes(),
         runner_raw=RUNNER_PATH.read_bytes(), maker_model="gpt-5.6-sol",
         maker_provider="openai-subscription",
-        model="gpt-5.6-terra",
+        model="gpt-6.2-sol",
         runtime_version="0.146.0", executable_sha256="a" * 64,
         proxy_sha256="b" * 64,
     )
@@ -1485,7 +1501,7 @@ def verify_checkpoint_resume(manifest: dict[str, Any], manifest_raw: bytes) -> N
             ),
             "report": {"verdict": "BLOCKED", "findings": [], "unverified": []},
             "session": f"fresh-checkpoint-{index}",
-            "observedModel": "gpt-5.6-terra",
+            "observedModel": "gpt-6.2-sol",
         })
     with tempfile.TemporaryDirectory(prefix="itd-efficacy-checkpoint-") as raw:
         checkpoint = Path(raw) / "resume.json"

@@ -1,36 +1,51 @@
 {
-  "signatureHex": "f3e6e1cbc35f6d7d8376fe0b16cb46fd49ddb49f6852a9cf4232b527046856944851d46c2fb6856c7f263cf2f463eaa4fbacc872886866cdf17873ede7324304",
+  "signatureHex": "373c2e4beba22f5267fcc5da9e129cb05b89efc09f9dc7537a8bedae5d15f27451cb6229d3491e006d59a1ca35746eb3bcb693c5a5f53d64f1183a450dd22404",
   "signed": {
     "cases": [
       {
         "attempts": 1,
         "id": "high-export-capacity",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
         "report": {
           "findings": [
             {
-              "category": "capacity",
+              "category": "Worksheet capacity",
               "confidence": "high",
               "file": "src/export.ts",
               "line": 9,
               "severity": "high",
-              "summary": "The default annual export passes 1,807,231 projected rows to a single worksheet, exceeding Excel’s 1,048,576-row limit by 758,655 rows before any header. EXCEL_MAX_ROWS is unused and there is no capacity guard or bounded representation, violating the required downloadable single-sheet export."
+              "summary": "The writer receives 1,807,231 projected data rows for one worksheet. That exceeds the 1,048,576-row limit by 758,655 rows before any header. The declared limit is never enforced, so the complete default report cannot fit."
+            },
+            {
+              "category": "Browser memory",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The nested flatMap calls allocate a row object per conversion and collect the entire expanded array before writing begins. Any capacity check inside the writer comes too late to bound this allocation, so the browser can run out of memory before the download starts."
+            },
+            {
+              "category": "Report reconciliation",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 6,
+              "severity": "medium",
+              "summary": "An order with an empty conversionDocuments array contributes zero rows. Its lot and order data disappear from the annual export, leaving no workbook row to reconcile with that source order."
             }
           ],
           "unverified": [
-            "Browser feasibility: nested flatMap eagerly materializes the expanded dataset before writing; no peak-memory or completion evidence demonstrates that the default annual export remains downloadable.",
-            "Reconciliation: no evidence establishes how orders with zero conversion documents are retained or how repeated lot/order values across multiple conversion rows avoid duplicated report totals.",
-            "Error handling and validation: the worksheet writer implementation and capacity-boundary tests are absent, so overflow behavior, download failure handling, and successful workbook generation cannot be verified."
+            "Peak memory and download completion in supported browsers are unverified. No end-to-end measurement covers both row expansion and workbook serialization at the observed annual volume.",
+            "The supplied counts do not show how many default-report orders have zero conversion documents. A source-to-workbook comparison by order ID is missing."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a1ab94-d1c6-7762-b3da-3f2cf3709f43"
+        "session": "01a1ee26-dcd6-7e30-8dcd-3d35d3c7ff7f"
       },
       {
         "attempts": 1,
         "id": "high-reconciliation-omission",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
         "report": {
           "findings": [
@@ -40,62 +55,68 @@
               "file": "src/turnover.ts",
               "line": 4,
               "severity": "high",
-              "summary": "Closing subtracts expense and fx_eur but omits supported fx_other consumption. With the observed fx_other total of 1494440 TRY, the displayed closing is overstated by 1494440 TRY and fails exact reconciliation."
+              "summary": "The closing calculation omits `fx_other`. For the observed pool, this overstates the displayed closing balance by exactly 1,494,440 TRY."
             },
             {
               "category": "specification compliance",
               "confidence": "high",
               "file": "src/turnover.ts",
-              "line": 1,
-              "severity": "medium",
-              "summary": "The function returns only a closing scalar. It provides no opening/inflow/outflow/conversion/closing turnover breakdown for each consumer category, so the required category-level display is not implemented in the supplied change."
+              "line": 4,
+              "severity": "high",
+              "summary": "The function returns only the closing balance. The supplied change exposes no opening, inflow, expense outflow, or per-category conversion amounts for the required turnover display."
             }
           ],
           "unverified": [
-            "Exact TRY arithmetic cannot be verified: Pool, sum, amount units, conversion rules, and rounding behavior are not supplied.",
-            "Operational feasibility depends on Pool and sum being available and correctly handling consumption records; their definitions and handling of invalid or missing amounts are not supplied.",
-            "No tests or execution evidence demonstrate category-level turnover and exact closing reconciliation across all three supported consumption types."
+            "The excerpt supplies neither the `Pool` definition nor the `sum` implementation. Their availability at build and runtime, the TRY field being summed, and the precision of the arithmetic across supported amounts are unverified.",
+            "No display-level test or rendered output shows each turnover component and checks the result against an independently recorded closing balance for a pool containing all three consumption types."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a1ab98-d535-7a91-805e-555de56a7912"
+        "session": "01a1ee27-9054-7953-8b19-7716fda8c00d"
       },
       {
         "attempts": 1,
         "id": "medium-allocation-rounding",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
         "report": {
           "findings": [
             {
-              "category": "reconciliation",
+              "category": "Reconciliation",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 3,
               "severity": "high",
-              "summary": "Independent row rounding does not preserve the source total. For source=0.01 and shares=[0.5,0.5], the exported amounts sum to 0.02. The supplied evidence also reports 1578 TRY aggregate drift. Allocate integer cents and distribute the rounding remainder so every source reconciles exactly."
+              "summary": "Splitting 0.05 TRY equally across two rows returns 0.03 TRY twice, exporting 0.06 TRY. The function never reconciles the rounded rows to their source. The supplied evidence reports 1,578 TRY of aggregate drift."
             },
             {
-              "category": "numerical stability",
+              "category": "Numerical stability",
               "confidence": "high",
               "file": "src/allocation.ts",
               "line": 3,
               "severity": "medium",
-              "summary": "Binary floating-point multiplication can misround decimal currency midpoints: source=1.005 and shares=[1] returns 1.00 rather than 1.01 under decimal half-up rounding. Define the currency rounding rule and use decimal arithmetic or an exact conversion to integer cents."
+              "summary": "Binary floating-point multiplication can move a decimal half-cent below the rounding threshold. With source 1.275 and shares [1], the function returns 1.27 even though nearest-cent decimal rounding gives 1.28."
+            },
+            {
+              "category": "Input validation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "medium",
+              "summary": "The function silently returns an incomplete allocation when shares do not sum to one. A source of 100 with shares [0.5] exports only 50, an empty array exports no detail rows, and a nonfinite share can produce a nonfinite detail amount."
             }
           ],
           "unverified": [
-            "No tests demonstrate per-source reconciliation across fractional-cent splits, negative amounts, or currency rounding boundaries.",
-            "The supported input domain is unspecified: evidence is missing for share normalization, empty shares, non-finite values, and monetary magnitude limits needed for exact cent arithmetic."
+            "No regression test is shown that asserts the sum in integer cents for each individual source. An aggregate drift measurement cannot establish which source allocations reconcile."
           ],
           "verdict": "BLOCKED"
         },
-        "session": "01a1ab99-7770-7630-86b0-4fdd0668d6f1"
+        "session": "01a1ee32-31f0-7201-8fc1-31a863b45890"
       },
       {
         "attempts": 1,
         "id": "high-stale-generated-client",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
         "report": {
           "findings": [
@@ -105,7 +126,7 @@
               "file": "package.json",
               "line": 5,
               "severity": "high",
-              "summary": "Removing prisma generate allows typecheck to run against stale generated clients after schema changes, violating the required refresh before typecheck. The supplied evidence confirms generation is needed for the schema change."
+              "summary": "Removing `prisma generate` lets `tsc` check a stale client that may lack `newcrmChangedSince`. Restore `prisma generate && tsc --noEmit` so typechecking starts only after generation succeeds."
             },
             {
               "category": "error handling",
@@ -113,18 +134,20 @@
               "file": "package.json",
               "line": 5,
               "severity": "high",
-              "summary": "The || echo fallback converts any tsc failure into a successful exit status, allowing releases despite type errors and violating the requirement that every typecheck failure remain non-zero."
+              "summary": "The `|| echo` fallback returns success when `tsc` fails and labels every failure as a Prisma mismatch. Remove the fallback so any typecheck failure blocks release."
             }
           ],
-          "unverified": [],
+          "unverified": [
+            "The clean-main result covers a successful check after generation. No test result shows the changed `verify` script's exit status with a deliberate type error."
+          ],
           "verdict": "BLOCKED"
         },
-        "session": "01a1ab9a-07b4-7fe0-b7b1-74d0780e0280"
+        "session": "01a1ee33-0dac-7ec2-8b30-2bef6ef6d01b"
       },
       {
         "attempts": 1,
         "id": "medium-repository-hygiene",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
         "report": {
           "findings": [
@@ -134,7 +157,7 @@
               "file": "review-tools/local_probe.py",
               "line": 1,
               "severity": "medium",
-              "summary": "The release adds a temporary reviewer probe, violating the acceptance requirement that local reviewer scratch tooling stay out of the release tree. Remove this file from the release."
+              "summary": "The release tree includes a temporary reviewer probe that only prints 'debug'. Remove it to satisfy the acceptance criterion excluding local probes."
             },
             {
               "category": "repository hygiene",
@@ -142,61 +165,79 @@
               "file": "ROOT_CAUSE.md",
               "line": 1,
               "severity": "medium",
-              "summary": "The release adds private review-run scratch notes, violating the acceptance requirement that private root-cause scratch notes stay out of the release tree. Remove this file from the release."
+              "summary": "The release tree includes private scratch notes from this review run. Remove the file to satisfy the acceptance criterion excluding private root-cause notes."
             }
           ],
           "unverified": [],
           "verdict": "BLOCKED"
         },
-        "session": "01a1ab9a-3628-7452-9c82-d4ddc5bfd905"
+        "session": "01a1ee39-3b61-7790-942a-b179a04e997c"
       },
       {
         "attempts": 1,
         "id": "clean-bounded-reconciled-export",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
         "report": {
-          "findings": [],
+          "findings": [
+            {
+              "category": "test coverage",
+              "confidence": "high",
+              "file": "src/export.test.ts",
+              "line": 57,
+              "severity": "medium",
+              "summary": "The unequal-remainder case checks only the sum. Awarding the extra cent to the first positive weight would pass both allocation examples. Assert the exact result [3333n, 3334n, 3334n] only if the second weight wins a tie; here the third weight has the largest remainder and two cents remain, so the correct result is [3334n, 3333n, 3334n]."
+            }
+          ],
           "unverified": [],
-          "verdict": "PASSED"
+          "verdict": "PASSED_WITH_WARNINGS"
         },
-        "session": "01a1ab9a-6153-7133-8b1c-53710bfacedc"
+        "session": "01a1ee39-9b27-73b3-bf17-94a1f1ee89e8"
       },
       {
         "attempts": 1,
         "id": "clean-inclusive-utc-day-span",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
         "report": {
           "findings": [],
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a1ab9a-9336-7ea2-9cd7-d98073c21262"
+        "session": "01a1ee39-f27f-79c2-9a95-e45d6e81e925"
       },
       {
         "attempts": 1,
         "id": "clean-nearest-rank-percentile",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
         "report": {
-          "findings": [],
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "src/percentile.ts",
+              "line": 34,
+              "severity": "medium",
+              "summary": "The descriptor passed to Object.defineProperty inherits from Object.prototype. If that prototype has a `get` or `set` property, descriptor conversion observes it alongside the own `value` and throws a TypeError even for a valid sample such as [7]. Use a null-prototype descriptor for the copy and cover this case with a regression test."
+            }
+          ],
           "unverified": [],
-          "verdict": "PASSED"
+          "verdict": "PASSED_WITH_WARNINGS"
         },
-        "session": "01a1ab9a-c2e5-7773-8921-4d04d144a643"
+        "session": "01a1ee3d-afc7-7812-9efd-184270225c9e"
       },
       {
         "attempts": 1,
         "id": "clean-half-up-basis-point-fee",
-        "observedModel": "gpt-6.1-sol",
+        "observedModel": "gpt-6.2-astra",
         "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
         "report": {
           "findings": [],
           "unverified": [],
           "verdict": "PASSED"
         },
-        "session": "01a1ab9b-003a-7f73-a98d-67523aabfd2d"
+        "session": "01a1ee3d-f066-7be1-a12d-34c0736c1157"
       }
     ],
     "host": "wsl",
@@ -209,8 +250,8 @@
     "keyId": "gpg003-local-producer-20260803",
     "kind": "itd-independent-review-semantic-efficacy-run",
     "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
-    "observedAt": "2026-11-05T12:07:13Z",
-    "producerSha256": "8d434ee2fd367e6597e8dd20d0a14789c23c798884023f0fea38b6b5ca2223f6",
+    "observedAt": "2026-11-18T10:40:08Z",
+    "producerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
     "reviewer": {
       "isolation": {
         "ephemeral": true,
@@ -228,12 +269,12 @@
       "makerProvider": "anthropic-subscription",
       "paidApiCalls": 0,
       "provider": "openai-subscription",
-      "proxySha256": "4cefe6d2cb16e53de8f740aae2ea32d1f81d9071353c71563379c5a164a270d5",
-      "requestedModel": "gpt-6.1-sol",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-6.2-astra",
       "runtimeVersion": "0.166.0",
       "transportExecutableSha256": "b8a11fedf24b2dfb59a70c9e52b030f9a508dcd49cd2dd0d41956f4c785156b8"
     },
-    "runnerSha256": "71a0169984a5beae65f3ad76f7759eb47399e022ef2d66c3b9f547489324a6a5",
+    "runnerSha256": "8f59a9a8e760f883ecce94866e385f477f35096310e2947e33c2ad1fec39bd06",
     "version": 1
   }
 }

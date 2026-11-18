@@ -191,7 +191,7 @@ def mandatory_checker(
     }
     prompt_value = free.review_prompt(packet)
     primary_reviewer = {
-        "provider": "openai-subscription", "model": "gpt-5.6-terra",
+        "provider": "openai-subscription", "model": "gpt-6.2-sol",
         "session": "checker-session", "transportExecutableSha256": "5" * 64,
     }
     reviewers = None
@@ -231,7 +231,7 @@ def mandatory_checker(
         "--maker-provider", "openai", "--maker-model", "gpt-5.6-sol",
         "--maker-session", "maker-session",
         "--checker-provider", "openai-subscription",
-        "--checker-model", "gpt-5.6-terra",
+        "--checker-model", "gpt-6.2-sol",
         "--checker-session", "checker-session",
         "--phase-one-receipt", str(phase_path),
         "--producer-keyring", str(keyring_path),

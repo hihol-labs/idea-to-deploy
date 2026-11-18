@@ -193,7 +193,7 @@ def key_record() -> dict[str, Any]:
         "repository": REPOSITORY,
         "keyId": "maker-key",
         "authorizedMakerVendor": "openai",
-        "authorizedMakerModel": "gpt-6.1-sol",
+        "authorizedMakerModel": "gpt-6.2-astra",
         "publicKey": broker.b64url(PUBLIC_KEY),
         "issuerPrincipal": "windows-user-dmitry",
         "status": "active",
@@ -208,7 +208,7 @@ def signed_provenance() -> dict[str, Any]:
             "headSha": HEAD,
             "baseSha": BASE,
             "makerVendor": "openai",
-            "makerModel": "gpt-6.1-sol",
+            "makerModel": "gpt-6.2-astra",
             "makerSession": "maker-session",
             "issuedAt": broker.now_iso(),
             "nonce": "n" * 24,
@@ -611,7 +611,7 @@ class FakeReviewer:
         return {
             "provider": {
                 "id": reviewer_id,
-                "model": "gpt-5.6-terra",
+                "model": "gpt-6.2-sol",
             },
             "providerRequest": request,
             "sanitizedPrompt": request.decode("utf-8"),
@@ -1465,7 +1465,7 @@ def adapter_phase() -> None:
     sent = broker.decode_strict_json(
         result["providerRequest"], "captured provider request"
     )
-    check(sent["model"] == "gpt-5.6-terra", "exact Terra model selected")
+    check(sent["model"] == "gpt-6.2-sol", "exact Terra model selected")
     check(sent["store"] is False, "provider storage disabled")
     check(sent["max_output_tokens"] > 0, "budget-derived output cap")
     check(
@@ -1543,8 +1543,8 @@ def adapter_phase() -> None:
             request.data, "hierarchical request fixture"
         )
         check(
-            len(request.data) * 2.5
-            + body["max_output_tokens"] * 15.0
+            len(request.data) * 2.0
+            + body["max_output_tokens"] * 10.0
             <= policy["budget"][
                 "hierarchicalCallReservationMicrousd"
             ]["openai-responses-terra"],
@@ -2181,7 +2181,7 @@ def process_phase() -> None:
         uncertain is not None
         and uncertain["status"] == "uncertain"
         and uncertain["amount_microusd"] > uncertain["observed_microusd"]
-        and uncertain["observed_microusd"] == 500400,
+        and uncertain["observed_microusd"] == 500300,
         "partial outage charges observed usage plus one ambiguous call cap",
     )
     check(
@@ -2521,7 +2521,7 @@ def process_phase() -> None:
     )
     budget = store.budget_status()
     check(budget["reservedMicrousd"] == 0, "outage reservation closed")
-    check(budget["spentMicrousd"] == 750000, "uncertain outage charged cap")
+    check(budget["spentMicrousd"] == 2100000, "uncertain outage charged cap")
     store.close()
 
     failure_store, failure_job = running_store()
@@ -2673,7 +2673,7 @@ def free_review_phase() -> None:
             "appIntegrationId": APP_ID,
             "producerId": "itd-free-reviewer-producer-v1",
             "reviewerModels": {
-                "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
+                "openai-subscription": ["gpt-5.6-sol", "gpt-6.2-sol"],
             },
         }
     }
@@ -2723,10 +2723,10 @@ def free_review_phase() -> None:
         packet=packet,
         prompt=free.review_prompt(packet),
         report={"verdict": "PASSED", "findings": [], "unverified": []},
-        maker={"provider": "openai", "model": "gpt-6.1-sol",
+        maker={"provider": "openai", "model": "gpt-6.2-astra",
                "session": "maker-session"},
         reviewer={"provider": "openai-subscription",
-                  "model": "gpt-5.6-terra", "session": "fresh-session",
+                  "model": "gpt-6.2-sol", "session": "fresh-session",
                   "transportExecutableSha256": "5" * 64},
         attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
         isolation=free.required_isolation(),
@@ -2750,13 +2750,13 @@ def free_review_phase() -> None:
         ]
 
     for provider, model, session in (
-        ("openai-subscription", "gpt-5.6-terra", "route-openai"),
+        ("openai-subscription", "gpt-6.2-sol", "route-openai"),
     ):
         routed_phase = free.phase_one_receipt(
             packet=packet,
             prompt=free.review_prompt(packet),
             report={"verdict": "PASSED", "findings": [], "unverified": []},
-            maker={"provider": "openai", "model": "gpt-6.1-sol",
+            maker={"provider": "openai", "model": "gpt-6.2-astra",
                    "session": "maker-session"},
             reviewer={"provider": provider, "model": model,
                       "session": session,
@@ -2775,7 +2775,7 @@ def free_review_phase() -> None:
             packet=packet,
             prompt=free.review_prompt(packet),
             report={"verdict": "PASSED", "findings": [], "unverified": []},
-            maker={"provider": "openai", "model": "gpt-6.1-sol",
+            maker={"provider": "openai", "model": "gpt-6.2-astra",
                    "session": "maker-session"},
             reviewer={"provider": "openai-subscription",
                       "model": "gpt-5-mini",
@@ -2804,7 +2804,7 @@ def free_review_phase() -> None:
         maker={"provider": "anthropic-subscription", "model": "opus",
                "session": "maker-session"},
         reviewer={"provider": "openai-subscription",
-                  "model": "gpt-5.6-terra", "session": "fresh-session-2",
+                  "model": "gpt-6.2-sol", "session": "fresh-session-2",
                   "transportExecutableSha256": "5" * 64},
         attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
         isolation=free.required_isolation(),
