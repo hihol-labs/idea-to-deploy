@@ -8153,3 +8153,33 @@ INSTALLED-PROOF-DISPATCH-1 closure1102aff rides this next candidate by ADR-016.
 - Замер до правки на копии main 3e14262: все четыре мутанта выжили, тест 33 passed. После проверок [34]-[37]: тест 37
   passed, все четыре мутанта убиты.
 - `k0_mutants.py` получил необязательный путь к копии дерева: мутанты идут ногой машины на точном коммите.
+
+## 2026-11-08 - закрытие CODEX-ASK-MUTANTS-1 по конвенции ADR-016
+
+- Шаг 1: merge-коммит 2b53734, дерево 233a945e614507c6d1fe0308bf58daa9dca583cc = `candidate.reviewedTree` квитанции
+  `.itd-memory/verification-loop/CODEX-ASK-MUTANTS-1-canonical-a1-adjudication.json` (PASSED, receiptSha256
+  f5504618c7077ac466bec81781479b912b8e80cb8598fd4377fe446c6554376e); CI main 2/2 (`gh run list`: meta-review success,
+  windows-verify success).
+- Шаг 2 (юнит STATE-леджера): переход `itd_unit_log.py verified CODEX-ASK-MUTANTS-1`; activeFollowup перенесен в
+  closedFollowups (closedAt, closureEvidence).
+- Линтер, не прогонявшийся в #396: `ruff check` по `tests/verify_codex_ask_gates.py` и
+  `docs/measurements/itd-testgap/k0_mutants.py` - 9 находок стиля (PLW1510, I001, ISC004), все в строках до #396
+  (git blame); конфига ruff в репо нет, правки не внесены, чтобы не менять проверенное дерево.
+- Шаг 3: подпись владельца 2026-11-08 («Подписываю») под просмотренной дельтой закрытия `git diff 2b53734` по STATE,
+  events, ACCEPTANCE_CONTRACT, DECISIONS (файл `.itd-memory/host-inputs/CODEX-ASK-MUTANTS-1-post/closure-delta.diff`,
+  sha256 6a111aa11b6e5950ca9448afbe00a2dfae79af11b6d44c4c1db31312ea4dd0a8); merge 2b53734, дерево 233a945e, квитанция a1
+  f5504618.... Эта строка - единственное изменение дельты закрытия после подписи.
+
+## 2026-11-08 - стратегия монетизации ITD: продукт «ITD Замер» (решение владельца)
+
+- Контекст: разбор внешнего плана «GENG как AgentProof, open core с хостингом квитанций»; замеры: ADR-012
+  BENEFIT_NOT_SHOWN, Graph Lite NOT_WON (Claude и Codex), GENG-B NO-GO, GENG-C порог не пройден; эффект
+  completion-gate на ложные «готово» не мерился.
+- Решение: ядро ITD остается под MIT и методологией по умолчанию на WSL и Windows. Продукт - платный локальный набор
+  самозамера «ITD Замер» в отдельном закрытом репозитории: ретроспектива PR, отбор задач с проверкой оракула, реплей,
+  прогон вариантов, отчет. Платные аудиты для клиентов и облачный хостинг квитанций не делаются; GENG как продукт
+  закрыт; граф-инжиниринг обязательной частью не является.
+- Контрольные точки: 31.12.2026, 15.02.2027 (при 1-4 предоплатах итерация до 15.03), 31.03.2027; досрочный стоп -
+  только по этим датам и денежным пределам.
+- План прошел ревью devils-advocate и gpt-6.1-sol; полный текст хранится вне репозитория (память проекта,
+  `project_itd_product_plan_r8`). Методология ITD этим решением не меняется (ADR-016).

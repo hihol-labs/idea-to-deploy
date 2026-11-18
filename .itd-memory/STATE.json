@@ -39,10 +39,11 @@
   "currentUnit": {
     "id": "CODEX-ASK-MUTANTS-1",
     "goal": "Run the four surviving mutants of the Codex ask-gate test on current main; for each survivor add a refusal-case test (foreign uid, TTL bound, future date, input without command) that kills it; no hook change. The closure of ITD-PILOT-TESTGAP rides in this PR",
-    "status": "in_progress",
+    "status": "verified",
     "startedAt": "2026-11-08T10:55:53Z",
     "ledger": "STATE",
-    "riskTier": "medium"
+    "riskTier": "medium",
+    "completedAt": "2026-11-08T12:04:41Z"
   },
   "gateResults": {
     "acceptanceContract": "pending",

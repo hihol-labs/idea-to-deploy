@@ -7212,23 +7212,9 @@
     ]
   },
   "activeFollowup": {
-    "unitId": "CODEX-ASK-MUTANTS-1",
-    "status": "in_progress",
-    "openedAt": "2026-11-08",
-    "selectedClaim": "LOCAL_REVIEWED",
-    "sourceRequest": "Owner 2026-11-08 («Мутанты, medium»): BACKLOG P2 2026-11-07 - the four mutations of hooks/codex-dispatch.py that tests/verify_codex_ask_gates.py did not catch. Run them on current main; for each survivor add a refusal-case test; no hook change. The closure of ITD-PILOT-TESTGAP rides in this PR.",
-    "reviewPolicy": {
-      "mode": "evidence-first",
-      "riskTier": "medium",
-      "requiredImpactClasses": [
-        "correctness",
-        "repository-hygiene",
-        "compatibility"
-      ],
-      "minimumIndependentReviewers": 1,
-      "explorer": "isolated-machine-oracle",
-      "adjudicator": "sealed-host-union"
-    }
+    "unitId": "",
+    "status": "none",
+    "note": "No active unit - CODEX-ASK-MUTANTS-1 closed 2026-11-08 (PR #396 -> 2b53734). Since 2026-11-10 ITD is not the default mode (owner decision)."
   },
   "doneRule": "A criterion status of passed means only that its verification command passed. GPG-001 and GPG-002 remain verified under their durable completion evidence. GPG-003 additionally requires one exact high-risk adjudication, merged implementation and patch-release PRs, and clean WSL/native-Windows installed-host proof; it never upgrades LOCAL_REVIEWED to PROTECTED. The GPG-004 push-gate unit is closed only after its commit is followed by: the pin-clean-live-evidence follow-up, a fresh committed-head ADJUDICATED chain on the final HEAD, live registry repair through the guarded register flow (the incident fixture row replaced; load_registry validates), and guarded publication — the pre-unit receipts in adf40ca3f6d504c9 are RED-test fixtures only and never authorize a later push. The GPG-004 ladder remainder (PC1..PC5) lands as one combined candidate: producer edits only inside the approved PC-S3 batch with both signed benchmark legs re-run exactly once, and GOAL/STATE closure of GPG-004 requires the /goal verification pass after the remainder is accepted.",
   "closedFollowups": [
@@ -8507,6 +8493,27 @@
       },
       "closedAt": "2026-11-08",
       "closureEvidence": "Verified (itd_unit_log.py verified, 2026-11-08T10:54:25Z). PR #395 squash-merged to main 3e14262 (parent 3a770e2); tree 710f8058 = candidate.reviewedTree of .itd-memory/verification-loop/ITD-PILOT-TESTGAP-a16-adjudicated.json (ADJUDICATED per ADR-007, owner-assigned last round a16, both findings accepted-trade-off, receiptSha256 78b9647e44d55929a8c43ced43ffc264020160d55f0399c32e8e8927af8e74b0); machine a16 PASSED (10 legs) on 1895d0f; CI of main: meta-review success, windows-verify success. Closed by the ADR-016 convention for a STATE unit; the owner's signature is recorded in .itd/DECISIONS.md."
+    },
+    {
+      "unitId": "CODEX-ASK-MUTANTS-1",
+      "status": "closed",
+      "openedAt": "2026-11-08",
+      "selectedClaim": "LOCAL_REVIEWED",
+      "sourceRequest": "Owner 2026-11-08 («Мутанты, medium»): BACKLOG P2 2026-11-07 - the four mutations of hooks/codex-dispatch.py that tests/verify_codex_ask_gates.py did not catch. Run them on current main; for each survivor add a refusal-case test; no hook change. The closure of ITD-PILOT-TESTGAP rides in this PR.",
+      "reviewPolicy": {
+        "mode": "evidence-first",
+        "riskTier": "medium",
+        "requiredImpactClasses": [
+          "correctness",
+          "repository-hygiene",
+          "compatibility"
+        ],
+        "minimumIndependentReviewers": 1,
+        "explorer": "isolated-machine-oracle",
+        "adjudicator": "sealed-host-union"
+      },
+      "closedAt": "2026-11-08",
+      "closureEvidence": "PR #396 -> main 2b53734, tree 233a945e = reviewedTree of the a1 adjudication receipt (PASSED, receiptSha256 f5504618c7077ac4...); CI main 2/2; closed by the ADR-016 convention, STATE-ledger unit."
     }
   ]
 }
