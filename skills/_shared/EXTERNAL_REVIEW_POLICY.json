@@ -25,8 +25,8 @@
     "maxOutputTokens": 5550,
     "timeoutSeconds": 120,
     "maxRetries": 0,
-    "maxCostUsd": 0.75,
-    "monthlyCostUsd": 10.0
+    "maxCostUsd": 2.1,
+    "monthlyCostUsd": 25.0
   },
   "providers": [
     {
@@ -34,26 +34,26 @@
       "vendor": "openai",
       "kind": "responses-api",
       "automatedEligible": true,
-      "model": "gpt-6.1-sol",
+      "model": "gpt-6.2-astra",
       "reasoningEffort": "medium",
       "endpoint": "https://api.openai.com/v1/responses",
       "credentialEnvironment": "OPENAI_API_KEY",
-      "inputUsdPerMillion": 2.0,
-      "outputUsdPerMillion": 10.0,
-      "pricingObservedAt": "2026-11-05"
+      "inputUsdPerMillion": 8.0,
+      "outputUsdPerMillion": 40.0,
+      "pricingObservedAt": "2026-11-18"
     },
     {
       "id": "openai-responses-terra",
       "vendor": "openai",
       "kind": "responses-api",
       "automatedEligible": true,
-      "model": "gpt-5.6-terra",
+      "model": "gpt-6.2-sol",
       "reasoningEffort": "medium",
       "endpoint": "https://api.openai.com/v1/responses",
       "credentialEnvironment": "OPENAI_API_KEY",
-      "inputUsdPerMillion": 2.5,
-      "outputUsdPerMillion": 15.0,
-      "pricingObservedAt": "2026-07-29"
+      "inputUsdPerMillion": 2.0,
+      "outputUsdPerMillion": 10.0,
+      "pricingObservedAt": "2026-11-18"
     },
     {
       "id": "codex-cli",

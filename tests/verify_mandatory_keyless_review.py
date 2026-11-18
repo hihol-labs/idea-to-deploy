@@ -68,20 +68,20 @@ def main() -> int:
     )
     check(
         producer.select_openai_reviewer_model(
-            "gpt-5.6-sol", "gpt-5.6-terra"
-        ) == "gpt-5.6-terra",
+            "gpt-5.6-sol", "gpt-6.2-sol"
+        ) == "gpt-6.2-sol",
         "different configured OpenAI model was changed",
     )
     check(
         producer.select_openai_reviewer_model(
-            "gpt-5.6-terra", "gpt-5.6-terra"
+            "gpt-6.2-sol", "gpt-6.2-sol"
         ) == "gpt-5.6-sol",
         "Terra maker was not routed to a different OpenAI model",
     )
     check(
         producer.select_openai_reviewer_model(
             "gpt-5.6-sol", "gpt-5.6-sol"
-        ) == "gpt-5.6-terra",
+        ) == "gpt-6.2-sol",
         "Sol maker was not routed to Terra",
     )
     try:
@@ -121,7 +121,7 @@ def main() -> int:
         return run
 
     adapters = {
-        "openai-subscription": success("openai-subscription", "gpt-5.6-terra"),
+        "openai-subscription": success("openai-subscription", "gpt-6.2-sol"),
     }
     result = producer.route_keyless_review(
         "exact prompt", maker=maker, adapters=adapters
@@ -178,7 +178,7 @@ def main() -> int:
 
     def blocked_result(_prompt: str):
         return blocked_report, reviewer(
-            "openai-subscription", "gpt-5.6-terra", "fresh-blocked"
+            "openai-subscription", "gpt-6.2-sol", "fresh-blocked"
         )
 
     diagnostic_adapters = dict(adapters)

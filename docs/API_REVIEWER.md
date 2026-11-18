@@ -38,7 +38,7 @@ export OPENAI_API_KEY=...
 sh skills/_shared/itd_py.sh skills/_shared/itd_external_reviewer.py review \
   --root . \
   --maker-vendor openai \
-  --maker-model gpt-6.1-sol \
+  --maker-model gpt-6.2-astra \
   --maker-session '<host session id>' \
   --risk high \
   --mode local
@@ -130,9 +130,10 @@ candidates. It counts raw text bytes plus logical decompressed JSONL bytes.
 Candidates with no transparent representation must omit it. Generic binary
 paths remain `UNVERIFIED`.
 
-The monthly broker budget remains $10. Direct calls reserve $0.75. In a
-hierarchical Sol-maker review, each Terra call reserves $0.50; Sol reviewer
-calls reserve $0.75. The broker atomically reserves the complete planned
+The monthly broker budget is $25 (raised from $10 for the gpt-6.2-astra price,
+$8 / $40 per 1M tokens). Direct calls reserve $2.10. In a hierarchical
+Astra-maker review, each gpt-6.2-sol call reserves $0.50; gpt-6.2-astra reviewer
+calls reserve $2.10. The broker atomically reserves the complete planned
 call-count before dispatch and settles aggregate primary usage. If one API
 result is ambiguous, it charges observed prior usage plus only that call's cap
 and releases the unused remainder. A large candidate whose worst-case

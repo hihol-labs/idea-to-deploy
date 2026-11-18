@@ -710,7 +710,7 @@ def environment_phase() -> None:
             "appIntegrationId": APP_ID,
             "producerId": "itd-free-reviewer-producer-v1",
             "reviewerModels": {
-                "openai-subscription": ["gpt-5.6-sol", "gpt-5.6-terra"],
+                "openai-subscription": ["gpt-5.6-sol", "gpt-6.2-sol"],
             },
         }
         free_keyring.write_bytes(core.canonical_json({

@@ -1,0 +1,295 @@
+{
+  "signatureHex": "ba077127b009840df1d515b8287cbfd51868895ff57e814ababda71ff05c97294e6806fe060f9ea69b021fc55c6ed0aa785e797690f73e9a2e5f798b7520a607",
+  "signed": {
+    "cases": [
+      {
+        "attempts": 1,
+        "id": "high-export-capacity",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
+        "report": {
+          "findings": [
+            {
+              "category": "worksheet_capacity",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 9,
+              "severity": "high",
+              "summary": "The default export sends 1,807,231 projected data rows to a single worksheet, exceeding Excel's 1,048,576-row limit by 758,655 before any header. The declared limit is unused, so the export cannot preserve all projected rows in the required workbook."
+            },
+            {
+              "category": "browser_capacity",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The nested array operations eagerly materialize the full conversion expansion before the worksheet writer runs. The default export has no row or memory bound during this step, so a writer-side check would arrive after the browser has already allocated the expanded rows."
+            },
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 6,
+              "severity": "medium",
+              "summary": "An order with no conversion documents emits zero rows and disappears from the annual export. The mapping has no fallback row to preserve that order."
+            }
+          ],
+          "unverified": [
+            "No browser run or memory measurements establish whether row generation and workbook serialization complete within the supported browser limits.",
+            "The supplied change does not show how Lot and writeSingleBrowserWorksheet are resolved, how the writer handles serialization failures, or whether its output opens as a fresh, downloadable single-sheet workbook.",
+            "No reconciliation fixture establishes how orders with zero or multiple conversion documents should appear or whether annual totals are preserved after expansion.",
+            "No test results cover the default annual dataset, the worksheet boundary including headers, or download behavior when generation fails."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee04-4356-7903-9619-e113e60d4412"
+      },
+      {
+        "attempts": 1,
+        "id": "high-reconciliation-omission",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The closing calculation omits fx_other even though the module lists it as supported. The observed fx_other consumption leaves the displayed closing balance 1,494,440 TRY too high."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The function returns only a closing balance. It exposes no turnover breakdown with opening, inflow, outflow, conversion, and closing amounts for each pool consumer category."
+            }
+          ],
+          "unverified": [
+            "Compilation and execution are unverified because the supplied file has no imports or local declarations for Pool and sum, and no build evidence establishes that they are in scope.",
+            "Exact TRY arithmetic across supported amounts is unverified because the amount representation, sum implementation, and precision or range tests were not supplied.",
+            "Display integration and reconciliation coverage across expense, fx_eur, and fx_other are unverified because no caller or end-to-end test results were supplied."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee04-a431-77b1-a93c-3610be33ae73"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-allocation-rounding",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "high",
+              "summary": "Independent row rounding can change the total even when the shares sum to 1. Splitting 0.01 TRY across two equal shares yields 0.01 TRY on each row, exporting 0.02 TRY. Allocate and distribute the residual in whole cents so the detail rows sum to the rounded source."
+            },
+            {
+              "category": "numerical stability",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "medium",
+              "summary": "Binary floating-point multiplication can move an exact decimal half-cent below the rounding threshold. With a source of 1.005 TRY and a single full share, the function returns 1.00 TRY even though decimal half-up rounding yields 1.01 TRY."
+            },
+            {
+              "category": "error handling",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "medium",
+              "summary": "A nonzero source with an empty share array silently returns no detail rows, whose total is zero. The caller receives no indication that reconciliation was impossible."
+            }
+          ],
+          "unverified": [
+            "The supplied diff shows no export call site or exported output, so it does not establish that the exporter uses the allocator and preserves its amounts through formatting.",
+            "No regression tests or test results were supplied for per-source reconciliation across detail rows."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee04-f7ee-70a3-aa3c-112285e22b20"
+      },
+      {
+        "attempts": 1,
+        "id": "high-stale-generated-client",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
+        "report": {
+          "findings": [
+            {
+              "category": "generated-artifact freshness",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "The verify script removes prisma generate, so tsc can check a stale Prisma client that lacks newcrmChangedSince. Restore client generation before typechecking."
+            },
+            {
+              "category": "error handling",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "When tsc fails, the fallback echo normally exits zero. This makes the release gate report success for any typecheck failure and labels unrelated errors as a Prisma mismatch. Remove the fallback so the typecheck failure propagates."
+            }
+          ],
+          "unverified": [
+            "The clean-checkout evidence covers typechecking after manual Prisma generation. It does not show whether the candidate verify script emits a stale-client diagnostic from a clean checkout before generation."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee05-61c6-7d73-bbb5-8fb74225078c"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-repository-hygiene",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
+        "report": {
+          "findings": [
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "review-tools/local_probe.py",
+              "line": 1,
+              "severity": "high",
+              "summary": "The candidate adds a temporary reviewer probe to the release tree, directly violating the release acceptance criterion. Remove the file from the candidate."
+            },
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "ROOT_CAUSE.md",
+              "line": 1,
+              "severity": "high",
+              "summary": "The candidate adds private root-cause scratch notes to the release tree, directly violating the release acceptance criterion. Remove the file from the candidate."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee05-b221-7891-b5e3-1db4b5927f62"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-bounded-reconciled-export",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
+        "report": {
+          "findings": [
+            {
+              "category": "scale",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 45,
+              "severity": "medium",
+              "summary": "Reconciliation builds a second full-size array just to check for negative amounts. For a dense consumption array with more than 4,294,967,293 entries, prepending the two scalar amounts exceeds JavaScript's maximum array length. Larger reports also incur an avoidable copy. Check the scalar amounts directly and check each consumption while summing it."
+            },
+            {
+              "category": "scale",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 61,
+              "severity": "medium",
+              "summary": "Allocation creates a ranking object for every weight before discarding zero weights. Valid inputs can have arbitrarily many zero-weight positions up to the array length limit, while at most one million positions can have positive weight. Collect only positive-weight entries for ranking to bound temporary ranking storage independently of the number of zero-weight positions."
+            }
+          ],
+          "unverified": [
+            "The supplied tests assert a single container-length read only for chunking. Reconciliation and allocation exercise single reads of element getters, but there is no runtime assertion that either helper reads its input length exactly once.",
+            "The supplied tests verify allocation conservation and tie-breaking, but do not assert the exact distribution for unequal remainders or exercise a source total above Number.MAX_SAFE_INTEGER."
+          ],
+          "verdict": "PASSED_WITH_WARNINGS"
+        },
+        "session": "01a1ee18-fa4e-7cb2-9dda-e153bb6442c8"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-inclusive-utc-day-span",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee19-97ae-7c61-bb92-8c3f0b769007"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-nearest-rank-percentile",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
+        "report": {
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "src/percentile.ts",
+              "line": 34,
+              "severity": "medium",
+              "summary": "The descriptor used to write the sorted copy inherits from Object.prototype. If that prototype has a get or set property, Object.defineProperty sees an accessor field alongside the descriptor’s own data fields and throws TypeError for a valid sample. Use a null-prototype descriptor to preserve the helper’s prototype-pollution protections."
+            }
+          ],
+          "unverified": [],
+          "verdict": "PASSED_WITH_WARNINGS"
+        },
+        "session": "01a1ee19-cec7-7020-82c9-7977dd17f474"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-half-up-basis-point-fee",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee1a-7efa-71d3-b091-6f672e4015f0"
+      }
+    ],
+    "host": "wsl",
+    "hostRuntime": {
+      "osName": "posix",
+      "pythonImplementation": "cpython",
+      "release": "6.6.87.2-microsoft-standard-WSL2",
+      "system": "Linux"
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-independent-review-semantic-efficacy-run",
+    "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
+    "observedAt": "2026-11-18T10:01:25Z",
+    "producerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+    "reviewer": {
+      "isolation": {
+        "ephemeral": true,
+        "freshSession": true,
+        "inheritedContext": false,
+        "networkTools": false,
+        "observedToolCallsZero": true,
+        "paidApi": false,
+        "repositoryAccess": false,
+        "repositoryMutation": false,
+        "secrets": false,
+        "shellTools": false
+      },
+      "makerModel": "gpt-6.2-astra",
+      "makerProvider": "openai-subscription",
+      "paidApiCalls": 0,
+      "provider": "openai-subscription",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-6.2-sol",
+      "runtimeVersion": "0.166.0",
+      "transportExecutableSha256": "b8a11fedf24b2dfb59a70c9e52b030f9a508dcd49cd2dd0d41956f4c785156b8"
+    },
+    "runnerSha256": "8f59a9a8e760f883ecce94866e385f477f35096310e2947e33c2ad1fec39bd06",
+    "version": 1
+  }
+}

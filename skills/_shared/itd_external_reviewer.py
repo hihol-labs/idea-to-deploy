@@ -328,8 +328,8 @@ def policy_from(path: Path) -> dict[str, Any]:
             )
         if provider.get("kind") == "responses-api":
             allowed_api_models = {
-                "openai-responses": "gpt-6.1-sol",
-                "openai-responses-terra": "gpt-5.6-terra",
+                "openai-responses": "gpt-6.2-astra",
+                "openai-responses-terra": "gpt-6.2-sol",
             }
             if (
                 provider.get("id") not in allowed_api_models

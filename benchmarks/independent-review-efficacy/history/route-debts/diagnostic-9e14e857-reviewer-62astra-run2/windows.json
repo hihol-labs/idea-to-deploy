@@ -1,0 +1,279 @@
+{
+  "signatureHex": "e1e2af741131b13f7a854b025859cd7e810b4a3b95bd20d225a4834a55ca0d840af153cc3cbd208f5b7251c3bc2a5bf59b5eee7a0a38f411d5ce71eda162c706",
+  "signed": {
+    "cases": [
+      {
+        "attempts": 1,
+        "id": "high-export-capacity",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "6e81d5310d22c692003043d7da4415033052f31bc121d811570fcefb0d4672d3",
+        "report": {
+          "findings": [
+            {
+              "category": "Capacity and specification compliance",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 9,
+              "severity": "high",
+              "summary": "The export sends 1,807,231 projected data rows to a single worksheet, exceeding Excel's 1,048,576-row limit by 758,655 before any header. The declared limit is unused. The default export cannot fit all emitted rows into the required workbook."
+            },
+            {
+              "category": "Browser scalability",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 4,
+              "severity": "medium",
+              "summary": "The nested flatMap calls eagerly allocate one object per conversion document and intermediate arrays before the worksheet writer runs. This leaves browser memory use unbounded by the export code and exposes the default download to allocation failure or a stalled page."
+            }
+          ],
+          "unverified": [
+            "No browser run establishes peak memory, responsiveness, or whether the default export produces a downloadable file.",
+            "The worksheet writer's implementation and generated workbook are absent, so overflow behavior, error reporting, and whether the output opens as a valid single-sheet Excel workbook are unverified.",
+            "No reconciliation fixture establishes the expected treatment of orders with zero conversion documents or confirms that conversion-level rows preserve report totals without counting order- or lot-level values multiple times.",
+            "No regression test results cover the default annual dataset or the worksheet row boundary, including any header rows."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee22-0f7c-7041-b6cc-4ccf28de4389"
+      },
+      {
+        "attempts": 1,
+        "id": "high-reconciliation-omission",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "fda63bd6d1a9b6ae9b9fea9bd283bcaac02efe9d9338c94eda9c2d3d703e22ea",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 4,
+              "severity": "high",
+              "summary": "The closing formula omits fx_other despite declaring it supported. The observed 1,494,440 TRY in fx_other consumption therefore overstates the displayed closing balance by 1,494,440 TRY."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "high",
+              "file": "src/turnover.ts",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The function returns a single pool-wide closing value and exposes no opening, inflow, outflow, conversion, or closing breakdown by consumer category."
+            }
+          ],
+          "unverified": [
+            "The supplied change does not show the definitions of Pool or sum, so build viability, handling of empty or invalid amounts, and exact TRY arithmetic across the supported amount range cannot be verified.",
+            "No integration or test evidence shows that the normal display path renders and reconciles turnover for every supported consumption type."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee23-1e28-7211-8507-9f747a367c71"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-allocation-rounding",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "5451936a15fa32b4b5f2536ec6468a6d925a798da330696f3c6e75fc9b219193",
+        "report": {
+          "findings": [
+            {
+              "category": "reconciliation",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "high",
+              "summary": "Each detail is rounded independently and no row absorbs the residual. A 1.00 TRY source split into three equal shares returns three 0.33 TRY details, leaving the export 0.01 TRY short."
+            },
+            {
+              "category": "numerical stability",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 3,
+              "severity": "medium",
+              "summary": "Binary floating-point arithmetic can round a decimal half-cent down even for a single detail. With source 1.005 and share 1, the scaled value is approximately 100.49999999999999 and the result is 1.00 instead of 1.01 under decimal half-up rounding."
+            },
+            {
+              "category": "error handling",
+              "confidence": "high",
+              "file": "src/allocation.ts",
+              "line": 2,
+              "severity": "medium",
+              "summary": "A nonzero source with an empty share array silently produces no details. The function also accepts non-finite inputs and can return NaN or Infinity, leaving no valid currency total to reconcile."
+            }
+          ],
+          "unverified": [
+            "The diff contains only the allocator. No export call site or end-to-end test is supplied to verify that the exporter uses its results and preserves their cent values in the generated artifact.",
+            "The reported average fan-out and aggregate drift do not establish maximum detail count, maximum supported amount, or the export path's behavior at those limits."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee25-c92c-7e51-8ed7-3c7e7d0b236a"
+      },
+      {
+        "attempts": 1,
+        "id": "high-stale-generated-client",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "bce48972f8f18021dcc8411fceefaba54de31cbacee87b16d1bb9a0ccdbfbcfb",
+        "report": {
+          "findings": [
+            {
+              "category": "generated-artifact freshness",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "The verify script drops prisma generate, so typechecking can run against a stale Prisma client that lacks newcrmChangedSince. Restore client generation before invoking tsc."
+            },
+            {
+              "category": "error handling",
+              "confidence": "high",
+              "file": "package.json",
+              "line": 5,
+              "severity": "high",
+              "summary": "When tsc exits non-zero, the fallback echo normally exits zero, causing the release gate to pass after any typecheck failure. Remove the fallback so verify propagates the compiler's exit status."
+            }
+          ],
+          "unverified": [
+            "The supplied evidence confirms a clean main checkout passes after prisma generate. It does not show the candidate verify command running from a clean checkout with the changed schema."
+          ],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee28-b247-7901-8eab-d730f6d5dfdd"
+      },
+      {
+        "attempts": 1,
+        "id": "medium-repository-hygiene",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "effaac7cadab724823973867f52f5d7a4191419eb60588c6d6ff4d5aedb5f783",
+        "report": {
+          "findings": [
+            {
+              "category": "repository hygiene",
+              "confidence": "high",
+              "file": "review-tools/local_probe.py",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The release candidate includes a temporary reviewer probe, violating the explicit exclusion of reviewer scratch tooling."
+            },
+            {
+              "category": "specification compliance",
+              "confidence": "high",
+              "file": "ROOT_CAUSE.md",
+              "line": 1,
+              "severity": "medium",
+              "summary": "The release candidate includes private root-cause scratch notes, violating the explicit exclusion of those notes from the release tree."
+            }
+          ],
+          "unverified": [],
+          "verdict": "BLOCKED"
+        },
+        "session": "01a1ee2e-b139-7e20-bb4f-c7eac33f7d4a"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-bounded-reconciled-export",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "2d0620763ad38be7c6b3519290d68a092fc0a2c2028f7552babe0bb7d87d45f3",
+        "report": {
+          "findings": [
+            {
+              "category": "scalability",
+              "confidence": "high",
+              "file": "src/export.ts",
+              "line": 45,
+              "severity": "medium",
+              "summary": "Reconciliation copies the entire validated consumption snapshot into a second array just to check for negatives. This increases peak memory for large reports and makes the helper unable to process the two largest valid JavaScript array lengths because adding the opening and inflow entries exceeds the array length limit. Check the two scalars separately and validate each consumption while summing it."
+            }
+          ],
+          "unverified": [
+            "The supplied tests exercise chunking at the Excel row ceiling. They provide no runtime or peak-memory measurements for reconciliation or allocation on comparably large dense inputs."
+          ],
+          "verdict": "PASSED_WITH_WARNINGS"
+        },
+        "session": "01a1ee2e-fa39-7fc2-88d1-d2fe1d25b1a8"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-inclusive-utc-day-span",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "0c0802423bf51bb1d0d281c8427e285026a9e919542369da106b758625986e99",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee2f-c464-7c92-a6ed-892b88c96ed5"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-nearest-rank-percentile",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "49ca4d7640e34ffe73561c7458dd52f6af0dad05dfa58d3cdb618e76ccbc4f7a",
+        "report": {
+          "findings": [
+            {
+              "category": "correctness",
+              "confidence": "high",
+              "file": "src/percentile.ts",
+              "line": 33,
+              "severity": "medium",
+              "summary": "The descriptor passed to Object.defineProperty inherits from Object.prototype. If that prototype has a get or set property, descriptor conversion sees both an accessor field and the explicit data fields and throws TypeError for a valid sample. Use a null-prototype descriptor for the copy."
+            }
+          ],
+          "unverified": [
+            "The supplied tests do not count own-property descriptor lookups per element or check for a separate indexed read. The current implementation satisfies this requirement by inspection, but the test run does not verify it."
+          ],
+          "verdict": "PASSED_WITH_WARNINGS"
+        },
+        "session": "01a1ee30-5693-7ba2-b0ca-a26440968fe4"
+      },
+      {
+        "attempts": 1,
+        "id": "clean-half-up-basis-point-fee",
+        "observedModel": "gpt-6.2-sol",
+        "promptSha256": "7a39e59bd553f2f57af6f56bb6cf74853ca3106cb01fc9de559174d0369e2114",
+        "report": {
+          "findings": [],
+          "unverified": [],
+          "verdict": "PASSED"
+        },
+        "session": "01a1ee36-1af2-7380-bf25-f720f1698809"
+      }
+    ],
+    "host": "windows",
+    "hostRuntime": {
+      "osName": "nt",
+      "pythonImplementation": "cpython",
+      "release": "11",
+      "system": "Windows"
+    },
+    "keyId": "gpg003-local-producer-20260803",
+    "kind": "itd-independent-review-semantic-efficacy-run",
+    "manifestSha256": "da858327f654f000cb97785a0ad3dcc1f6dc18d9c82ae33fe803bb10768d3423",
+    "observedAt": "2026-11-18T10:31:36Z",
+    "producerSha256": "9e14e8570f32ec528e6bb07f4022c8a323fd9164f2ff02757685d206de7e119c",
+    "reviewer": {
+      "isolation": {
+        "ephemeral": true,
+        "freshSession": true,
+        "inheritedContext": false,
+        "networkTools": false,
+        "observedToolCallsZero": true,
+        "paidApi": false,
+        "repositoryAccess": false,
+        "repositoryMutation": false,
+        "secrets": false,
+        "shellTools": false
+      },
+      "makerModel": "gpt-6.2-astra",
+      "makerProvider": "openai-subscription",
+      "paidApiCalls": 0,
+      "provider": "openai-subscription",
+      "proxySha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "requestedModel": "gpt-6.2-sol",
+      "runtimeVersion": "0.166.0",
+      "transportExecutableSha256": "9d563ee4e0441ff9d59d612013e0460ddf8e5709735c2d9f6b98b7ef8ca4eb42"
+    },
+    "runnerSha256": "8f59a9a8e760f883ecce94866e385f477f35096310e2947e33c2ad1fec39bd06",
+    "version": 1
+  }
+}

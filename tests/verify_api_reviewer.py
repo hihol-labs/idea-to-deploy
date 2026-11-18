@@ -74,7 +74,7 @@ def repo() -> Path:
     return path
 
 
-def response(verdict: dict, model: str = "gpt-6.1-sol",
+def response(verdict: dict, model: str = "gpt-6.2-astra",
              input_tokens: int = 1000, output_tokens: int = 100) -> dict:
     return {
         "id": "resp_testindependent123",
@@ -193,7 +193,7 @@ def phase_adapters(checks: Checks) -> None:
         and policy["limits"]["maxRequestBytes"] == 100000
         and policy["limits"]["maxEstimatedInputTokens"] == 60000
         and policy["limits"]["maxOutputTokens"] >= 5550
-        and policy["limits"]["maxCostUsd"] == 0.75
+        and policy["limits"]["maxCostUsd"] == 2.1
         and worst_case_cost <= policy["limits"]["maxCostUsd"],
         "output budget is too small for reasoning or exceeds the per-run ceiling",
     )
@@ -221,9 +221,9 @@ def phase_adapters(checks: Checks) -> None:
                 "endpoint", "http://attacker.invalid/v1/responses")),
             ("boolean-limit", lambda row: row["limits"].__setitem__(
                 "timeoutSeconds", True)),
-            # The per-review cost cap bounds retries: worst request cost x (retries + 1) <= maxCostUsd. With the
-            # gpt-6.1-sol Sol price (REVIEWER-61SOL-1) Terra is the costliest row (~$0.233), so one retry fits the
-            # $0.75 cap and three do not.
+            # The per-review cost cap bounds retries: worst request cost x (retries + 1) <= maxCostUsd. At the
+            # gpt-6.2-astra price ($8 / $40, REVIEWER-62ASTRA-1) the worst request is ~$1.022, so one retry fits the
+            # $2.10 cap and three do not.
             ("retry-budget", lambda row: row["limits"].__setitem__(
                 "maxRetries", 3)),
             ("routing-shape", lambda row: row["routing"].pop(
@@ -340,35 +340,35 @@ def phase_routing(checks: Checks) -> None:
         )
         _, openai = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-6.1-sol", "--risk", "high")
+            "--maker-model", "gpt-6.2-astra", "--risk", "high")
         checks.that(
             openai["providers"] == ["openai-responses-terra"],
             "Sol-authored high-risk route did not select independent Terra",
         )
-        # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.1-sol, so a gpt-5.6-sol maker may get it (another model)
+        # REVIEWER-61SOL-1: the Sol reviewer is gpt-6.2-astra, so a gpt-5.6-sol maker may get it (another model)
         _, old_sol = invoke(
             path, "route", "--maker-vendor", "openai",
             "--maker-model", "gpt-5.6-sol", "--risk", "high")
         checks.that(
             old_sol["providers"] == ["openai-responses", "openai-responses-terra"],
-            "a gpt-5.6-sol maker did not get the independent gpt-6.1-sol and Terra reviewers",
+            "a gpt-5.6-sol maker did not get the independent gpt-6.2-astra and Terra reviewers",
         )
         _, snapshot_route = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-6.1-sol-2026-11-01", "--risk", "high")
+            "--maker-model", "gpt-6.2-astra-2026-11-01", "--risk", "high")
         checks.that(
             snapshot_route["providers"] == ["openai-responses-terra"],
                     "dated snapshot alias bypassed same-model high-risk separation")
         _, terra_route = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-5.6-terra", "--risk", "high")
+            "--maker-model", "gpt-6.2-sol", "--risk", "high")
         checks.that(
             terra_route["providers"] == ["openai-responses"],
             "Terra-authored high-risk route did not select independent Sol",
         )
         _, medium = invoke(
             path, "route", "--maker-vendor", "openai",
-            "--maker-model", "gpt-6.1-sol", "--risk", "medium")
+            "--maker-model", "gpt-6.2-astra", "--risk", "medium")
         # the existing allowSameModelForMedium rule: a fresh same-model session is advisory-eligible at medium risk only
         checks.that("openai-responses" in medium["providers"],
                     "fresh same-model medium checker should remain advisory-eligible")
@@ -376,13 +376,13 @@ def phase_routing(checks: Checks) -> None:
         terra_fixture = fixture(path, {
             "openai-responses-terra": {
                 "response": response(
-                    clean_verdict(), model="gpt-5.6-terra"
+                    clean_verdict(), model="gpt-6.2-sol"
                 )
             }
         })
         terra_run, terra_payload = invoke(
             path, "review", "--root", str(path), "--maker-vendor", "openai",
-            "--maker-model", "gpt-6.1-sol", "--maker-session", "maker-sol",
+            "--maker-model", "gpt-6.2-astra", "--maker-session", "maker-sol",
             "--risk", "high", "--mode", "ci", "--fixtures", str(terra_fixture),
             env_extra={"ITD_EXTERNAL_REVIEW_EGRESS_OK": "1"},
         )
@@ -775,7 +775,7 @@ def phase_egress(checks: Checks) -> None:
             shell(["git", "add", "app.py"], path)
 
         expensive = fixture(path, {"openai-responses": {
-            # $0.80 at the gpt-6.1-sol price ($2 / $10 per 1M, REVIEWER-61SOL-1) - above the $0.75 per-run cap
+            # $3.20 at the gpt-6.2-astra price ($8 / $40 per 1M, REVIEWER-62ASTRA-1) - above the $2.10 per-run cap
             "response": response(clean_verdict(), input_tokens=300000, output_tokens=20000)
         }, "codex-cli": {"error": "disabled fixture"},
             "gemini-cli": {"error": "disabled fixture"}})
@@ -817,7 +817,7 @@ def phase_egress(checks: Checks) -> None:
         ledger.parent.mkdir(parents=True, exist_ok=True)
         ledger.write_text(json.dumps({
             "observedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "costUsd": 9.999,
+            "costUsd": 24.999,
         }) + "\n", encoding="utf-8")
         clean_budget_fixture = fixture(
             path, {"openai-responses": {"response": response(clean_verdict())}})
@@ -832,7 +832,7 @@ def phase_egress(checks: Checks) -> None:
                     "monthly preflight budget rejection exposed reusable artifacts")
         ledger.write_text(json.dumps({
             "observedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "costUsd": 10.0,
+            "costUsd": 25.0,
         }) + "\n", encoding="utf-8")
         monthly_run, monthly = invoke(
             path, "review", "--root", str(path), "--maker-vendor", "anthropic",

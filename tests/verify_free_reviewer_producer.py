@@ -1406,7 +1406,7 @@ def main() -> int:
         ledger_maker = {"provider": "openai-codex", "model": "gpt-5.6-sol",
                         "session": "maker-session-ledger"}
         ledger_reviewer = {
-            "provider": "openai-subscription", "model": "gpt-5.6-terra",
+            "provider": "openai-subscription", "model": "gpt-6.2-sol",
             "session": "fresh-thread-ledger",
             "transportExecutableSha256": "5" * 64,
         }
@@ -1505,7 +1505,7 @@ def main() -> int:
 
         def direct_runner(prompt_text, report_schema, report_parser):
             direct_prompts.append(prompt_text)
-            return report_parser(clean_verdict()), "fresh-direct-ledger", "gpt-5.6-terra"
+            return report_parser(clean_verdict()), "fresh-direct-ledger", "gpt-6.2-sol"
 
         producer.run_packet_review(
             transparent_packet, direct_runner, prompt_ledger=direct_ledger,
@@ -1556,7 +1556,7 @@ def main() -> int:
                        "model": "claude-opus-5-5",
                        "session": "maker-session-fallback"}
         degraded_reviewer = {
-            "provider": "openai-subscription", "model": "gpt-5.6-terra",
+            "provider": "openai-subscription", "model": "gpt-6.2-sol",
             "session": "fresh-thread-fallback",
             "transportExecutableSha256": "5" * 64,
             "degradedFrom": "gpt-5.6-sol",
@@ -1701,7 +1701,7 @@ def main() -> int:
                  "summary": "Bound range reviewed; no cross-unit risk."}
                 if schema == producer.UNIT_VERDICT_SCHEMA else clean_verdict()
             )
-            return kwargs["report_parser"](report), e2e_sessions[-1], "gpt-5.6-terra"
+            return kwargs["report_parser"](report), e2e_sessions[-1], "gpt-6.2-sol"
 
         def e2e_argv(root_dir):
             return [
@@ -1903,7 +1903,7 @@ def main() -> int:
         route_key = raw_private_key()
         route_binding = {
             "provider": "openai-subscription",
-            "requestedModel": "gpt-5.6-terra",
+            "requestedModel": "gpt-6.2-sol",
             "transportExecutableSha256": "a" * 64,
             "proxySha256": "b" * 64,
         }
@@ -2870,7 +2870,7 @@ def main() -> int:
                 raise AssertionError(f"{label} reached the independent reviewer")
 
         argv = producer.codex_command(
-            executable="codex", model="gpt-5.6-terra",
+            executable="codex", model="gpt-6.2-sol",
             output_schema=fixture / "verdict.schema.json",
             report_file=fixture / "report.json",
         )
@@ -3499,7 +3499,7 @@ def main() -> int:
             report=clean_verdict(),
             maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                    "session": "maker-session-current"},
-            reviewer={"provider": "openai-subscription", "model": "gpt-5.6-terra",
+            reviewer={"provider": "openai-subscription", "model": "gpt-6.2-sol",
                       "session": "fresh-thread-123",
                       "transportExecutableSha256": "5" * 64},
             attempts=[{"provider": "openai-subscription", "status": "PASSED"}],
@@ -3524,7 +3524,7 @@ def main() -> int:
             "phase-one receipt lost the signed attempt ledger",
         )
         quorum_reviewers = [
-            {"provider": "openai-subscription", "model": "gpt-5.6-terra",
+            {"provider": "openai-subscription", "model": "gpt-6.2-sol",
              "session": "fresh-quorum-openai",
              "transportExecutableSha256": "5" * 64},
             {"provider": "anthropic-subscription", "model": "claude-opus",
@@ -3663,7 +3663,7 @@ def main() -> int:
                 maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                        "session": "maker-session-current"},
                 reviewer={"provider": "openai-subscription",
-                          "model": "gpt-5.6-terra",
+                          "model": "gpt-6.2-sol",
                           "session": "fresh-thread-prompt-mutation",
                           "transportExecutableSha256": "5" * 64},
                 attempts=[{
@@ -3835,7 +3835,7 @@ def main() -> int:
                     maker={"provider": "openai-codex", "model": "gpt-5.6-sol",
                            "session": "maker-session-current"},
                     reviewer={"provider": "openai-subscription",
-                              "model": "gpt-5.6-terra",
+                              "model": "gpt-6.2-sol",
                               "session": reviewer_session,
                               "transportExecutableSha256": "5" * 64},
                     attempts=[{
@@ -4555,7 +4555,7 @@ def main() -> int:
             producer.set_transport_failure_log(None)
 
     # REVIEWER-DEFAULT-SOL / REVIEWER-61SOL-1: the standby reviewer is a transport remedy only.
-    # Sol (gpt-6.1-sol since 2026-11-04) leads because the broker routes an Anthropic maker to it;
+    # Sol (gpt-6.2-astra since 2026-11-04) leads because the broker routes an Anthropic maker to it;
     # the default in this file and that routing table must never drift apart.
     broker_policy = json.loads(
         (ROOT / "skills/_shared/REVIEW_BROKER_POLICY.json").read_text(encoding="utf-8")
@@ -4571,8 +4571,8 @@ def main() -> int:
     )
     check(default_match is not None, "the reviewer-model default is unreadable")
     default_model = default_match.group(1)
-    check(default_model == "gpt-6.1-sol" == producer.DEFAULT_REVIEWER_MODEL,
-          "the default independent reviewer is no longer gpt-6.1-sol")
+    check(default_model == "gpt-6.2-astra" == producer.DEFAULT_REVIEWER_MODEL,
+          "the default independent reviewer is no longer gpt-6.2-astra")
     # The declared default lives in two entry points; a drift guard that
     # watched only one would let the other silently keep the old reviewer.
     recorder_match = re.search(
@@ -4602,19 +4602,19 @@ def main() -> int:
     check(broker_policy["routing"]["unknownMaker"] == [],
           "an unknown maker gained an automatic reviewer route")
 
-    for current in ("gpt-6.1-sol", "gpt-5.6-sol"):
+    for current in ("gpt-6.2-astra", "gpt-5.6-sol"):
         check(
             producer.alternate_openai_reviewer_model(
                 "claude-opus-5", current, maker_provider="anthropic-subscription",
-            ) == "gpt-5.6-terra",
+            ) == "gpt-6.2-sol",
             f"an Anthropic maker lost its Terra standby behind {current}",
         )
     # An OpenAI maker's reviewer is already the opposite model, so the standby
     # resolves back to the model in hand and no swap is offered.
     check(
         producer.alternate_openai_reviewer_model(
-            "gpt-5.6-sol", "gpt-5.6-terra",
-        ) == "gpt-5.6-terra",
+            "gpt-5.6-sol", "gpt-6.2-sol",
+        ) == "gpt-6.2-sol",
         "a Sol maker was offered a standby outside its forced pairing",
     )
 
@@ -4626,7 +4626,7 @@ def main() -> int:
 
     check(
         producer.transport_fallback_permitted(
-            transport_failure("UNAVAILABLE", False), "gpt-5.6-sol", "gpt-5.6-terra",
+            transport_failure("UNAVAILABLE", False), "gpt-5.6-sol", "gpt-6.2-sol",
         ),
         "a verdict-free transport outage refused the standby reviewer",
     )
@@ -4634,19 +4634,19 @@ def main() -> int:
         check(
             not producer.transport_fallback_permitted(
                 transport_failure(refused_status, False),
-                "gpt-5.6-sol", "gpt-5.6-terra",
+                "gpt-5.6-sol", "gpt-6.2-sol",
             ),
             f"a {refused_status} outcome was allowed to shop for another reviewer",
         )
     check(
         not producer.transport_fallback_permitted(
-            transport_failure("UNAVAILABLE", True), "gpt-5.6-sol", "gpt-5.6-terra",
+            transport_failure("UNAVAILABLE", True), "gpt-5.6-sol", "gpt-6.2-sol",
         ),
         "a failure after a returned verdict still swapped the reviewer",
     )
     check(
         not producer.transport_fallback_permitted(
-            transport_failure("UNAVAILABLE", None), "gpt-5.6-sol", "gpt-5.6-terra",
+            transport_failure("UNAVAILABLE", None), "gpt-5.6-sol", "gpt-6.2-sol",
         ),
         "an unstated verdict observation defaulted to swapping the reviewer",
     )
@@ -4658,7 +4658,7 @@ def main() -> int:
     )
     check(
         not producer.transport_fallback_permitted(
-            RuntimeError("transport"), "gpt-5.6-sol", "gpt-5.6-terra",
+            RuntimeError("transport"), "gpt-5.6-sol", "gpt-6.2-sol",
         ),
         "an untyped failure was treated as a transport outage",
     )
@@ -4670,14 +4670,14 @@ def main() -> int:
     check(stamped.evidence["verdictObserved"] is False,
           "a verdict-free outage was not stamped as such")
     check(producer.transport_fallback_permitted(
-              stamped, "gpt-5.6-sol", "gpt-5.6-terra"),
+              stamped, "gpt-5.6-sol", "gpt-6.2-sol"),
           "the stamped verdict-free outage refused the standby reviewer")
     tracker.mark_verdict()
     stamped_after = tracker.stamp(producer.FreeReviewError("UNAVAILABLE", "outage"))
     check(stamped_after.evidence["verdictObserved"] is True,
           "a failure after a returned verdict was stamped as verdict-free")
     check(not producer.transport_fallback_permitted(
-              stamped_after, "gpt-5.6-sol", "gpt-5.6-terra"),
+              stamped_after, "gpt-5.6-sol", "gpt-6.2-sol"),
           "a stamped post-verdict failure still swapped the reviewer")
     check(producer.TransportAttempt().stamp(RuntimeError("x")).__class__ is RuntimeError,
           "an untyped failure was rewritten by the transport stamp")
@@ -4685,7 +4685,7 @@ def main() -> int:
     identity_sha = "b" * 64
     degraded_identity = {
         "provider": "openai-subscription",
-        "model": "gpt-5.6-terra",
+        "model": "gpt-6.2-sol",
         "session": "s1",
         "transportExecutableSha256": identity_sha,
         "degradedFrom": "gpt-5.6-sol",
@@ -4696,7 +4696,7 @@ def main() -> int:
         "a degraded reviewer leg lost its declared origin",
     )
     for broken in (
-        {**degraded_identity, "degradedFrom": "gpt-5.6-terra"},
+        {**degraded_identity, "degradedFrom": "gpt-6.2-sol"},
         {**degraded_identity, "degradedFrom": "claude-opus-5"},
         {**degraded_identity, "unexpected": "x"},
     ):

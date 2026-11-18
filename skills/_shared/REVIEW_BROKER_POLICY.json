@@ -625,20 +625,20 @@
       "openai-responses": {
         "vendor": "openai",
         "api": "responses",
-        "model": "gpt-6.1-sol",
+        "model": "gpt-6.2-astra",
         "modelPin": "exact",
-        "inputUsdPerMillion": 2.0,
-        "outputUsdPerMillion": 10.0,
-        "pricingObservedAt": "2026-11-05"
+        "inputUsdPerMillion": 8.0,
+        "outputUsdPerMillion": 40.0,
+        "pricingObservedAt": "2026-11-18"
       },
       "openai-responses-terra": {
         "vendor": "openai",
         "api": "responses",
-        "model": "gpt-5.6-terra",
+        "model": "gpt-6.2-sol",
         "modelPin": "exact",
-        "inputUsdPerMillion": 2.5,
-        "outputUsdPerMillion": 15.0,
-        "pricingObservedAt": "2026-07-29"
+        "inputUsdPerMillion": 2.0,
+        "outputUsdPerMillion": 10.0,
+        "pricingObservedAt": "2026-11-18"
       }
     },
     "classification": {
@@ -656,11 +656,11 @@
       "rules": {
         "solMaker": {
           "vendorEquals": "openai",
-          "modelEquals": "gpt-6.1-sol"
+          "modelEquals": "gpt-6.2-astra"
         },
         "terraMaker": {
           "vendorEquals": "openai",
-          "modelEquals": "gpt-5.6-terra"
+          "modelEquals": "gpt-6.2-sol"
         },
         "claudeMaker": {
           "vendorEquals": "anthropic",
@@ -714,12 +714,12 @@
   "budget": {
     "reservation": "sqlite-begin-immediate",
     "period": "calendar-month-utc",
-    "maxReviewUsd": 0.75,
-    "monthlyUsd": 10.0,
+    "maxReviewUsd": 2.1,
+    "monthlyUsd": 25.0,
     "pricingSource": "frozen-selected-reviewer-definition",
     "reservationAmountUsd": "direct-maxReviewUsd-or-planned-hierarchical-provider-call-count-times-reviewer-cap",
     "hierarchicalCallReservationMicrousd": {
-      "openai-responses": 750000,
+      "openai-responses": 2100000,
       "openai-responses-terra": 500000
     },
     "maxHierarchicalProviderCalls": 17,
@@ -729,8 +729,8 @@
     "requestMustSetOutputTokenCap": true,
     "rounding": "decimal-round-up-6-places",
     "currencyUnit": "microusd",
-    "reservationMicrousd": 750000,
-    "monthlyMicrousd": 10000000,
+    "reservationMicrousd": 2100000,
+    "monthlyMicrousd": 25000000,
     "settlementSchema": "REVIEW_BROKER_RUNTIME.schema.json#/$defs/budgetSettlement",
     "authoritativeSpendSource": "immutable-budget-settlements",
     "settledCostFormula": "ceil(inputTokens*inputUsdPerMillion+outputTokens*outputUsdPerMillion)",

@@ -55,7 +55,7 @@ def maker(provider="anthropic-subscription", model="opus", session="maker-1"):
     return {"provider": provider, "model": model, "session": session}
 
 
-def reviewer(provider="openai-subscription", model="gpt-5.6-terra",
+def reviewer(provider="openai-subscription", model="gpt-6.2-sol",
              session="reviewer-1"):
     return {"provider": provider, "model": model, "session": session}
 
@@ -140,8 +140,8 @@ check(
     "classify/same-model-rejected",
     status_of(
         policy.classify_independence,
-        maker(provider="openai-subscription", model="gpt-5.6-terra"),
-        reviewer(model="GPT-5.6-TERRA"),
+        maker(provider="openai-subscription", model="gpt-6.2-sol"),
+        reviewer(model="GPT-6.2-SOL"),
     ) == "UNVERIFIED",
     "a same-model pair was classified as independent",
 )
@@ -218,7 +218,7 @@ check(
     "fallback/same-model-pair-rejected",
     status_of(
         policy.authorize_same_vendor_fallback,
-        maker(provider="openai-subscription", model="gpt-5.6-terra"),
+        maker(provider="openai-subscription", model="gpt-6.2-sol"),
         reviewer(), dict(UNAVAILABLE_CROSS),
     ) == "UNVERIFIED",
 )
@@ -292,13 +292,13 @@ check(
 
 # --- PC4 support: quorum counts distinct identities only ---
 
-BASE = {"provider": "openai-subscription", "model": "gpt-5.6-terra",
+BASE = {"provider": "openai-subscription", "model": "gpt-6.2-sol",
         "session": "quorum-a"}
 check(
     "quorum/duplicate-identity-cannot-pad",
     status_of(
         policy.require_reviewer_quorum,
-        [dict(BASE), {**BASE, "model": "GPT-5.6-TERRA"}], 2,
+        [dict(BASE), {**BASE, "model": "GPT-6.2-SOL"}], 2,
     ) == "UNVERIFIED",
     "one reviewer identity satisfied a quorum of two",
 )
@@ -387,7 +387,7 @@ try:
     producer.require_opposite_openai_model(
         {"provider": "anthropic-subscription", "model": "opus",
          "session": "maker-1"},
-        {"provider": "openai-subscription", "model": "gpt-5.6-terra",
+        {"provider": "openai-subscription", "model": "gpt-6.2-sol",
          "session": "reviewer-1",
          "transportExecutableSha256": "a" * 64},
     )

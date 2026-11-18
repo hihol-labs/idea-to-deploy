@@ -237,22 +237,25 @@ LEGACY_QUORUM_ROUTE = (
     "github-copilot-user",
 )
 OPENAI_REVIEW_MODEL_ALTERNATES = {
-    "gpt-5.6-sol": "gpt-5.6-terra",
-    "gpt-5.6-terra": "gpt-5.6-sol",
+    "gpt-5.6-sol": "gpt-6.2-sol",
+    "gpt-6.2-sol": "gpt-5.6-sol",
 }
 # Cross-vendor reviewers of an Anthropic maker -> their degraded standby
-# (REVIEWER-61SOL-1, owner 2026-11-04: gpt-6.1-sol is the default reviewer;
+# (REVIEWER-62ASTRA-1, owner 2026-11-18: gpt-6.2-astra is the default reviewer
+# with the gpt-6.2-sol standby; it replaces gpt-6.1-sol / gpt-5.6-terra;
 # gpt-5.6-sol stays valid by explicit choice; gpt-6-astra is never a reviewer).
 CROSS_VENDOR_REVIEW_MODELS = {
     **OPENAI_REVIEW_MODEL_ALTERNATES,
-    "gpt-6.1-sol": "gpt-5.6-terra",
+    "gpt-6.2-astra": "gpt-6.2-sol",
 }
-DEFAULT_REVIEWER_MODEL = "gpt-6.1-sol"
+DEFAULT_REVIEWER_MODEL = "gpt-6.2-astra"
 # Maker compatibility is separate from the supported reviewer/standby set.
 OPENAI_MAKER_REVIEW_MODELS = {
     **OPENAI_REVIEW_MODEL_ALTERNATES,
-    "gpt-6.1-sol": "gpt-5.6-terra",
-    "gpt-6-astra": "gpt-5.6-terra",
+    "gpt-6.2-astra": "gpt-6.2-sol",
+    "gpt-6-astra": "gpt-6.2-sol",
+    # the Codex maker model on both hosts is still gpt-6.1-sol
+    "gpt-6.1-sol": "gpt-6.2-sol",
 }
 PROVIDER_FAMILIES = {
     "anthropic": "anthropic",
